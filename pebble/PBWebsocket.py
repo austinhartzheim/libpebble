@@ -48,65 +48,7 @@ class PBWebsocket(WebSocket):
         else:
             return (None, None, data)
 
-    def recv_data(self):
-        """
-        Recieve data with operation code.
 
-        return  value: tuple of operation code and string(byte array) value.
-        """
-        while True:
-            frame = self.recv_frame()
-            if not frame:
-                # handle error:
-                # 'NoneType' object has no attribute 'opcode'
-                raise WebSocketException("Not a valid frame %s" % frame)
-            elif frame.opcode in (ABNF.OPCODE_TEXT, ABNF.OPCODE_BINARY):
-                return (frame.opcode, frame.data)
-            elif frame.opcode == ABNF.OPCODE_CLOSE:
-                self.send_close()
-                return (frame.opcode, None)
-            elif frame.opcode == ABNF.OPCODE_PING:
-                self.pong(frame.data)
-
-    def recv_frame(self):
-        """
-        recieve data as frame from server.
-
-        return value: ABNF frame object.
-        """
-        header_bytes = self._recv_strict(2)
-        if not header_bytes:
-            return None
-        b1 = ord(header_bytes[0])
-        fin = b1 >> 7 & 1
-        rsv1 = b1 >> 6 & 1
-        rsv2 = b1 >> 5 & 1
-        rsv3 = b1 >> 4 & 1
-        opcode = b1 & 0xf
-        b2 = ord(header_bytes[1])
-        mask = b2 >> 7 & 1
-        length = b2 & 0x7f
-
-        length_data = ""
-        if length == 0x7e:
-            length_data = self._recv_strict(2)
-            length = struct.unpack("!H", length_data)[0]
-        elif length == 0x7f:
-            length_data = self._recv_strict(8)
-            length = struct.unpack("!Q", length_data)[0]
-
-        mask_key = ""
-        if mask:
-            mask_key = self._recv_strict(4)
-        data = self._recv_strict(length)
-        
-        recieved =  data
-
-        if mask:
-            data = ABNF.mask(mask_key, data)
-
-        frame = ABNF(fin, rsv1, rsv2, rsv3, opcode, mask, data)
-        return frame
 
 ######################################
 
@@ -133,7 +75,7 @@ def create_connection(url, timeout=None, **options):
     """
 
     sockopt = options.get("sockopt", ())
-    websock = PBWebsocket(sockopt=sockopt)
+    websock = PBWebsocket(sockopt=sockopt) #changed this to PBWebsocket
     websock.settimeout(timeout != None and timeout or default_timeout)
     websock.connect(url, **options)
     return websock
