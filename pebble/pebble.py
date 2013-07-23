@@ -27,7 +27,7 @@ logging.basicConfig(format='[%(levelname)-8s] %(message)s')
 log.setLevel(logging.DEBUG)
 
 DEFAULT_PEBBLE_ID = None #Triggers autodetection on unix-like systems
-DEBUG_PROTOCOL = True	
+DEBUG_PROTOCOL = False	
 
 
 class PebbleBundle(object):
@@ -142,12 +142,10 @@ class EndpointSync():
 	timeout = 10
 
 	def __init__(self, pebble, endpoint):
-		print "reg endpoint  " + endpoint
 		pebble.register_endpoint(endpoint, self.callback)
 		self.marker = threading.Event()
 
 	def callback(self, *args):
-		print "in callback"
 		self.data = args
 		self.marker.set()
 
@@ -248,7 +246,7 @@ class Pebble(object):
 
 		try:
 			if using_ws:
-				PBWebsocket.enableTrace(True)
+				PBWebsocket.enableTrace(False)
 				self._ser = create_connection(ws_ip)
 
 				
@@ -295,12 +293,10 @@ class Pebble(object):
 				if resp == None:
 					continue
 					
-				if endpoint in self._internal_endpoint_handlers:
-					print "found internal endpoint match"
+				if endpoint in self._internal_endpoint_handlers:	
 					resp = self._internal_endpoint_handlers[endpoint](endpoint, resp)
 
 				if endpoint in self._endpoint_handlers and resp:
-					print "found endpoint match"
 					self._endpoint_handlers[endpoint](endpoint, resp)
 		except:
 			traceback.print_exc()
@@ -403,7 +399,6 @@ class Pebble(object):
 		This is particularly useful when trying to locate a
 		free app-bank to use when installing a new watch-app.
 		"""
-		print "req for apps"
 		self._send_message("APP_MANAGER", "\x01")
 
 		if not async:
@@ -461,7 +456,6 @@ class Pebble(object):
 		"""
 		def endpoint_check(result, pbz_path):
 			if result == 'app removed':
-				print result
 				return True
 			else:
 				if DEBUG_PROTOCOL:
@@ -1035,7 +1029,7 @@ class PutBytesClient(object):
 		self._error = True
 
 	def send(self):
-		datalen =  min(self._left, 500)
+		datalen =  min(self._left, 2000)
 		rg = len(self._buffer)-self._left
 		msgdata = pack("!bII", 2, self._token & 0xFFFFFFFF, datalen)
 		msgdata += self._buffer[rg:rg+datalen]

@@ -42,8 +42,12 @@ class PBWebsocket(WebSocket):
         size, endpoint = unpack("!HH", data[1:5])
         resp = data[5:]
         direction = unpack('!b',data[0])
+        if direction[0]==2:
+            print repr(data[1:])
+        if direction[0]==1:
+            print "DEVICE ==> APP:"
+            print repr(data[1:])
         if direction[0]==0: 
-            print (endpoint, resp, data[1:5])
             return (endpoint, resp, data[1:5])
         else:
             return (None, None, data)
@@ -89,7 +93,7 @@ _MAX_CHAR_BYTE = (1<<8) -1
 
 if __name__ == "__main__":
     enableTrace(True)
-    ws = create_connection("ws://192.168.1.25:6001")
+    ws = create_connection("ws://10.93.1.54:6001")
     print("Sending 'Hello, World'...")
     ws.send("Hello, World")
     print("Sent")
