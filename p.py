@@ -25,16 +25,16 @@ def cmd_launch_app(pebble, args):
     pebble.launcher_message(args.app_uuid, "RUNNING")
 
 def cmd_app_msg_send_string(pebble, args):
-		pebble.app_message_send_string(args.app_uuid, args.key, args.tuple_string)
+        pebble.app_message_send_string(args.app_uuid, args.key, args.tuple_string)
 
 def cmd_app_msg_send_uint(pebble, args):
-		pebble.app_message_send_uint(args.app_uuid, args.key, args.tuple_uint)
+        pebble.app_message_send_uint(args.app_uuid, args.key, args.tuple_uint)
 
 def cmd_app_msg_send_int(pebble, args):
-		pebble.app_message_send_int(args.app_uuid, args.key, args.tuple_int)
+        pebble.app_message_send_int(args.app_uuid, args.key, args.tuple_int)
 
 def cmd_app_msg_send_bytes(pebble, args):
-		pebble.app_message_send_byte_array(args.app_uuid, args.key, args.tuple_bytes)
+        pebble.app_message_send_byte_array(args.app_uuid, args.key, args.tuple_bytes)
 
 def cmd_remote(pebble, args):
     def do_oscacript(command):
@@ -135,7 +135,8 @@ def main():
     parser.add_argument('--pebble_id', type=str, help='the last 4 digits of the target Pebble\'s MAC address. \nNOTE: if \
                         --lightblue is set, providing a full MAC address (ex: "A0:1B:C0:D3:DC:93") won\'t require the pebble \
                         to be discoverable and will be faster')
-
+    parser.add_argument('--ws', action="store_true", help='use WebSockets API')
+    parser.add_argument('--ws_ip', metavar='WS_IP', nargs='?', type=str, help='WS address of websocket server')
     parser.add_argument('--lightblue', action="store_true", help='use LightBlue bluetooth API')
     parser.add_argument('--pair', action="store_true", help='pair to the pebble from LightBlue bluetooth API before connecting.')
 
@@ -230,26 +231,30 @@ def main():
 
     args = parser.parse_args()
 
-    attempts = 0
-    while True:
-        if attempts > MAX_ATTEMPTS:
-            raise 'Could not connect to Pebble'
-        try:
-            pebble_id = args.pebble_id
-            if pebble_id is None and "PEBBLE_ID" in os.environ:
-                pebble_id = os.environ["PEBBLE_ID"]
-            pebble = libpebble.Pebble(pebble_id, args.lightblue, args.pair)
-            break
-        except:
-            time.sleep(5)
-            attempts += 1
+    if args.ws:
+        pebble = libpebble.Pebble(using_lightblue=args.lightblue, pair_first=args.pair, using_ws=args.ws, ws_ip=args.ws_ip)
+        pebble.ping()
+    else:
+        attempts = 0
+        while True:
+            if attempts > MAX_ATTEMPTS:
+                raise 'Could not connect to Pebble'
+            try:
+                pebble_id = args.pebble_id
+                if pebble_id is None and "PEBBLE_ID" in os.environ:
+                    pebble_id = os.environ["PEBBLE_ID"]
+                pebble = libpebble.Pebble(pebble_id, args.lightblue, args.pair)
+                break
+            except:
+                time.sleep(5)
+                attempts += 1
 
-    try:
-        args.func(pebble, args)
-    except Exception as e:
-        pebble.disconnect()
-        raise e
-        return
+        try:
+            args.func(pebble, args)
+        except Exception as e:
+            pebble.disconnect()
+            raise e
+            return
 
     pebble.disconnect()
 
