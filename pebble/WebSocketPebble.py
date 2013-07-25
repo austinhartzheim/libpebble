@@ -1,6 +1,10 @@
+import sys
 from websocket import *
 from struct import unpack
-class PBWebsocket(WebSocket):
+
+
+class WebSocketPebble(WebSocket):
+	
 ######## libPebble Bridge Methods #########
 
     def write(self, payload, opcode = ABNF.OPCODE_BINARY):
@@ -42,11 +46,12 @@ class PBWebsocket(WebSocket):
         size, endpoint = unpack("!HH", data[1:5])
         resp = data[5:]
         direction = unpack('!b',data[0])
+        if direction[0]==3:
+            print repr(data[1:])
         if direction[0]==2:
             print repr(data[1:])
         if direction[0]==1:
-            print "DEVICE ==> APP:"
-            print repr(data[1:])
+            print "DEVICE ==> APP: %s" % repr(data[1:])
         if direction[0]==0: 
             return (endpoint, resp, data[1:5])
         else:
@@ -79,7 +84,7 @@ def create_connection(url, timeout=None, **options):
     """
 
     sockopt = options.get("sockopt", ())
-    websock = PBWebsocket(sockopt=sockopt) #changed this to PBWebsocket
+    websock = WebSocketPebble(sockopt=sockopt) #changed this to WebSocketPebble
     websock.settimeout(timeout != None and timeout or default_timeout)
     websock.connect(url, **options)
     return websock
@@ -93,7 +98,10 @@ _MAX_CHAR_BYTE = (1<<8) -1
 
 if __name__ == "__main__":
     enableTrace(True)
-    ws = create_connection("ws://10.93.1.54:6001")
+    if len(sys.argv) < 2:
+        print "Need the WebSocket server address, i.e. ws://localhost:9000"
+        sys.exit(1)
+    ws = create_connection(sys.argv[1])
     print("Sending 'Hello, World'...")
     ws.send("Hello, World")
     print("Sent")

@@ -15,9 +15,9 @@ import time
 import traceback
 import uuid
 import zipfile
-import PBWebsocket
+import WebSocketPebble
 
-from PBWebsocket import create_connection
+from WebSocketPebble import create_connection
 from collections import OrderedDict
 from LightBluePebble import LightBluePebble
 from struct import pack, unpack
@@ -246,7 +246,7 @@ class Pebble(object):
 
 		try:
 			if using_ws:
-				PBWebsocket.enableTrace(False)
+				WebSocketPebble.enableTrace(False)
 				self._ser = create_connection(ws_ip)
 
 				
@@ -468,7 +468,8 @@ class Pebble(object):
 			raise PebbleError(self.id, "This is not an app bundle")
 		app_metadata = bundle.get_app_metadata()
 
-		# attempt to remove an app by its UUIDgit 		result_uuid = self.remove_app_by_uuid(app_metadata['uuid'].bytes, uuid_is_string=False)
+		# attempt to remove an app by its UUIDgit 	
+		result_uuid = self.remove_app_by_uuid(app_metadata['uuid'].bytes, uuid_is_string=False)
 		if endpoint_check(result_uuid, pbz_path):
 			return self.install_app(pbz_path, launch_on_install)
 

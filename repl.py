@@ -17,7 +17,7 @@ parser.add_argument('pebble_id', metavar='PEBBLE_ID', type=str, help='the last 4
 parser.add_argument('--pair', action="store_true", help='pair to the pebble from LightBlue bluetooth API before connecting.')
 parser.add_argument('--lightblue', action="store_true", help='use LightBlue bluetooth API')
 parser.add_argument('--ws', action="store_true", help='use WebSockets API')
-parser.add_argument('ws_ip', metavar='WS_IP', nargs='?', type=str, help='WS address of websocket server or iPhone')
+parser.add_argument('ws_ip', metavar='WS_IP', nargs='?', type=str, help='WS address of websocket server')
 args = parser.parse_args()
 
 if args.ws:
