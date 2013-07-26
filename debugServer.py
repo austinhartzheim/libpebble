@@ -234,6 +234,7 @@ class EchoServerProtocol(WebSocketServerProtocol):
               self.sendMessage(msg, binary,peer = self.peers[0])
 
 
+
    def connectionMade(self):
       return WebSocketServerProtocol.connectionMade(self)
       

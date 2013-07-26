@@ -47,12 +47,13 @@ class WebSocketPebble(WebSocket):
         resp = data[5:]
         direction = unpack('!b',data[0])
         if direction[0]==3:
-            print repr(data[1:])
+            print "Server: %s" % repr(data[1:])
         if direction[0]==2:
-            print repr(data[1:])
+            print "Log: %s" % repr(data[1:])
         if direction[0]==1:
-            print "DEVICE ==> APP: %s" % repr(data[1:])
+            print "Phone ==> Watch: %s" % repr(data[1:])
         if direction[0]==0: 
+            print "Watch ==> Phone: %s" % repr(data[1:])	
             return (endpoint, resp, data[1:5])
         else:
             return (None, None, data)
