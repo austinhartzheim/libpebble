@@ -6,8 +6,25 @@ import pebble as libpebble
 import subprocess
 import sys
 import time
+import daemon
+from multiprocessing import Process
+from twisted.internet import reactor
+from twisted.python import log
+from twisted.web.server import Site
+from twisted.web.static import File
+from autobahn.websocket import *
+from DebugServerPebble import *
+
+from time import sleep
 
 MAX_ATTEMPTS = 5
+
+def startService():
+    factory = WebSocketServerFactory("ws://localhost:9000")
+    factory.protocol = EchoServerProtocol
+    factory.setProtocolOptions(allowHixie76 = True)
+    listenWS(factory)
+    reactor.run()
 
 def cmd_ping(pebble, args):
     pebble.ping(cookie=0xDEADBEEF)
@@ -136,7 +153,6 @@ def main():
                         --lightblue is set, providing a full MAC address (ex: "A0:1B:C0:D3:DC:93") won\'t require the pebble \
                         to be discoverable and will be faster')
     parser.add_argument('--ws', action="store_true", help='use WebSockets API')
-    parser.add_argument('--ws_ip', metavar='WS_IP', nargs='?', type=str, help='WS address of websocket server')
     parser.add_argument('--lightblue', action="store_true", help='use LightBlue bluetooth API')
     parser.add_argument('--pair', action="store_true", help='pair to the pebble from LightBlue bluetooth API before connecting.')
 
@@ -232,8 +248,12 @@ def main():
     args = parser.parse_args()
 
     if args.ws:
-        pebble = libpebble.Pebble(using_lightblue=args.lightblue, pair_first=args.pair, using_ws=args.ws, ws_ip=args.ws_ip)
-        pebble.ping()
+        p = Process(target=startService, args=())
+        p.daemon = True
+        p.start()
+        sleep(5)
+        pebble = libpebble.Pebble(using_lightblue=args.lightblue, pair_first=args.pair, using_ws=args.ws)
+
     else:
         attempts = 0
         while True:
@@ -243,20 +263,24 @@ def main():
                 pebble_id = args.pebble_id
                 if pebble_id is None and "PEBBLE_ID" in os.environ:
                     pebble_id = os.environ["PEBBLE_ID"]
-                pebble = libpebble.Pebble(pebble_id, args.lightblue, args.pair)
+                pebble = libpebble.Pebble(pebble_id, args.lightblue, args.pair,using_ws=args.ws)
                 break
             except:
                 time.sleep(5)
                 attempts += 1
 
-        try:
-            args.func(pebble, args)
-        except Exception as e:
-            pebble.disconnect()
-            raise e
-            return
-
-    pebble.disconnect()
+    try:
+        args.func(pebble, args)
+    except Exception as e:
+        pebble.disconnect()
+        raise e
+        return
+    
+    try:
+        pebble.disconnect()
+    except:
+        pass
+        
 
 if __name__ == '__main__':
     main()

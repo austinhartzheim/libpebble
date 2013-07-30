@@ -3,14 +3,14 @@ from twisted.internet import reactor
 from twisted.python import log
 from twisted.web.server import Site
 from twisted.web.static import File
-
 from autobahn.websocket import *
 
 
 
 class EchoServerProtocol(WebSocketServerProtocol):
    peers = [];
-   transports = {}
+   transports = {}   
+   
    def makeConnection(self, transport):
        """Make a connection to a transport and a server.
 
@@ -22,18 +22,9 @@ class EchoServerProtocol(WebSocketServerProtocol):
        self.transports[transport.getPeer().host+":"+str(transport.getPeer().port)]=transport
        self.connectionMade()
 
-
+   
    def sendData(self, data, sync = False, chopsize = None, peer=None):
-     """
-     Wrapper for self.transport.write which allows to give a chopsize.
-     When asked to chop up writing to TCP stream, we write only chopsize octets
-     and then give up control to select() in underlying reactor so that bytes
-     get onto wire immediately. Note that this is different from and unrelated
-     to WebSocket data message fragmentation. Note that this is also different
-     from the TcpNoDelay option which can be set on the socket.
 
-     Modes: Hybi, Hixie
-     """
      if chopsize and chopsize > 0:
         i = 0
         n = len(data)
@@ -60,22 +51,7 @@ class EchoServerProtocol(WebSocketServerProtocol):
 
 
    def sendFrame(self, opcode, payload = "", fin = True, rsv = 0, mask = None, payload_len = None, chopsize = None, sync = False, peer = None):
-      """
-      Send out frame. Normally only used internally via sendMessage(), sendPing(), sendPong() and sendClose().
 
-      This method deliberately allows to send invalid frames (that is frames invalid
-      per-se, or frames invalid because of protocol state). Other than in fuzzing servers,
-      calling methods will ensure that no invalid frames are sent.
-
-      In addition, this method supports explicit specification of payload length.
-      When payload_len is given, it will always write that many octets to the stream.
-      It'll wrap within payload, resending parts of that when more octets were requested
-      The use case is again for fuzzing server which want to sent increasing amounts
-      of payload data to peers without having to construct potentially large messges
-      themselfes.
-
-      Modes: Hybi
-      """
       if self.websocket_version == 0:
          raise Exception("function not supported in Hixie-76 mode")
 
@@ -142,15 +118,7 @@ class EchoServerProtocol(WebSocketServerProtocol):
       self.sendData(raw, sync, chopsize,peer)
 
    def sendMessage(self, payload, binary = False, payload_frag_size = None, sync = False, peer=None):
-      """
-      Send out a message in one go.
 
-      You can send text or binary message, and optionally specifiy a payload fragment size.
-      When the latter is given, the payload will be split up into frames with
-      payload <= the payload_frag_size given.
-
-      Modes: Hybi, Hixie
-      """
       if self.trackedTimings:
          self.trackedTimings.track("sendMessage")
       if self.state != WebSocketProtocol.STATE_OPEN:
@@ -250,18 +218,19 @@ class EchoServerProtocol(WebSocketServerProtocol):
       return WebSocketServerProtocol.connectionLost(self,reason)
 
 
+   
+   
 if __name__ == '__main__':
+      if len(sys.argv) > 1 and sys.argv[1] == 'debug':
+         log.startLogging(sys.stdout)
+         debug = True
+      else:
+         debug = False
 
-   if len(sys.argv) > 1 and sys.argv[1] == 'debug':
-      log.startLogging(sys.stdout)
-      debug = True
-   else:
-      debug = False
-
-   factory = WebSocketServerFactory("ws://localhost:9000",
-                                    debug = debug,
-                                    debugCodePaths = debug)
-   factory.protocol = EchoServerProtocol
-   factory.setProtocolOptions(allowHixie76 = True)
-   listenWS(factory)
-   reactor.run()
+      factory = WebSocketServerFactory("ws://localhost:9000",
+                                       debug = debug,
+                                       debugCodePaths = debug)
+      factory.protocol = EchoServerProtocol
+      factory.setProtocolOptions(allowHixie76 = True)
+      listenWS(factory)
+      reactor.run()

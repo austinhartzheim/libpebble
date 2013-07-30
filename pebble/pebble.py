@@ -222,7 +222,7 @@ class Pebble(object):
 		
 	
 
-	def __init__(self, id = None, using_lightblue = True, pair_first = False, using_ws = True, ws_ip = None):
+	def __init__(self, id = None, using_lightblue = True, pair_first = False, using_ws = True, ws_ip = "ws://localhost:9000"):
 		if id is None and not using_lightblue and not using_ws:
 			id = Pebble.AutodetectDevice()
 		self.id = id
