@@ -52,7 +52,19 @@ Support for lightblue is untested in Debian, however the following should be ins
     * `sudo python setup.py install`
 
 
-##3. Testing the Connection
+##3. Connecting indirectly via Pebble phone app
+
+It is possible to communicate with Pebble from your laptop via the Pebble phone app. The advantage is that you can keep using your Pebble as you normally would. No messing around with Bluetooth settings needed. Another advantage is that you can monitor messages between Pebble and the Pebble phone app (and other apps as well!)
+
+For this to work, your phone and laptop both need to be connected to the same network (subnet). Also, the Pebble phone app needs to be in "Developer Mode". Once in developer mode, set the "Server IP" in the Pebble phone app to the IP address of your computer.
+
+With `repl.py` and `p.py`, add the `--ws` (WebSockets) flag to connect to your Pebble via the Pebble phone app, for example, to launch the REPL:
+
+`$ ./repl.py --ws`
+
+The way this works behind the scenes, is that `--ws` will cause libpebble to run a local relay server, that will be listening on a port on your computer on all interfaces. Both libpebble itself and the Pebble phone app will attempt to connect to this local server at regular intervals.
+
+##3. Connecting directly via Bluetooth
 Note: you should have your bluetooth module enabled before continuing
 
 ###a. OSX
