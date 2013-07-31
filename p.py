@@ -5,8 +5,7 @@ import os
 import pebble as libpebble
 import subprocess
 import sys
-import time
-import daemon
+
 from multiprocessing import Process
 from twisted.internet import reactor
 from twisted.python import log
@@ -15,7 +14,7 @@ from twisted.web.static import File
 from autobahn.websocket import *
 from DebugServerPebble import *
 
-from time import sleep
+import time
 
 MAX_ATTEMPTS = 5
 
@@ -251,7 +250,7 @@ def main():
         p = Process(target=startService, args=())
         p.daemon = True
         p.start()
-        sleep(5)
+        time.sleep(7)
         pebble = libpebble.Pebble(using_lightblue=args.lightblue, pair_first=args.pair, using_ws=args.ws)
 
     else:
@@ -275,11 +274,8 @@ def main():
         pebble.disconnect()
         raise e
         return
-    
-    try:
-        pebble.disconnect()
-    except:
-        pass
+    p.terminate();
+    pebble.disconnect()
         
 
 if __name__ == '__main__':
