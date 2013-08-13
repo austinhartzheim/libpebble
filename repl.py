@@ -13,7 +13,7 @@ from twisted.web.server import Site
 from twisted.web.static import File
 from autobahn.websocket import *
 from DebugServerPebble import *
-import daemon
+# import daemon
 from time import sleep
 
 def start_repl(pebble_id, lightblue, pair, ws, ws_ip="ws://localhost:9000"):
