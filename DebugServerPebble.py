@@ -42,7 +42,7 @@ class EchoServerProtocol(WebSocketServerProtocol):
            self.send_queue.append((data, sync))
            self._trigger()
         else:
-           if peer:
+           if peer is not None:
                self.transport = self.transports[peer] #switch to custom peer  
            self.transport.write(data)
            if self.logOctets:
@@ -115,9 +115,9 @@ class EchoServerProtocol(WebSocketServerProtocol):
 
       ## send frame octets
       ##
-      self.sendData(raw, sync, chopsize,peer)
+      self.sendData(raw, sync, chopsize, peer)
 
-   def sendMessage(self, payload, binary = False, payload_frag_size = None, sync = False, peer=None):
+   def sendMessage(self, payload, binary = False, payload_frag_size = None, sync = False, peer = None):
 
       if self.trackedTimings:
          self.trackedTimings.track("sendMessage")
@@ -214,18 +214,14 @@ class EchoServerProtocol(WebSocketServerProtocol):
       del self.transports[self.peerstr]
       self.peers.remove(self.peerstr)
       if len(self.peers)==1:
-          self.sendMessage('\x03\x52\x65\x6d\x6f\x74\x65\x20\x43\x6c\x69\x65\x6e\x74\x20\x44\x69\x73\x63\x6f\x6e\x6e\x65\x63\x74\x65\x64', binary=True,peer=self.peers[0]) #  /x03 + "Remote Client Disconnected"
+          self.sendMessage(b"\x03\x52\x65\x6d\x6f\x74\x65\x20\x43\x6c\x69\x65\x6e\x74\x20\x44\x69\x73\x63\x6f\x6e\x6e\x65\x63\x74\x65\x64", binary=True,peer=self.peers[0]) #  /x03 + "Remote Client Disconnected"
       return WebSocketServerProtocol.connectionLost(self,reason)
-
 
    
    
 if __name__ == '__main__':
-      if len(sys.argv) > 1 and sys.argv[1] == 'debug':
-         log.startLogging(sys.stdout)
-         debug = True
-      else:
-         debug = False
+      log.startLogging(sys.stdout)
+      debug = True
 
       factory = WebSocketServerFactory("ws://localhost:9000",
                                        debug = debug,

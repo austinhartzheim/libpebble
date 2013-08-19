@@ -17,7 +17,6 @@ import uuid
 import zipfile
 import WebSocketPebble
 
-from WebSocketPebble import create_connection
 from collections import OrderedDict
 from LightBluePebble import LightBluePebble
 from struct import pack, unpack
@@ -118,6 +117,9 @@ class PebbleBundle(object):
 
 	def has_resources(self):
 		return 'resources' in self.get_manifest()
+		
+	def has_javascript(self):
+		return 'js' in self.get_manifest()
 
 	def get_firmware_info(self):
 		if not self.is_firmware_bundle():
@@ -247,11 +249,8 @@ class Pebble(object):
 		try:
 			if using_ws:
 				WebSocketPebble.enableTrace(False)
-				self._ser = create_connection(ws_ip)
-
-				
+				self._ser = WebSocketPebble.create_connection(ws_ip)
 			else:
-
 				if using_lightblue:
 					self._ser = LightBluePebble(self.id, pair_first)
 					signal.signal(signal.SIGINT, self._exit_signal_handler)
@@ -519,7 +518,18 @@ class Pebble(object):
 		if first_free == apps["banks"]:
 			raise PebbleError(self.id, "All %d app banks are full" % apps["banks"])
 		log.debug("Attempting to add app to bank %d of %d" % (first_free, apps["banks"]))
-
+		if bundle.has_javascript():
+			f = open(pbz_path, 'r')
+			data = f.read()
+			print data.encode('hex')
+			client = PutBytesClient(self, first_free, "BINARY", data)
+			self.register_endpoint("PUTBYTES", client.handle_message)
+			client.init()
+			while not client._done and not client._error:
+				pass
+			if client._error:
+				raise PebbleError(self.id, "Failed to send application binary %s/pebble-app.bin" % pbz_path)
+			return;
 
 		binary = bundle.zip.read(bundle.get_application_info()['name'])
 		if bundle.has_resources():

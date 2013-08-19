@@ -5,7 +5,8 @@ import os
 import pebble as libpebble
 import subprocess
 import sys
-
+import time
+import websocket
 from multiprocessing import Process
 from twisted.internet import reactor
 from twisted.python import log
@@ -14,11 +15,9 @@ from twisted.web.static import File
 from autobahn.websocket import *
 from DebugServerPebble import *
 
-import time
-
 MAX_ATTEMPTS = 5
 
-def startService():
+def start_service():
     factory = WebSocketServerFactory("ws://localhost:9000")
     factory.protocol = EchoServerProtocol
     factory.setProtocolOptions(allowHixie76 = True)
@@ -247,11 +246,17 @@ def main():
     args = parser.parse_args()
 
     if args.ws:
-        p = Process(target=startService, args=())
-        p.daemon = True
-        p.start()
-        time.sleep(7)
-        pebble = libpebble.Pebble(using_lightblue=args.lightblue, pair_first=args.pair, using_ws=args.ws)
+       try:
+            ws = websocket.create_connection("ws://localhost:9000")
+            ws.close()    
+       except:
+           print "Didn't find a websocket server. creating one... run <code>python DebugServerPebble.py debug</code> for a long running server"
+           p = Process(target=start_service, args=())
+           p.daemon = True
+           p.start()
+           time.sleep(3)
+        
+       pebble = libpebble.Pebble(using_lightblue=args.lightblue, pair_first=args.pair, using_ws=args.ws)
 
     else:
         attempts = 0

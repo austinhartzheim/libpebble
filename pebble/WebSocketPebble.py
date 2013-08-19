@@ -51,9 +51,9 @@ class WebSocketPebble(WebSocket):
         if direction[0]==2:
             print "Log: %s" % repr(data[1:])
         if direction[0]==1:
-            print "Phone ==> Watch: %s" % repr(data[1:])
+            print "Phone ==> Watch: %s" % data[1:].encode("hex")
         if direction[0]==0: 
-            print "Watch ==> Phone: %s" % repr(data[1:])	
+            print "Watch ==> Phone: %s" % data[1:].encode("hex")
             return (endpoint, resp, data[1:5])
         else:
             return (None, None, data)
