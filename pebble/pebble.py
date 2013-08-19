@@ -518,17 +518,19 @@ class Pebble(object):
 		if first_free == apps["banks"]:
 			raise PebbleError(self.id, "All %d app banks are full" % apps["banks"])
 		log.debug("Attempting to add app to bank %d of %d" % (first_free, apps["banks"]))
+		
 		if bundle.has_javascript():
 			f = open(pbz_path, 'r')
 			data = f.read()
-			print data.encode('hex')
-			client = PutBytesClient(self, first_free, "BINARY", data)
-			self.register_endpoint("PUTBYTES", client.handle_message)
-			client.init()
-			while not client._done and not client._error:
-				pass
-			if client._error:
-				raise PebbleError(self.id, "Failed to send application binary %s/pebble-app.bin" % pbz_path)
+			self._send_message("VERSION",data)
+			
+			# client = PutBytesClient(self, first_free, "BINARY", data)
+			# self.register_endpoint("PUTBYTES", client.handle_message)
+			# client.init()
+			# while not client._done and not client._error:
+			# 	pass
+			# if client._error:
+			# 	raise PebbleError(self.id, "Failed to send application binary %s/pebble-app.bin" % pbz_path)
 			return;
 
 		binary = bundle.zip.read(bundle.get_application_info()['name'])

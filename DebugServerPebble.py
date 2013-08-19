@@ -204,13 +204,17 @@ class EchoServerProtocol(WebSocketServerProtocol):
 
 
    def connectionMade(self):
+      print self
       return WebSocketServerProtocol.connectionMade(self)
       
    def onConnect(self,connectionRequest):
+      print connectionRequest.peerstr     
       self.peers.append(connectionRequest.peerstr)
       return WebSocketServerProtocol.onConnect(self,connectionRequest)
 
    def connectionLost(self,reason):
+      print reason	
+      print self.peerstr
       del self.transports[self.peerstr]
       self.peers.remove(self.peerstr)
       if len(self.peers)==1:
