@@ -59,7 +59,8 @@ class LightBluePebble(object):
     def read(self):
         """ read a pebble message from the LightBlue processs"""
         try:
-            return self.rec_queue.get()
+            tup = self.rec_queue.get()
+            return tup
         except Queue.Empty:
             return (None, None, '')
         except:
@@ -163,7 +164,9 @@ class LightBluePebble(object):
                         # TODO: Should probably have some kind of timeout here
                         pass
                 try:
+                    print (endpoint, resp, rec_data)
                     self.rec_queue.put((endpoint, resp, rec_data))
+                    
                 except (IOError, EOFError):
                     self.BT_TEARDOWN.set()
                     e = "Queue Error while recieving data"
