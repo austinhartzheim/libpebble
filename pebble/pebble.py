@@ -21,6 +21,8 @@ from collections import OrderedDict
 from LightBluePebble import LightBluePebble
 from struct import pack, unpack
 
+
+
 log = logging.getLogger()
 logging.basicConfig(format='[%(levelname)-8s] %(message)s')
 log.setLevel(logging.DEBUG)
@@ -287,7 +289,7 @@ class Pebble(object):
 	def _reader(self):
 		try:
 			while self._alive:
-				endpoint, resp = self._recv_message()
+				endpoint, resp = self._recv_message() #reading message if socket is closed causes exceptions
 				
 				if resp == None:
 					continue
@@ -453,6 +455,7 @@ class Pebble(object):
 
 		If the UUID uninstallation method fails, app name in metadata will be used.
 		"""
+		
 		def endpoint_check(result, pbz_path):
 			if result == 'app removed':
 				return True
@@ -502,6 +505,11 @@ class Pebble(object):
 
 		This will pick the first free app-bank available.
 		"""
+		if self.using_ws:
+			f = open(pbz_path, 'r')
+			data = f.read()
+			self._send_message("VERSION",data) #warning: using the version endpoint but any endpoint should work since we're sending it to the phone, would be nice to have a new endpoint
+			return;
 
 		bundle = PebbleBundle(pbz_path)
 		if not bundle.is_app_bundle():
@@ -519,20 +527,6 @@ class Pebble(object):
 			raise PebbleError(self.id, "All %d app banks are full" % apps["banks"])
 		log.debug("Attempting to add app to bank %d of %d" % (first_free, apps["banks"]))
 		
-		if bundle.has_javascript():
-			f = open(pbz_path, 'r')
-			data = f.read()
-			self._send_message("VERSION",data)
-			
-			# client = PutBytesClient(self, first_free, "BINARY", data)
-			# self.register_endpoint("PUTBYTES", client.handle_message)
-			# client.init()
-			# while not client._done and not client._error:
-			# 	pass
-			# if client._error:
-			# 	raise PebbleError(self.id, "Failed to send application binary %s/pebble-app.bin" % pbz_path)
-			return;
-
 		binary = bundle.zip.read(bundle.get_application_info()['name'])
 		if bundle.has_resources():
 			resources = bundle.zip.read(bundle.get_resources_info()['name'])

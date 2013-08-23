@@ -250,7 +250,7 @@ def main():
             ws = websocket.create_connection("ws://localhost:9000")
             ws.close()    
        except:
-           print "Didn't find a websocket server. creating one... run <code>python DebugServerPebble.py debug</code> for a long running server"
+           print "Didn't find a websocket server. creating one... create a long running server with  \n\npython DebugServerPebble.py\n\n"
            p = Process(target=start_service, args=())
            p.daemon = True
            p.start()

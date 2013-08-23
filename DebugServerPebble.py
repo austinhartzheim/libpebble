@@ -1,4 +1,5 @@
 import sys
+import signal
 from twisted.internet import reactor
 from twisted.python import log
 from twisted.web.server import Site
@@ -204,33 +205,35 @@ class EchoServerProtocol(WebSocketServerProtocol):
 
 
    def connectionMade(self):
-      print self
       return WebSocketServerProtocol.connectionMade(self)
       
    def onConnect(self,connectionRequest):
-      print connectionRequest.peerstr     
+      if "127.0.0.1" in connectionRequest.peerstr:
+         print "Console connected: " + connectionRequest.peerstr
+      else:
+         print "App Connected: " + connectionRequest.peerstr     
       self.peers.append(connectionRequest.peerstr)
       return WebSocketServerProtocol.onConnect(self,connectionRequest)
 
    def connectionLost(self,reason):
-      print reason	
-      print self.peerstr
+      if "127.0.0.1" in self.peerstr:
+         print "Console disconnected: " + self.peerstr
+      else:
+         print "App Disconnected: " + self.peerstr
       del self.transports[self.peerstr]
       self.peers.remove(self.peerstr)
-      if len(self.peers)==1:
-          self.sendMessage(b"\x03\x52\x65\x6d\x6f\x74\x65\x20\x43\x6c\x69\x65\x6e\x74\x20\x44\x69\x73\x63\x6f\x6e\x6e\x65\x63\x74\x65\x64", binary=True,peer=self.peers[0]) #  /x03 + "Remote Client Disconnected"
       return WebSocketServerProtocol.connectionLost(self,reason)
 
    
    
 if __name__ == '__main__':
-      log.startLogging(sys.stdout)
-      debug = True
-
-      factory = WebSocketServerFactory("ws://localhost:9000",
-                                       debug = debug,
-                                       debugCodePaths = debug)
-      factory.protocol = EchoServerProtocol
-      factory.setProtocolOptions(allowHixie76 = True)
-      listenWS(factory)
-      reactor.run()
+    log.startLogging(sys.stdout)
+    debug = True
+    factory = WebSocketServerFactory("ws://localhost:9000",
+                                   debug = debug,
+                                   debugCodePaths = debug)
+    factory.protocol = EchoServerProtocol
+    factory.setProtocolOptions(allowHixie76 = True)
+    listenWS(factory)
+    reactor.run()
+	

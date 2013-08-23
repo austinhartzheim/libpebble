@@ -5,6 +5,7 @@ import pebble as libpebble
 import code
 import readline
 import rlcompleter
+import websocket
 from multiprocessing import Process
 import sys
 from twisted.internet import reactor
@@ -13,7 +14,6 @@ from twisted.web.server import Site
 from twisted.web.static import File
 from autobahn.websocket import *
 from DebugServerPebble import *
-# import daemon
 from time import sleep
 
 def start_repl(pebble_id, lightblue, pair, ws, ws_ip="ws://localhost:9000"):
@@ -38,13 +38,17 @@ args = parser.parse_args()
 
 
 if args.ws:
-    p = Process(target=startService, args=())
-    p.daemon = True
-    p.start()
-    sleep(1)
+    try:
+        ws = websocket.create_connection("ws://localhost:9000")
+        ws.close()    
+    except:
+        print "Didn't find a websocket server. creating one... create a long running server with  \n\npython DebugServerPebble.py\n\n"	
+        p = Process(target=startService, args=())
+        p.daemon = True
+        p.start()
+        sleep(1)
+
     start_repl(None, args.lightblue, args.pair, args.ws)    
+
 if args.lightblue:
     start_repl(args.pebble_id, args.lightblue, args.pair, args.ws)
-
-# with daemon.DaemonContext():
-
