@@ -119,22 +119,22 @@ PBL_APP_INFO(MY_UUID,
 Window *window;
 TextLayer *text_layer;
 
-void select_click_handler() {
+void select_click_handler(ClickRecognizerRef recognizer, void *context) {
   text_layer_set_text(text_layer, "Select");
 }
 
-void up_click_handler() {
+void up_click_handler(ClickRecognizerRef recognizer, void *context) {
   text_layer_set_text(text_layer, "Up");
 }
 
-void down_click_handler() {
+void down_click_handler(ClickRecognizerRef recognizer, void *context) {
   text_layer_set_text(text_layer, "Button");
 }
 
 void config_provider(ClickConfig **config, Window *window) {
-  config[BUTTON_ID_SELECT]->click.handler = (ClickHandler) select_click_handler;
-  config[BUTTON_ID_UP]->click.handler = (ClickHandler) up_click_handler;
-  config[BUTTON_ID_DOWN]->click.handler = (ClickHandler) down_click_handler;
+  config[BUTTON_ID_SELECT]->click.handler = select_click_handler;
+  config[BUTTON_ID_UP]->click.handler = up_click_handler;
+  config[BUTTON_ID_DOWN]->click.handler = down_click_handler;
 }
 
 void handle_init() {
@@ -143,8 +143,9 @@ void handle_init() {
 
   window_set_click_config_provider(window, (ClickConfigProvider) config_provider);
 
-  text_layer = text_layer_create(GRect(/* x */ 0, /* y */ 74, /* width */ 144, /* height */ 20));
-  layer_add_child(window_get_root_layer(window), (Layer*)text_layer);
+  text_layer = text_layer_create(GRect(/* x: */ 0, /* y: */ 74,
+                                       /* width: */ 144, /* height: */ 20));
+  layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_layer));
 
   text_layer_set_text(text_layer, "Press a button");
 }
