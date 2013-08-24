@@ -1,3 +1,4 @@
+import sh, os
 from PblCommand import PblCommand
 
 class PblBuildCommand(PblCommand):
@@ -5,7 +6,19 @@ class PblBuildCommand(PblCommand):
   help = 'Build your Pebble project'
 
   def configure_subparser(self, parser):
-    pass
+    parser.add_argument('--sdk', help='Path to Pebble SDK (ie: ~/pebble-dev/PebbleSDK-2.X/)')
 
   def run(self, args):
-    print "Pebble SDK is in: {}".format(self.sdk_path())
+    waf_path = os.path.join(os.path.join(self.sdk_path(args), 'Pebble'), 'waf')
+    print "Path to waf: {}".format(waf_path)
+    os.system(waf_path + " configure build")
+
+  def sdk_path(self, args):
+    """
+    Tries to guess the location of the Pebble SDK
+    """
+
+    if args.sdk:
+      return args.sdk
+    else:
+      return os.path.normpath(os.path.join(os.path.dirname(__file__), os.path.join('..', '..', '..')))
