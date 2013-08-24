@@ -15,10 +15,13 @@ import time
 import traceback
 import uuid
 import zipfile
+import WebSocketPebble
 
 from collections import OrderedDict
 from LightBluePebble import LightBluePebble
 from struct import pack, unpack
+
+
 
 log = logging.getLogger()
 logging.basicConfig(format='[%(levelname)-8s] %(message)s')
@@ -77,7 +80,9 @@ class PebbleBundle(object):
 		if (self.header):
 			return self.header
 
-		app_bin = self.zip.open('pebble-app.bin').read()
+		app_manifest = self.get_manifest()['application']
+
+		app_bin = self.zip.open(app_manifest['name']).read()
 
 		header = app_bin[0:self.app_metadata_length_bytes]
 		values = self.app_metadata_struct.unpack(header)
@@ -114,6 +119,9 @@ class PebbleBundle(object):
 
 	def has_resources(self):
 		return 'resources' in self.get_manifest()
+		
+	def has_javascript(self):
+		return 'js' in self.get_manifest()
 
 	def get_firmware_info(self):
 		if not self.is_firmware_bundle():
@@ -215,12 +223,15 @@ class Pebble(object):
 		id = pebbles[0][15:19]
 		log.info("Autodetect found a Pebble with ID %s" % id)
 		return id
+		
+	
 
-	def __init__(self, id = None, using_lightblue = True, pair_first = False):
-		if id is None and not using_lightblue:
+	def __init__(self, id = None, using_lightblue = True, pair_first = False, using_ws = True, ws_ip = "ws://localhost:9000"):
+		if id is None and not using_lightblue and not using_ws:
 			id = Pebble.AutodetectDevice()
 		self.id = id
 		self.using_lightblue = using_lightblue
+		self.using_ws = using_ws
 		self._alive = True
 		self._endpoint_handlers = {}
 		self._internal_endpoint_handlers = {
@@ -238,24 +249,31 @@ class Pebble(object):
 		}
 
 		try:
-			if using_lightblue:
-				self._ser = LightBluePebble(self.id, pair_first)
-				signal.signal(signal.SIGINT, self._exit_signal_handler)
+			if using_ws:
+				WebSocketPebble.enableTrace(False)
+				self._ser = WebSocketPebble.create_connection(ws_ip)
 			else:
-				devicefile = "/dev/tty.Pebble"+id+"-SerialPortSe"
-				log.debug("Attempting to open %s as Pebble device %s" % (devicefile, id))
-				self._ser = serial.Serial(devicefile, 115200, timeout=1)
-
+				if using_lightblue:
+					self._ser = LightBluePebble(self.id, pair_first)
+					signal.signal(signal.SIGINT, self._exit_signal_handler)
+				else:
+					devicefile = "/dev/tty.Pebble"+id+"-SerialPortSe"
+					log.debug("Attempting to open %s as Pebble device %s" % (devicefile, id))
+					self._ser = serial.Serial(devicefile, 115200, timeout=1)
+				
+			
 			log.debug("Initializing reader thread")
 			self._read_thread = threading.Thread(target=self._reader)
 			self._read_thread.setDaemon(True)
-			self._read_thread.start()
+			self._read_thread.start()		
 			log.debug("Reader thread loaded on tid %s" % self._read_thread.name)
 		except PebbleError:
 			raise PebbleError(id, "Failed to connect to Pebble")
 		except:
 			raise
 
+	
+	
 	def _exit_signal_handler(self, signum, frame):
 		print "Disconnecting before exiting..."
 		self.disconnect()
@@ -271,11 +289,12 @@ class Pebble(object):
 	def _reader(self):
 		try:
 			while self._alive:
-				endpoint, resp = self._recv_message()
+				endpoint, resp = self._recv_message() #reading message if socket is closed causes exceptions
+				
 				if resp == None:
 					continue
-
-				if endpoint in self._internal_endpoint_handlers:
+					
+				if endpoint in self._internal_endpoint_handlers:	
 					resp = self._internal_endpoint_handlers[endpoint](endpoint, resp)
 
 				if endpoint in self._endpoint_handlers and resp:
@@ -284,6 +303,12 @@ class Pebble(object):
 			traceback.print_exc()
 			raise PebbleError(self.id, "Lost connection to Pebble")
 			self._alive = False
+		
+		
+	def _pack_message_data(self, lead, parts):
+		pascal = map(lambda x: x[:255], parts)
+		d = pack("b" + reduce(lambda x,y: str(x) + "p" + str(y), map(lambda x: len(x) + 1, pascal)) + "p", lead, *pascal)
+		return d
 
 	def _build_message(self, endpoint, data):
 		return pack("!HH", len(data), endpoint)+data
@@ -296,12 +321,15 @@ class Pebble(object):
 
 		if DEBUG_PROTOCOL:
 			log.debug('>>> ' + msg.encode('hex'))
+
 		self._ser.write(msg)
 
 	def _recv_message(self):
-		if self.using_lightblue:
+		if self.using_lightblue or self.using_ws:
 			try:
 				endpoint, resp, data = self._ser.read()
+
+				
 				if resp is None:
 					return None, None
 			except TypeError:
@@ -316,11 +344,10 @@ class Pebble(object):
 				raise PebbleError(self.id, "Malformed response with length "+str(len(data)))
 			size, endpoint = unpack("!HH", data)
 			resp = self._ser.read(size)
-
 		if DEBUG_PROTOCOL:
 			log.debug("Got message for endpoint %s of length %d" % (endpoint, len(resp)))
 			log.debug('<<< ' + (data + resp).encode('hex'))
-
+			
 		return (endpoint, resp)
 
 	def register_endpoint(self, endpoint_name, func):
@@ -336,33 +363,22 @@ class Pebble(object):
 
 		ts = str(int(time.time())*1000)
 		parts = [sender, body, ts]
-		data = "\x01"
-		for part in parts:
-			data += pack("!b", len(part))+part
-		self._send_message("NOTIFICATION", data)
+		self._send_message("NOTIFICATION", self._pack_message_data(1, parts))
 
 	def notification_email(self, sender, subject, body):
 
 		"""Send an 'Email Notification' to the displayed on the watch."""
 
 		ts = str(int(time.time())*1000)
-		parts = [sender, subject, ts, body]
-		data = "\x00"
-		for part in parts:
-			data += pack("!b", len(part))+part
-		self._send_message("NOTIFICATION", data)
+		parts = [sender, body, ts, subject]
+		self._send_message("NOTIFICATION", self._pack_message_data(0, parts))
 
 	def set_nowplaying_metadata(self, track, album, artist):
 
 		"""Update the song metadata displayed in Pebble's music app."""
 
-		parts = [artist, album, track]
-
-		data = pack("!b", 16)
-		for part in parts:
-			part = part[0:29] if len(part) > 30 else part
-			data += pack("!b", len(part))+part
-		self._send_message("MUSIC_CONTROL", data)
+		parts = [artist[:30], album[:30], track[:30]]
+		self._send_message("MUSIC_CONTROL", self._pack_message_data(16, parts))
 
 	def get_versions(self, async = False):
 
@@ -384,7 +400,6 @@ class Pebble(object):
 		This is particularly useful when trying to locate a
 		free app-bank to use when installing a new watch-app.
 		"""
-
 		self._send_message("APP_MANAGER", "\x01")
 
 		if not async:
@@ -440,9 +455,9 @@ class Pebble(object):
 
 		If the UUID uninstallation method fails, app name in metadata will be used.
 		"""
+		
 		def endpoint_check(result, pbz_path):
 			if result == 'app removed':
-				print result
 				return True
 			else:
 				if DEBUG_PROTOCOL:
@@ -455,7 +470,7 @@ class Pebble(object):
 			raise PebbleError(self.id, "This is not an app bundle")
 		app_metadata = bundle.get_app_metadata()
 
-		# attempt to remove an app by its UUID
+		# attempt to remove an app by its UUIDgit 	
 		result_uuid = self.remove_app_by_uuid(app_metadata['uuid'].bytes, uuid_is_string=False)
 		if endpoint_check(result_uuid, pbz_path):
 			return self.install_app(pbz_path, launch_on_install)
@@ -490,20 +505,17 @@ class Pebble(object):
 
 		This will pick the first free app-bank available.
 		"""
+		if self.using_ws:
+			f = open(pbz_path, 'r')
+			data = f.read()
+			self._send_message("VERSION",data) #warning: using the version endpoint but any endpoint should work since we're sending it to the phone, would be nice to have a new endpoint
+			return;
 
 		bundle = PebbleBundle(pbz_path)
 		if not bundle.is_app_bundle():
 			raise PebbleError(self.id, "This is not an app bundle")
 		app_metadata = bundle.get_app_metadata()
-
-		binary = bundle.zip.read(bundle.get_application_info()['name'])
-		if bundle.has_resources():
-			resources = bundle.zip.read(bundle.get_resources_info()['name'])
-		else:
-			resources = None
-
 		apps = self.get_appbank_status()
-
 		if not apps:
 			raise PebbleError(self.id, "could not obtain app list; try again")
 
@@ -514,7 +526,12 @@ class Pebble(object):
 		if first_free == apps["banks"]:
 			raise PebbleError(self.id, "All %d app banks are full" % apps["banks"])
 		log.debug("Attempting to add app to bank %d of %d" % (first_free, apps["banks"]))
-
+		
+		binary = bundle.zip.read(bundle.get_application_info()['name'])
+		if bundle.has_resources():
+			resources = bundle.zip.read(bundle.get_resources_info()['name'])
+		else:
+			resources = None
 		client = PutBytesClient(self, first_free, "BINARY", binary)
 		self.register_endpoint("PUTBYTES", client.handle_message)
 		client.init()
@@ -679,13 +696,15 @@ class Pebble(object):
 		log.debug("Sending command %s (code %d)" % (command, commands[command]))
 		self._send_message("SYSTEM_MESSAGE", data)
 
+
+
 	def ping(self, cookie = 0xDEC0DE, async = False):
 
 		"""Send a 'ping' to the watch to test connectivity."""
 
 		data = pack("!bL", 0, cookie)
 		self._send_message("PING", data)
-
+		
 		if not async:
 			return EndpointSync(self, "PING").get_data()
 
@@ -765,11 +784,17 @@ class Pebble(object):
 			offset = 9
 			for i in xrange(apps_installed):
 				app = {}
-				app["id"], app["index"], app["name"], app["company"], app["flags"], app["version"] = \
-					unpack("!II32s32sIH", data[offset:offset+appinfo_size])
-				app["name"] = app["name"].replace("\x00", "")
-				app["company"] = app["company"].replace("\x00", "")
-				apps["apps"] += [app]
+				try:
+					app["id"], app["index"], app["name"], app["company"], app["flags"], app["version"] = \
+						unpack("!II32s32sIH", data[offset:offset+appinfo_size])
+					app["name"] = app["name"].replace("\x00", "")
+					app["company"] = app["company"].replace("\x00", "")
+					apps["apps"] += [app]
+				except:
+					if offset+appinfo_size > len(data):
+						log.warn("Couldn't load bank %d; remaining data = %s" % (i,repr(data[offset:])))
+					else:
+						raise
 				offset += appinfo_size
 
 			return apps
@@ -1007,7 +1032,7 @@ class PutBytesClient(object):
 
 	def abort(self):
 		msgdata = pack("!bI", 4, self._token & 0xFFFFFFFF)
-		self._pebble.send_message("PUTBYTES", msgdata)
+		self._pebble._send_message("PUTBYTES", msgdata)
 		self._error = True
 
 	def send(self):

@@ -6,8 +6,23 @@ import pebble as libpebble
 import subprocess
 import sys
 import time
+import websocket
+from multiprocessing import Process
+from twisted.internet import reactor
+from twisted.python import log
+from twisted.web.server import Site
+from twisted.web.static import File
+from autobahn.websocket import *
+from DebugServerPebble import *
 
 MAX_ATTEMPTS = 5
+
+def start_service():
+    factory = WebSocketServerFactory("ws://localhost:9000")
+    factory.protocol = EchoServerProtocol
+    factory.setProtocolOptions(allowHixie76 = True)
+    listenWS(factory)
+    reactor.run()
 
 def cmd_ping(pebble, args):
     pebble.ping(cookie=0xDEADBEEF)
@@ -25,16 +40,16 @@ def cmd_launch_app(pebble, args):
     pebble.launcher_message(args.app_uuid, "RUNNING")
 
 def cmd_app_msg_send_string(pebble, args):
-		pebble.app_message_send_string(args.app_uuid, args.key, args.tuple_string)
+        pebble.app_message_send_string(args.app_uuid, args.key, args.tuple_string)
 
 def cmd_app_msg_send_uint(pebble, args):
-		pebble.app_message_send_uint(args.app_uuid, args.key, args.tuple_uint)
+        pebble.app_message_send_uint(args.app_uuid, args.key, args.tuple_uint)
 
 def cmd_app_msg_send_int(pebble, args):
-		pebble.app_message_send_int(args.app_uuid, args.key, args.tuple_int)
+        pebble.app_message_send_int(args.app_uuid, args.key, args.tuple_int)
 
 def cmd_app_msg_send_bytes(pebble, args):
-		pebble.app_message_send_byte_array(args.app_uuid, args.key, args.tuple_bytes)
+        pebble.app_message_send_byte_array(args.app_uuid, args.key, args.tuple_bytes)
 
 def cmd_remote(pebble, args):
     def do_oscacript(command):
@@ -115,6 +130,9 @@ def cmd_reinstall_app(pebble, args):
 def cmd_reset(pebble, args):
     pebble.reset()
 
+def cmd_set_nowplaying_metadata(pebble, args):
+    pebble.set_nowplaying_metadata(args.track, args.album, args.artist)
+
 def cmd_notification_email(pebble, args):
     pebble.notification_email(args.sender, args.subject, args.body)
 
@@ -132,7 +150,7 @@ def main():
     parser.add_argument('--pebble_id', type=str, help='the last 4 digits of the target Pebble\'s MAC address. \nNOTE: if \
                         --lightblue is set, providing a full MAC address (ex: "A0:1B:C0:D3:DC:93") won\'t require the pebble \
                         to be discoverable and will be faster')
-
+    parser.add_argument('--ws', action="store_true", help='use WebSockets API')
     parser.add_argument('--lightblue', action="store_true", help='use LightBlue bluetooth API')
     parser.add_argument('--pair', action="store_true", help='pair to the pebble from LightBlue bluetooth API before connecting.')
 
@@ -196,6 +214,12 @@ def main():
     reset_parser = subparsers.add_parser('reset', help='reset the watch remotely')
     reset_parser.set_defaults(func=cmd_reset)
 
+    set_nowplaying_metadata_parser = subparsers.add_parser('playing', help='set current music playing')
+    set_nowplaying_metadata_parser.add_argument('track', type=str)
+    set_nowplaying_metadata_parser.add_argument('album', type=str)
+    set_nowplaying_metadata_parser.add_argument('artist', type=str)
+    set_nowplaying_metadata_parser.set_defaults(func=cmd_set_nowplaying_metadata)
+
     notification_email_parser = subparsers.add_parser('email', help='send an "Email Notification"')
     notification_email_parser.add_argument('sender', type=str)
     notification_email_parser.add_argument('subject', type=str)
@@ -221,16 +245,33 @@ def main():
 
     args = parser.parse_args()
 
-    attempts = 0
-    while True:
-        if attempts > MAX_ATTEMPTS:
-            raise 'Could not connect to Pebble'
-        try:
-            pebble = libpebble.Pebble(args.pebble_id, args.lightblue, args.pair)
-            break
-        except:
-            time.sleep(5)
-            attempts += 1
+    if args.ws:
+       try:
+            ws = websocket.create_connection("ws://localhost:9000")
+            ws.close()    
+       except:
+           print "Didn't find a websocket server. creating one... create a long running server with  \n\npython DebugServerPebble.py\n\n"
+           p = Process(target=start_service, args=())
+           p.daemon = True
+           p.start()
+           time.sleep(3)
+        
+       pebble = libpebble.Pebble(using_lightblue=args.lightblue, pair_first=args.pair, using_ws=args.ws)
+
+    else:
+        attempts = 0
+        while True:
+            if attempts > MAX_ATTEMPTS:
+                raise 'Could not connect to Pebble'
+            try:
+                pebble_id = args.pebble_id
+                if pebble_id is None and "PEBBLE_ID" in os.environ:
+                    pebble_id = os.environ["PEBBLE_ID"]
+                pebble = libpebble.Pebble(pebble_id, args.lightblue, args.pair,using_ws=args.ws)
+                break
+            except:
+                time.sleep(5)
+                attempts += 1
 
     try:
         args.func(pebble, args)
@@ -238,8 +279,9 @@ def main():
         pebble.disconnect()
         raise e
         return
-
+    p.terminate();
     pebble.disconnect()
+        
 
 if __name__ == '__main__':
     main()
