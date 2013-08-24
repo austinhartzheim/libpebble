@@ -13,8 +13,10 @@ class PblProjectCreator(PblCommand):
   def run(self, args):
     print "Creating new project {}".format(args.name)
 
-    project_root = args.name
-    project_name = args.name
+    # User can give a path to a new project dir
+    project_path = args.name
+    project_name = os.path.split(project_path)[1]
+    project_root = os.path.join(os.getcwd(), project_path)
 
     project_resources_src = os.path.join(project_root, os.path.join("resources","src"))
     project_src = os.path.join(project_root, "src")
