@@ -505,11 +505,12 @@ class Pebble(object):
 
 		This will pick the first free app-bank available.
 		"""
-		if self.using_ws:
-			f = open(pbz_path, 'r')
-			data = f.read()
-			self._send_message("VERSION",data) #warning: using the version endpoint but any endpoint should work since we're sending it to the phone, would be nice to have a new endpoint
-			return;
+
+		# if self.using_ws:
+		# 	f = open(pbz_path, 'r')
+		# 	data = f.read()
+		# 	self._send_message("VERSION",data) #warning: using the version endpoint but any endpoint should work since we're sending it to the phone, would be nice to have a new endpoint
+		# 	return;
 
 		bundle = PebbleBundle(pbz_path)
 		if not bundle.is_app_bundle():
