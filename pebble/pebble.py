@@ -28,7 +28,7 @@ logging.basicConfig(format='[%(levelname)-8s] %(message)s')
 log.setLevel(logging.DEBUG)
 
 DEFAULT_PEBBLE_ID = None #Triggers autodetection on unix-like systems
-DEBUG_PROTOCOL = False	
+DEBUG_PROTOCOL = False
 
 
 class PebbleBundle(object):
@@ -119,7 +119,7 @@ class PebbleBundle(object):
 
 	def has_resources(self):
 		return 'resources' in self.get_manifest()
-		
+
 	def has_javascript(self):
 		return 'js' in self.get_manifest()
 
@@ -223,8 +223,8 @@ class Pebble(object):
 		id = pebbles[0][15:19]
 		log.info("Autodetect found a Pebble with ID %s" % id)
 		return id
-		
-	
+
+
 
 	def __init__(self, id = None, using_lightblue = True, pair_first = False, using_ws = True, ws_ip = "ws://localhost:9000"):
 		if id is None and not using_lightblue and not using_ws:
@@ -260,20 +260,20 @@ class Pebble(object):
 					devicefile = "/dev/tty.Pebble"+id+"-SerialPortSe"
 					log.debug("Attempting to open %s as Pebble device %s" % (devicefile, id))
 					self._ser = serial.Serial(devicefile, 115200, timeout=1)
-				
-			
+
+
 			log.debug("Initializing reader thread")
 			self._read_thread = threading.Thread(target=self._reader)
 			self._read_thread.setDaemon(True)
-			self._read_thread.start()		
+			self._read_thread.start()
 			log.debug("Reader thread loaded on tid %s" % self._read_thread.name)
 		except PebbleError:
 			raise PebbleError(id, "Failed to connect to Pebble")
 		except:
 			raise
 
-	
-	
+
+
 	def _exit_signal_handler(self, signum, frame):
 		print "Disconnecting before exiting..."
 		self.disconnect()
@@ -290,11 +290,11 @@ class Pebble(object):
 		try:
 			while self._alive:
 				endpoint, resp = self._recv_message() #reading message if socket is closed causes exceptions
-				
+
 				if resp == None:
 					continue
-					
-				if endpoint in self._internal_endpoint_handlers:	
+
+				if endpoint in self._internal_endpoint_handlers:
 					resp = self._internal_endpoint_handlers[endpoint](endpoint, resp)
 
 				if endpoint in self._endpoint_handlers and resp:
@@ -303,8 +303,8 @@ class Pebble(object):
 			traceback.print_exc()
 			raise PebbleError(self.id, "Lost connection to Pebble")
 			self._alive = False
-		
-		
+
+
 	def _pack_message_data(self, lead, parts):
 		pascal = map(lambda x: x[:255], parts)
 		d = pack("b" + reduce(lambda x,y: str(x) + "p" + str(y), map(lambda x: len(x) + 1, pascal)) + "p", lead, *pascal)
@@ -329,7 +329,7 @@ class Pebble(object):
 			try:
 				endpoint, resp, data = self._ser.read()
 
-				
+
 				if resp is None:
 					return None, None
 			except TypeError:
@@ -347,7 +347,7 @@ class Pebble(object):
 		if DEBUG_PROTOCOL:
 			log.debug("Got message for endpoint %s of length %d" % (endpoint, len(resp)))
 			log.debug('<<< ' + (data + resp).encode('hex'))
-			
+
 		return (endpoint, resp)
 
 	def register_endpoint(self, endpoint_name, func):
@@ -455,7 +455,7 @@ class Pebble(object):
 
 		If the UUID uninstallation method fails, app name in metadata will be used.
 		"""
-		
+
 		def endpoint_check(result, pbz_path):
 			if result == 'app removed':
 				return True
@@ -470,7 +470,7 @@ class Pebble(object):
 			raise PebbleError(self.id, "This is not an app bundle")
 		app_metadata = bundle.get_app_metadata()
 
-		# attempt to remove an app by its UUIDgit 	
+		# attempt to remove an app by its UUIDgit
 		result_uuid = self.remove_app_by_uuid(app_metadata['uuid'].bytes, uuid_is_string=False)
 		if endpoint_check(result_uuid, pbz_path):
 			return self.install_app(pbz_path, launch_on_install)
@@ -526,7 +526,7 @@ class Pebble(object):
 		if first_free == apps["banks"]:
 			raise PebbleError(self.id, "All %d app banks are full" % apps["banks"])
 		log.debug("Attempting to add app to bank %d of %d" % (first_free, apps["banks"]))
-		
+
 		binary = bundle.zip.read(bundle.get_application_info()['name'])
 		if bundle.has_resources():
 			resources = bundle.zip.read(bundle.get_resources_info()['name'])
@@ -704,7 +704,7 @@ class Pebble(object):
 
 		data = pack("!bL", 0, cookie)
 		self._send_message("PING", data)
-		
+
 		if not async:
 			return EndpointSync(self, "PING").get_data()
 
