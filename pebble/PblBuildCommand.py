@@ -21,4 +21,4 @@ class PblBuildCommand(PblCommand):
     if args.sdk:
       return args.sdk
     else:
-      return os.path.normpath(os.path.join(os.path.dirname(__file__), os.path.join('..', '..', '..')))
+      return os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..'))
