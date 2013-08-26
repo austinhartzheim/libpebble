@@ -486,7 +486,7 @@ class Pebble(object):
 				if endpoint_check(result_name, pbz_path):
 					return self.install_app(pbz_path, launch_on_install)
 
-		log.warn("Unable to locate previous instance of supplied application")
+		return self.install_app(pbz_path, launch_on_install)
 
 	def reinstall_app_by_uuid(self, uuid, pbz_path):
 
