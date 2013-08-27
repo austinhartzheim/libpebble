@@ -3,10 +3,12 @@
 import argparse
 import logging
 
+from pebble.PblCommand          import PblCommand
+from pebble.PblProjectCreator   import PblProjectCreator
+from pebble.PblBuildCommand     import PblBuildCommand
+from pebble.LibPebblesCommand   import PblPingCommand
+from pebble.LibPebblesCommand   import PblInstallCommand
 
-from pebble.PblCommand import PblCommand
-from pebble.PblProjectCreator import PblProjectCreator
-from pebble.PblBuildCommand import PblBuildCommand
 
 class PbSDKShell:
   commands = []
@@ -14,6 +16,8 @@ class PbSDKShell:
   def __init__(self):
     self.commands.append(PblProjectCreator())
     self.commands.append(PblBuildCommand())
+    self.commands.append(PblInstallCommand())
+    self.commands.append(PblPingCommand())
 
   def main(self):
     logging.basicConfig(format='[%(levelname)-8s] %(message)s', level = logging.DEBUG)
@@ -25,13 +29,12 @@ class PbSDKShell:
       command.configure_subparser(subparser)
     args = parser.parse_args()
 
+    self.run_action(args.command, args)
+
+  def run_action(self, action, args):
     # Find the extension that was called
     command = [x for x in self.commands if x.name == args.command][0]
     command.run(args)
-
-  def run_action(self, action):
-    pass
-
 
 if __name__ == '__main__':
   PbSDKShell().main()
