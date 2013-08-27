@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 import websocket
+import logging
 from multiprocessing import Process
 from twisted.internet import reactor
 from twisted.python import log
@@ -146,6 +147,8 @@ def cmd_set_time(pebble, args):
     pebble.set_time(args.timestamp)
 
 def main():
+    logging.basicConfig(format='[%(levelname)-8s] %(message)s', level = logging.DEBUG)
+
     parser = argparse.ArgumentParser(description='a utility belt for pebble development')
     parser.add_argument('--pebble_id', type=str, help='the last 4 digits of the target Pebble\'s MAC address. \nNOTE: if \
                         --lightblue is set, providing a full MAC address (ex: "A0:1B:C0:D3:DC:93") won\'t require the pebble \

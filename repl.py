@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import logging
 import pebble as libpebble
 import code
 import readline
@@ -27,7 +28,9 @@ def startService():
     factory.protocol = EchoServerProtocol
     factory.setProtocolOptions(allowHixie76 = True)
     listenWS(factory)
-    reactor.run()  
+    reactor.run()
+
+logging.basicConfig(format='[%(levelname)-8s] %(message)s', level = logging.DEBUG)
 
 parser = argparse.ArgumentParser(description='An interactive environment for libpebble.')
 parser.add_argument('--pebble_id', metavar='PEBBLE_ID', type=str, help='the last 4 digits of the target Pebble\'s MAC address, or a complete MAC address')

@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import argparse
+import logging
+
 
 from pebble.PblCommand import PblCommand
 from pebble.PblProjectCreator import PblProjectCreator
@@ -14,6 +16,8 @@ class PbSDKShell:
     self.commands.append(PblBuildCommand())
 
   def main(self):
+    logging.basicConfig(format='[%(levelname)-8s] %(message)s', level = logging.DEBUG)
+
     parser = argparse.ArgumentParser(description = 'Pebble SDK Shell')
     subparsers = parser.add_subparsers(dest="command", title="Command", description="Action to perform")
     for command in self.commands:

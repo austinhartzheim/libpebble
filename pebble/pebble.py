@@ -4,7 +4,7 @@ import binascii
 import glob
 import itertools
 import json
-import logging
+import logging as log
 import os
 import serial
 import signal
@@ -20,12 +20,6 @@ import WebSocketPebble
 from collections import OrderedDict
 from LightBluePebble import LightBluePebble
 from struct import pack, unpack
-
-
-
-log = logging.getLogger()
-logging.basicConfig(format='[%(levelname)-8s] %(message)s')
-log.setLevel(logging.DEBUG)
 
 DEFAULT_PEBBLE_ID = None #Triggers autodetection on unix-like systems
 DEBUG_PROTOCOL = False
