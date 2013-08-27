@@ -12,5 +12,5 @@ class PblBuildCommand(PblCommand):
     os.system(self.waf_path(args) + " configure build")
 
   def waf_path(self, args):
-    waf_path = os.path.join(os.path.join(self.sdk_path(args), 'Pebble'), 'waf')
+    return os.path.join(os.path.join(self.sdk_path(args), 'Pebble'), 'waf')
 
