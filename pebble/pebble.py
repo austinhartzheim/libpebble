@@ -270,7 +270,7 @@ class Pebble(object):
 
 
 	def _exit_signal_handler(self, signum, frame):
-		print "Disconnecting before exiting..."
+		log.warn("Disconnecting before exiting...")
 		self.disconnect()
 		time.sleep(1)
 		os._exit(0)
@@ -746,7 +746,7 @@ class Pebble(object):
 
 		str_level = self.log_levels[level] if level in self.log_levels else "?"
 
-		print timestamp, str_level, filename, linenumber, message
+		log.info("{} {} {} {} {}".format(timestamp, str_level, filename, linenumber, message))
 
 	def _app_log_response(self, endpoint, data):
 		if (len(data) < 8):
@@ -760,7 +760,8 @@ class Pebble(object):
 
 		str_level = self.log_levels[level] if level in self.log_levels else "?"
 
-		print timestamp, str_level, app_uuid, filename, linenumber, message
+		#log.info("{} {} {} {} {} {}".format(timestamp, str_level, app_uuid, filename, linenumber, message))
+		log.info("{} {}:{} {}".format(str_level, filename, linenumber, message))
 
 	def _appbank_status_response(self, endpoint, data):
 		apps = {}

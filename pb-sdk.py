@@ -21,6 +21,7 @@ class PbSDKShell:
     self.commands.append(PblPingCommand())
     self.commands.append(PblListCommand())
     self.commands.append(PblRemoveCommand())
+    self.commands.append(PblLogsCommand())
 
   def main(self):
     logging.basicConfig(format='[%(levelname)-8s] %(message)s', level = logging.INFO)

@@ -64,11 +64,19 @@ class PblInstallCommand(LibPebbleCommand):
   def configure_subparser(self, parser):
     PblCommand.configure_subparser(self, parser)
     parser.add_argument('bundle', type=str)
+    parser.add_argument('--logs', action='store_true', help='Display logs after installing the app')
 
   def run(self, args):
     LibPebbleCommand.run(self, args)
     self.pebble.reinstall_app(args.bundle, True)
-    logging.info("App installed")
+
+    if args.logs:
+      logging.info('Displaying logs ... Ctrl-C to interrupt.')
+      try:
+          while True:
+              time.sleep(1)
+      except KeyboardInterrupt:
+          return
 
 
 class PblListCommand(LibPebbleCommand):
@@ -105,3 +113,21 @@ class PblRemoveCommand(LibPebbleCommand):
               self.pebble.remove_app(app["id"], app["index"])
               logging.info("App removed")
               return 0
+
+
+class PblLogsCommand(LibPebbleCommand):
+  name = 'logs'
+  help = 'Continuously displays logs from the watch'
+
+  def configure_subparser(self, parser):
+    PblCommand.configure_subparser(self, parser)
+
+  def run(self, args):
+      LibPebbleCommand.run(self, args)
+
+      logging.info('Displaying logs ... Ctrl-C to interrupt.')
+      try:
+          while True:
+              time.sleep(1)
+      except KeyboardInterrupt:
+          return
