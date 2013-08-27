@@ -43,15 +43,15 @@ args = parser.parse_args()
 if args.ws:
     try:
         ws = websocket.create_connection("ws://localhost:9000")
-        ws.close()    
+        ws.close()
     except:
-        print "Didn't find a websocket server. creating one... create a long running server with  \n\npython DebugServerPebble.py\n\n"	
+        print "Didn't find a websocket server. creating one... create a long running server with  \n\npython DebugServerPebble.py\n\n"
         p = Process(target=startService, args=())
         p.daemon = True
         p.start()
         sleep(1)
 
-    start_repl(None, args.lightblue, args.pair, args.ws)    
+    start_repl(None, args.lightblue, args.pair, args.ws)
 
 if args.lightblue:
     start_repl(args.pebble_id, args.lightblue, args.pair, args.ws)

@@ -251,14 +251,14 @@ def main():
     if args.ws:
        try:
             ws = websocket.create_connection("ws://localhost:9000")
-            ws.close()    
+            ws.close()
        except:
            print "Didn't find a websocket server. creating one... create a long running server with  \n\npython DebugServerPebble.py\n\n"
            p = Process(target=start_service, args=())
            p.daemon = True
            p.start()
            time.sleep(3)
-        
+
        pebble = libpebble.Pebble(using_lightblue=args.lightblue, pair_first=args.pair, using_ws=args.ws)
 
     else:
@@ -284,7 +284,7 @@ def main():
         return
     p.terminate();
     pebble.disconnect()
-        
+
 
 if __name__ == '__main__':
     main()
