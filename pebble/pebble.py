@@ -22,6 +22,7 @@ from LightBluePebble import LightBluePebble
 from struct import pack, unpack
 
 DEFAULT_PEBBLE_ID = None #Triggers autodetection on unix-like systems
+DEFAULT_PEBBLE_PORT = 9000
 DEBUG_PROTOCOL = False
 
 
@@ -220,7 +221,7 @@ class Pebble(object):
 
 
 
-	def __init__(self, id = None, using_lightblue = True, pair_first = False, using_ws = True, ws_ip = "ws://localhost:9000"):
+	def __init__(self, id = None, using_lightblue = True, pair_first = False, using_ws = True, ws_ip = "ws://localhost:{}".format(DEFAULT_PEBBLE_PORT)):
 		if id is None and not using_lightblue and not using_ws:
 			id = Pebble.AutodetectDevice()
 		self.id = id

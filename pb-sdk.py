@@ -14,13 +14,16 @@ class PbSDKShell:
   commands = []
 
   def __init__(self):
+    self.commands.append(PblServerCommand())
     self.commands.append(PblProjectCreator())
     self.commands.append(PblBuildCommand())
     self.commands.append(PblInstallCommand())
     self.commands.append(PblPingCommand())
+    self.commands.append(PblListCommand())
+    self.commands.append(PblRemoveCommand())
 
   def main(self):
-    logging.basicConfig(format='[%(levelname)-8s] %(message)s', level = logging.WARNING)
+    logging.basicConfig(format='[%(levelname)-8s] %(message)s', level = logging.INFO)
 
     parser = argparse.ArgumentParser(description = 'Pebble SDK Shell')
     parser.add_argument('--debug', action="store_true", help="Enable debugging output")
