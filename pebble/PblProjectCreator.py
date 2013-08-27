@@ -151,12 +151,13 @@ void handle_init() {
 }
 
 void handle_deinit() {
-  // unsubscribe from services here
+  text_layer_destroy(text_layer);
+  window_destroy(window);
 }
 
-void pbl_main(void *params) {
-  register_init_handler(&handle_init);
-  register_deinit_handler(&handle_deinit);
+int main(void) {
+  handle_init();
   app_event_loop();
+  handle_deinit();
 }
 """
