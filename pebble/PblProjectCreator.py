@@ -116,8 +116,8 @@ PBL_APP_INFO(MY_UUID,
              DEFAULT_MENU_ICON,
              APP_INFO_STANDARD_APP);
 
-Window *window;
-TextLayer *text_layer;
+static Window *window;
+static TextLayer *text_layer;
 
 void select_click_handler(ClickRecognizerRef recognizer, void *context) {
   text_layer_set_text(text_layer, "Select");
@@ -137,7 +137,7 @@ void config_provider(ClickConfig **config, Window *window) {
   config[BUTTON_ID_DOWN]->click.handler = down_click_handler;
 }
 
-void handle_init() {
+void handle_init(void) {
   window = window_create();
   window_stack_push(window, true /* Animated */);
 
@@ -150,7 +150,7 @@ void handle_init() {
   text_layer_set_text(text_layer, "Press a button");
 }
 
-void handle_deinit() {
+void handle_deinit(void) {
   text_layer_destroy(text_layer);
   window_destroy(window);
 }
