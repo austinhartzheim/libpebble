@@ -6,7 +6,7 @@ from multiprocessing import Process
 from autobahn.websocket import *
 from PblCommand import PblCommand
 import pebble as libpebble
-from DebugServerPebble import *
+from EchoServerProtocol import *
 
 def start_service():
   factory = WebSocketServerFactory("ws://localhost:9000")

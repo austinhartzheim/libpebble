@@ -14,7 +14,7 @@ from twisted.python import log
 from twisted.web.server import Site
 from twisted.web.static import File
 from autobahn.websocket import *
-from DebugServerPebble import *
+from pebble.EchoServerProtocol import *
 from time import sleep
 
 def start_repl(pebble_id, lightblue, pair, ws, ws_ip="ws://localhost:9000"):
