@@ -1,10 +1,11 @@
 import sys
+import logging
 from websocket import *
 from struct import unpack
 
 
 class WebSocketPebble(WebSocket):
-  
+
 ######## libPebble Bridge Methods #########
 
     def write(self, payload, opcode = ABNF.OPCODE_BINARY):
@@ -26,7 +27,7 @@ class WebSocketPebble(WebSocket):
         data = frame.format()
         self.io_sock.send(data)
         if traceEnabled:
-            logger.debug('send>>> ' + data.encode('hex'))
+            logging.debug('send>>> ' + data.encode('hex'))
 
     def read(self):
         """
@@ -48,13 +49,13 @@ class WebSocketPebble(WebSocket):
             resp = data[5:]
             direction = unpack('!b',data[0])
             if direction[0]==3:
-                print "Server: %s" % repr(data[1:])
+                logging.debug("Server: %s" % repr(data[1:]))
             if direction[0]==2:
-                print "Log: %s" % repr(data[1:])
+                logging.debug("Log: %s" % repr(data[1:]))
             if direction[0]==1:
-                print "Phone ==> Watch: %s" % data[1:].encode("hex")
-            if direction[0]==0: 
-                print "Watch ==> Phone: %s" % data[1:].encode("hex")
+                logging.debug("Phone ==> Watch: %s" % data[1:].encode("hex"))
+            if direction[0]==0:
+                logging.debug("Watch ==> Phone: %s" % data[1:].encode("hex"))
                 return (endpoint, resp, data[1:5])
             else:
                 return (None, None, data)

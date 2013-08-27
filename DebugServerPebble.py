@@ -1,5 +1,6 @@
 import sys
 import signal
+import logging
 from twisted.internet import reactor
 from twisted.python import log
 from twisted.web.server import Site
@@ -10,8 +11,8 @@ from autobahn.websocket import *
 
 class EchoServerProtocol(WebSocketServerProtocol):
    peers = [];
-   transports = {}   
-   
+   transports = {}
+
    def makeConnection(self, transport):
        """Make a connection to a transport and a server.
 
@@ -23,7 +24,7 @@ class EchoServerProtocol(WebSocketServerProtocol):
        self.transports[transport.getPeer().host+":"+str(transport.getPeer().port)]=transport
        self.connectionMade()
 
-   
+
    def sendData(self, data, sync = False, chopsize = None, peer=None):
 
      if chopsize and chopsize > 0:
@@ -44,7 +45,7 @@ class EchoServerProtocol(WebSocketServerProtocol):
            self._trigger()
         else:
            if peer is not None:
-               self.transport = self.transports[peer] #switch to custom peer  
+               self.transport = self.transports[peer] #switch to custom peer
            self.transport.write(data)
            if self.logOctets:
               self.logTxOctets(data, False)
@@ -206,34 +207,41 @@ class EchoServerProtocol(WebSocketServerProtocol):
 
    def connectionMade(self):
       return WebSocketServerProtocol.connectionMade(self)
-      
+
    def onConnect(self,connectionRequest):
       if "127.0.0.1" in connectionRequest.peerstr:
-         print "Console connected: " + connectionRequest.peerstr
+         logging.debug("Console connected: " + connectionRequest.peerstr)
       else:
-         print "App Connected: " + connectionRequest.peerstr     
+         logging.debug("App Connected: " + connectionRequest.peerstr)
       self.peers.append(connectionRequest.peerstr)
       return WebSocketServerProtocol.onConnect(self,connectionRequest)
 
    def connectionLost(self,reason):
       if "127.0.0.1" in self.peerstr:
-         print "Console disconnected: " + self.peerstr
+         logging.debug("Console disconnected: " + self.peerstr)
       else:
-         print "App Disconnected: " + self.peerstr
+         logging.debug("App Disconnected: " + self.peerstr)
       del self.transports[self.peerstr]
       self.peers.remove(self.peerstr)
       return WebSocketServerProtocol.connectionLost(self,reason)
 
-   
-   
+
+
 if __name__ == '__main__':
     log.startLogging(sys.stdout)
-    debug = True
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--debug')
+    args = parser.parse()
+
+    if args.debug:
+      logging.basic_config(levet=logging.DEBUG)
+
     factory = WebSocketServerFactory("ws://localhost:9000",
-                                   debug = debug,
-                                   debugCodePaths = debug)
+                                   debug = args.debug,
+                                   debugCodePaths = args.debug)
     factory.protocol = EchoServerProtocol
     factory.setProtocolOptions(allowHixie76 = True)
     listenWS(factory)
     reactor.run()
-	
+

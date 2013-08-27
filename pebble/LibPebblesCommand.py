@@ -1,5 +1,6 @@
 import sh, os
 import websocket
+import logging
 import time
 from multiprocessing import Process
 from autobahn.websocket import *
@@ -23,7 +24,8 @@ class LibPebbleCommand(PblCommand):
       ws = websocket.create_connection("ws://localhost:9000")
       ws.close()
     except:
-      print "Didn't find a websocket server. creating one... create a long running server with  \n\npython DebugServerPebble.py\n\n"
+      logging.warn("Didn't find a websocket server. Creating one...")
+      logging.warn("Hint: Create a long running server with 'pb-sdk.py server' command.")
       p = Process(target=start_service, args=())
       p.daemon = True
       p.start()
@@ -54,4 +56,4 @@ class PblInstallCommand(LibPebbleCommand):
 
   def run(self, args):
     LibPebbleCommand.run(self, args)
-    self.pebble.install_app(args.bundle, True)
+    self.pebble.reinstall_app(args.bundle, True)
