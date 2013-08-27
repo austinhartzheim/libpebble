@@ -6,7 +6,6 @@ import itertools
 import json
 import logging as log
 import os
-import serial
 import signal
 import stm32_crc
 import struct
@@ -18,7 +17,6 @@ import zipfile
 import WebSocketPebble
 
 from collections import OrderedDict
-from LightBluePebble import LightBluePebble
 from struct import pack, unpack
 
 DEFAULT_PEBBLE_ID = None #Triggers autodetection on unix-like systems
@@ -249,9 +247,11 @@ class Pebble(object):
 				self._ser = WebSocketPebble.create_connection(ws_ip)
 			else:
 				if using_lightblue:
+					from LightBluePebble import LightBluePebble
 					self._ser = LightBluePebble(self.id, pair_first)
 					signal.signal(signal.SIGINT, self._exit_signal_handler)
 				else:
+					import serial
 					devicefile = "/dev/tty.Pebble"+id+"-SerialPortSe"
 					log.debug("Attempting to open %s as Pebble device %s" % (devicefile, id))
 					self._ser = serial.Serial(devicefile, 115200, timeout=1)
