@@ -41,16 +41,16 @@ def cmd_launch_app(pebble, args):
     pebble.launcher_message(args.app_uuid, "RUNNING")
 
 def cmd_app_msg_send_string(pebble, args):
-        pebble.app_message_send_string(args.app_uuid, args.key, args.tuple_string)
+    pebble.app_message_send_string(args.app_uuid, args.key, args.tuple_string)
 
 def cmd_app_msg_send_uint(pebble, args):
-        pebble.app_message_send_uint(args.app_uuid, args.key, args.tuple_uint)
+    pebble.app_message_send_uint(args.app_uuid, args.key, args.tuple_uint)
 
 def cmd_app_msg_send_int(pebble, args):
-        pebble.app_message_send_int(args.app_uuid, args.key, args.tuple_int)
+    pebble.app_message_send_int(args.app_uuid, args.key, args.tuple_int)
 
 def cmd_app_msg_send_bytes(pebble, args):
-        pebble.app_message_send_byte_array(args.app_uuid, args.key, args.tuple_bytes)
+    pebble.app_message_send_byte_array(args.app_uuid, args.key, args.tuple_bytes)
 
 def cmd_remote(pebble, args):
     def do_oscacript(command):
@@ -249,17 +249,17 @@ def main():
     args = parser.parse_args()
 
     if args.ws:
-       try:
+        try:
             ws = websocket.create_connection("ws://localhost:9000")
             ws.close()
-       except:
-           print "Didn't find a websocket server. creating one... create a long running server with  \n\npython DebugServerPebble.py\n\n"
-           p = Process(target=start_service, args=())
-           p.daemon = True
-           p.start()
-           time.sleep(3)
+        except:
+            print "Didn't find a websocket server. creating one... create a long running server with  \n\npython DebugServerPebble.py\n\n"
+            p = Process(target=start_service, args=())
+            p.daemon = True
+            p.start()
+            time.sleep(3)
 
-       pebble = libpebble.Pebble(using_lightblue=args.lightblue, pair_first=args.pair, using_ws=args.ws)
+        pebble = libpebble.Pebble(using_lightblue=args.lightblue, pair_first=args.pair, using_ws=args.ws)
 
     else:
         attempts = 0

@@ -4,59 +4,59 @@ import uuid
 from PblCommand import PblCommand
 
 class PblProjectCreator(PblCommand):
-  name = 'new-project'
-  help = 'Create a new Pebble project'
+    name = 'new-project'
+    help = 'Create a new Pebble project'
 
-  def configure_subparser(self, parser):
-    parser.add_argument("name", help = "Name of the project you want to create")
+    def configure_subparser(self, parser):
+        parser.add_argument("name", help = "Name of the project you want to create")
 
-  def run(self, args):
-    print "Creating new project {}".format(args.name)
+    def run(self, args):
+        print "Creating new project {}".format(args.name)
 
-    # User can give a path to a new project dir
-    project_path = args.name
-    project_name = os.path.split(project_path)[1]
-    project_root = os.path.join(os.getcwd(), project_path)
+        # User can give a path to a new project dir
+        project_path = args.name
+        project_name = os.path.split(project_path)[1]
+        project_root = os.path.join(os.getcwd(), project_path)
 
-    project_resources_src = os.path.join(project_root, os.path.join("resources","src"))
-    project_src = os.path.join(project_root, "src")
+        project_resources_src = os.path.join(project_root, os.path.join("resources","src"))
+        project_src = os.path.join(project_root, "src")
 
-    # Create directories
-    os.makedirs(project_root)
-    os.makedirs(project_resources_src)
-    os.makedirs(project_src)
+        # Create directories
+        os.makedirs(project_root)
+        os.makedirs(project_resources_src)
+        os.makedirs(project_src)
 
-    # Create main .c file
-    self.generate_main_file(os.path.join(project_src, "%s.c" % (project_name)))
+        # Create main .c file
+        self.generate_main_file(os.path.join(project_src, "%s.c" % (project_name)))
 
-    # Add resource file
-    open(os.path.join(project_resources_src, "resource_map.json"), "w").write(FILE_DUMMY_RESOURCE_MAP)
+        # Add resource file
+        open(os.path.join(project_resources_src, "resource_map.json"), "w").write(FILE_DUMMY_RESOURCE_MAP)
 
-    # Add wscript file
-    open(os.path.join(project_root, "wscript"), "w").write(FILE_WSCRIPT)
+        # Add wscript file
+        open(os.path.join(project_root, "wscript"), "w").write(FILE_WSCRIPT)
 
-    # Add .gitignore file
-    open(os.path.join(project_root, ".gitignore"), "w").write(FILE_GITIGNORE)
+        # Add .gitignore file
+        open(os.path.join(project_root, ".gitignore"), "w").write(FILE_GITIGNORE)
 
-  def generate_uuid_as_array(self):
-    """
-    Returns a freshly generated UUID value in string form formatted as
-    a C array for inclusion in a template's "#define MY_UUID {...}"
-    macro.
-    """
-    return ", ".join(["0x%02X" % ord(b) for b in uuid.uuid4().bytes])
+    def generate_uuid_as_array(self):
+        """
+        Returns a freshly generated UUID value in string form formatted as
+        a C array for inclusion in a template's "#define MY_UUID {...}"
+        macro.
+        """
+        return ", ".join(["0x%02X" % ord(b) for b in uuid.uuid4().bytes])
 
 
-  def generate_main_file(self, destination_filepath):
-    """
-    Generates the main file *and* replaces a dummy UUID
-    value in it with a freshly generated value.
-    """
+    def generate_main_file(self, destination_filepath):
+        """
+        Generates the main file *and* replaces a dummy UUID
+        value in it with a freshly generated value.
+        """
 
-    # This is the dummy UUID value in the template file.
-    UUID_VALUE_TO_REPLACE="/* GENERATE YOURSELF USING `uuidgen` */ 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF"
+        # This is the dummy UUID value in the template file.
+        UUID_VALUE_TO_REPLACE="/* GENERATE YOURSELF USING `uuidgen` */ 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF"
 
-    open(destination_filepath, "w").write(FILE_DUMMY_MAIN.replace(UUID_VALUE_TO_REPLACE, self.generate_uuid_as_array(), 1))
+        open(destination_filepath, "w").write(FILE_DUMMY_MAIN.replace(UUID_VALUE_TO_REPLACE, self.generate_uuid_as_array(), 1))
 
 
 FILE_GITIGNORE = """
