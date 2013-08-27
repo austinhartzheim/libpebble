@@ -24,8 +24,6 @@ class PbSDKShell:
     self.commands.append(PblLogsCommand())
 
   def main(self):
-    logging.basicConfig(format='[%(levelname)-8s] %(message)s', level = logging.INFO)
-
     parser = argparse.ArgumentParser(description = 'Pebble SDK Shell')
     parser.add_argument('--debug', action="store_true", help="Enable debugging output")
     subparsers = parser.add_subparsers(dest="command", title="Command", description="Action to perform")
@@ -33,6 +31,12 @@ class PbSDKShell:
       subparser = subparsers.add_parser(command.name, help = command.help)
       command.configure_subparser(subparser)
     args = parser.parse_args()
+
+    log_level = logging.INFO
+    if args.debug:
+      log_level = logging.DEBUG
+
+    logging.basicConfig(format='[%(levelname)-8s] %(message)s', level = log_level)
 
     self.run_action(args.command, args)
 
