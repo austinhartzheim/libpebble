@@ -500,11 +500,7 @@ class Pebble(object):
         data = f.read()
         self._ser.write(data, ws_cmd=WebSocketPebble.WS_CMD_APP_INSTALL)
 
-    def _install_app_pebble_protocol(self, pbz_path):
-        bundle = PebbleBundle(pbz_path)
-        if not bundle.is_app_bundle():
-            raise PebbleError(self.id, "This is not an app bundle")
-        app_metadata = bundle.get_app_metadata()
+    def _install_app_pebble_protocol(self, bundle):
         apps = self.get_appbank_status()
         if not apps:
             raise PebbleError(self.id, "could not obtain app list; try again")
@@ -547,12 +543,17 @@ class Pebble(object):
 
         """Install an app bundle (*.pbw) to the target Pebble."""
 
+        bundle = PebbleBundle(pbz_path)
+        if not bundle.is_app_bundle():
+            raise PebbleError(self.id, "This is not an app bundle")
+
         if self.using_ws:
             self._install_app_ws(pbz_path)
         else:
-            self._install_app_pebble_protocol(pbz_path)
+            self._install_app_pebble_protocol(bundle)
 
         if launch_on_install:
+            app_metadata = bundle.get_app_metadata()
             self.launcher_message(app_metadata['uuid'].bytes, "RUNNING", uuid_is_string=False)
 
     def install_firmware(self, pbz_path, recovery=False):
