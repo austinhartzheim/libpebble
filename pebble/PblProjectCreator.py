@@ -128,7 +128,7 @@ void up_click_handler(ClickRecognizerRef recognizer, void *context) {
 }
 
 void down_click_handler(ClickRecognizerRef recognizer, void *context) {
-  text_layer_set_text(text_layer, "Button");
+  text_layer_set_text(text_layer, "Down");
 }
 
 void config_provider(ClickConfig **config, Window *window) {
