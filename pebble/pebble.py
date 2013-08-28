@@ -6,7 +6,6 @@ import itertools
 import json
 import logging as log
 import os
-import serial
 import sh
 import signal
 import stm32_crc
