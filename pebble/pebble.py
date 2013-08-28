@@ -154,6 +154,7 @@ class EndpointSync():
             self.marker.wait(timeout=self.timeout)
             return self.data[1]
         except:
+            print "Timed out... Is the Pebble phone app connected?"
             return False
 
 class PebbleError(Exception):

@@ -6,8 +6,43 @@ from twisted.python import log
 from twisted.web.server import Site
 from twisted.web.static import File
 from autobahn.websocket import *
+from multiprocessing import Process
+from multiprocessing import Value
+from time import sleep
+import pebble as libpebble
+import socket
+import websocket as websocketclient
 
+# This file contains the websocket echo server code.
+# Based on websocket.py from:
+# http://autobahn.ws
 
+def echo_server_start(port, blocking=False):
+    def run(port):
+        factory = WebSocketServerFactory("ws://localhost:{}".format(port))
+        factory.protocol = EchoServerProtocol
+        factory.setProtocolOptions(allowHixie76 = True)
+        listenWS(factory)
+        logging.info("Relay server running...")
+        reactor.run()
+        logging.warn("Relay server died...")
+    if blocking:
+        run(port)
+    else:
+        try:
+            # Check if there is already a relay server running, by attempting to make a connection to it:
+            ws = websocketclient.create_connection("ws://localhost:{}".format(port))
+            ws.close()
+        except:
+            my_ip = socket.gethostbyname(socket.gethostname())
+            logging.info("Didn't find a websocket relay server. Creating one...")
+            logging.info("Hint 1: Create a long running relay server with 'pb-sdk.py server' command.")
+            logging.info("Hint 2: Make sure your phone is in the same subnet as this computer.")
+            logging.info("Hint 3: Use ifconfig to look up your computer's IP address.")
+            p = Process(target=run, args=(port,))
+            p.daemon = True
+            p.start()
+            sleep(1)
 
 class EchoServerProtocol(WebSocketServerProtocol):
     peers = [];
@@ -212,7 +247,7 @@ class EchoServerProtocol(WebSocketServerProtocol):
         if "127.0.0.1" in connectionRequest.peerstr:
             logging.debug("Console connected: " + connectionRequest.peerstr)
         else:
-            logging.debug("App Connected: " + connectionRequest.peerstr)
+            logging.debug("Phone Connected: " + connectionRequest.peerstr)
         self.peers.append(connectionRequest.peerstr)
         return WebSocketServerProtocol.onConnect(self,connectionRequest)
 
@@ -220,7 +255,7 @@ class EchoServerProtocol(WebSocketServerProtocol):
         if "127.0.0.1" in self.peerstr:
             logging.debug("Console disconnected: " + self.peerstr)
         else:
-            logging.debug("App Disconnected: " + self.peerstr)
+            logging.debug("Phone Disconnected: " + self.peerstr)
         del self.transports[self.peerstr]
         self.peers.remove(self.peerstr)
         return WebSocketServerProtocol.connectionLost(self,reason)

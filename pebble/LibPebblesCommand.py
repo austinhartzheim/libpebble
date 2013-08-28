@@ -2,35 +2,17 @@ import sh, os
 import websocket
 import logging
 import time
-from multiprocessing import Process
 from autobahn.websocket import *
 from PblCommand import PblCommand
 import pebble as libpebble
 from EchoServerProtocol import *
-
-def start_pebble_server():
-    factory = WebSocketServerFactory("ws://localhost:{}".format(libpebble.DEFAULT_PEBBLE_PORT))
-    factory.protocol = EchoServerProtocol
-    factory.setProtocolOptions(allowHixie76 = True)
-    listenWS(factory)
-    reactor.run()
 
 class LibPebbleCommand(PblCommand):
     def configure_subparser(self, parser):
         pass
 
     def run(self, args):
-        try:
-            ws = websocket.create_connection("ws://localhost:{}".format(libpebble.DEFAULT_PEBBLE_PORT))
-            ws.close()
-        except:
-            logging.warn("Didn't find a websocket server. Creating one...")
-            logging.warn("Hint: Create a long running server with 'pb-sdk.py server' command.")
-            p = Process(target=start_pebble_server, args=())
-            p.daemon = True
-            p.start()
-            time.sleep(3)
-
+        echo_server_start(libpebble.DEFAULT_PEBBLE_PORT)
         self.pebble = libpebble.Pebble(using_lightblue=False, pair_first=False, using_ws=True)
 
 class PblServerCommand(LibPebbleCommand):
@@ -43,7 +25,7 @@ class PblServerCommand(LibPebbleCommand):
     def run(self, args):
         logging.info("Starting a Pebble WS server on port {}".format(libpebble.DEFAULT_PEBBLE_PORT))
         logging.info("Type Ctrl-C to interrupt.")
-        start_pebble_server()
+        echo_server_start(libpebble.DEFAULT_PEBBLE_PORT, blocking=True)
 
 class PblPingCommand(LibPebbleCommand):
     name = 'ping'

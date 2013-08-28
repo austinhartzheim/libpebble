@@ -3,6 +3,9 @@ import logging
 from websocket import *
 from struct import unpack
 
+# This file contains the libpebble websocket client.
+# Based on websocket.py from:
+# https://github.com/liris/websocket-client
 
 class WebSocketPebble(WebSocket):
 
