@@ -36,9 +36,7 @@ def echo_server_start(port, blocking=False):
         except:
             my_ip = socket.gethostbyname(socket.gethostname())
             logging.info("Didn't find a websocket relay server. Creating one...")
-            logging.info("Hint 1: Create a long running relay server with 'pb-sdk.py server' command.")
-            logging.info("Hint 2: Make sure your phone is in the same subnet as this computer.")
-            logging.info("Hint 3: Use ifconfig to look up your computer's IP address.")
+            logging.info("Hint: Create a long running relay server with 'pb-sdk.py server' command.")
             p = Process(target=run, args=(port,))
             p.daemon = True
             p.start()

@@ -153,8 +153,7 @@ class EndpointSync():
             self.marker.wait(timeout=self.timeout)
             return self.data[1]
         except:
-            print "Timed out... Is the Pebble phone app connected?"
-            return False
+            raise PebbleError(None, "Timed out... Is the Pebble phone app connected?")
 
 class PebbleError(Exception):
     def __init__(self, id, message):
@@ -764,19 +763,19 @@ class Pebble(object):
 
         str_level = self.log_levels[level] if level in self.log_levels else "?"
 
-        #log.info("{} {} {} {} {} {}".format(timestamp, str_level, app_uuid, filename, linenumber, message))
         log.info("{} {}:{} {}".format(str_level, filename, linenumber, message))
 
         m = re.search('App fault! PC: (0x[0-9A-Fa-f]+) LR: (0x[0-9A-Fa-f]+)', message)
         if m:
             pc = m.group(1)
             lr = m.group(2)
-            print 'Your app crashed... :\'('
+            log.warn('Your app crashed... :\'(')
+
             if os.path.exists(APP_ELF_PATH):
-                print 'Looking up the code line(s) that caused the crash:'
-                print sh.arm_none_eabi_addr2line('--exe=' + APP_ELF_PATH, pc, lr)
+                log.info('Looking up the code line(s) that caused the crash:')
+                log.info(sh.arm_none_eabi_addr2line('--exe=' + APP_ELF_PATH, pc, lr))
             else:
-                print "Tried to look up where you app crashed, but cannot find '%s'." % APP_ELF_PATH
+                log.warn("Tried to look up where you app crashed, but cannot find '%s'." % APP_ELF_PATH)
 
     def _appbank_status_response(self, endpoint, data):
         apps = {}
