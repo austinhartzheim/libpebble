@@ -1,7 +1,6 @@
 twisted
 autobahn
 websocket-client
-sh
 pyserial>=2.6
 # Only if using bluetooth connection to Pebble:
 # git+http://github.com/pebble/lightblue-0.4.git#egg=lightblue-0.4
