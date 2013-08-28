@@ -1,13 +1,24 @@
 import sys
+import logging
 from websocket import *
 from struct import unpack
+from struct import pack
 
+# This file contains the libpebble websocket client.
+# Based on websocket.py from:
+# https://github.com/liris/websocket-client
+
+WS_CMD_WATCH_TO_PHONE = 0x00
+WS_CMD_PHONE_TO_WATCH = 0x01
+WS_CMD_PHONE_APP_LOG = 0x02
+WS_CMD_SERVER_LOG = 0x03
+WS_CMD_APP_INSTALL = 0x04
 
 class WebSocketPebble(WebSocket):
-  
+
 ######## libPebble Bridge Methods #########
 
-    def write(self, payload, opcode = ABNF.OPCODE_BINARY):
+    def write(self, payload, opcode = ABNF.OPCODE_BINARY, ws_cmd = WS_CMD_PHONE_TO_WATCH):
         """
         BRIDGES THIS METHOD:
         def write(self, message):
@@ -20,13 +31,15 @@ class WebSocketPebble(WebSocket):
                     log.debug("LightBlue process has shutdown (queue write)")
 
         """
+        # Append command byte to the payload:
+        payload = pack("B", ws_cmd) + payload
         frame = ABNF.create_frame(payload, opcode)
         if self.get_mask_key:
             frame.get_mask_key = self.get_mask_key
         data = frame.format()
         self.io_sock.send(data)
         if traceEnabled:
-            logger.debug('send>>> ' + data.encode('hex'))
+            logging.debug('send>>> ' + data.encode('hex'))
 
     def read(self):
         """
@@ -46,15 +59,15 @@ class WebSocketPebble(WebSocket):
             opcode, data = self.recv_data()
             size, endpoint = unpack("!HH", data[1:5])
             resp = data[5:]
-            direction = unpack('!b',data[0])
-            if direction[0]==3:
-                print "Server: %s" % repr(data[1:])
-            if direction[0]==2:
-                print "Log: %s" % repr(data[1:])
-            if direction[0]==1:
-                print "Phone ==> Watch: %s" % data[1:].encode("hex")
-            if direction[0]==0: 
-                print "Watch ==> Phone: %s" % data[1:].encode("hex")
+            ws_cmd = unpack('!b',data[0])
+            if ws_cmd[0]==WS_CMD_SERVER_LOG:
+                logging.debug("Server: %s" % repr(data[1:]))
+            if ws_cmd[0]==WS_CMD_PHONE_APP_LOG:
+                logging.debug("Log: %s" % repr(data[1:]))
+            if ws_cmd[0]==WS_CMD_PHONE_TO_WATCH:
+                logging.debug("Phone ==> Watch: %s" % data[1:].encode("hex"))
+            if ws_cmd[0]==WS_CMD_WATCH_TO_PHONE:
+                logging.debug("Watch ==> Phone: %s" % data[1:].encode("hex"))
                 return (endpoint, resp, data[1:5])
             else:
                 return (None, None, data)
