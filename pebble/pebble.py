@@ -496,20 +496,12 @@ class Pebble(object):
         self.remove_app_by_uuid(uuid)
         self.install_app(pbz_path)
 
-    def install_app(self, pbz_path, launch_on_install=True):
+    def _install_app_ws(self, pbz_path):
+        f = open(pbz_path, 'r')
+        data = f.read()
+        self._ser.write(data, ws_cmd=WebSocketPebble.WS_CMD_APP_INSTALL)
 
-        """
-        Install an app bundle (*.pbw) to the target Pebble.
-
-        This will pick the first free app-bank available.
-        """
-
-        # if self.using_ws:
-        #       f = open(pbz_path, 'r')
-        #       data = f.read()
-        #       self._send_message("VERSION",data) #warning: using the version endpoint but any endpoint should work since we're sending it to the phone, would be nice to have a new endpoint
-        #       return;
-
+    def _install_app_pebble_protocol(self, pbz_path):
         bundle = PebbleBundle(pbz_path)
         if not bundle.is_app_bundle():
             raise PebbleError(self.id, "This is not an app bundle")
@@ -551,6 +543,15 @@ class Pebble(object):
         time.sleep(2)
         self._add_app(first_free)
         time.sleep(2)
+
+    def install_app(self, pbz_path, launch_on_install=True):
+
+        """Install an app bundle (*.pbw) to the target Pebble."""
+
+        if self.using_ws:
+            self._install_app_ws(pbz_path)
+        else:
+            self._install_app_pebble_protocol(pbz_path)
 
         if launch_on_install:
             self.launcher_message(app_metadata['uuid'].bytes, "RUNNING", uuid_is_string=False)
