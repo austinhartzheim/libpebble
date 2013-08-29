@@ -90,6 +90,13 @@ def cmd_logcat(pebble, args):
     except KeyboardInterrupt:
         return
 
+def cmd_log_dump(pebble, args):
+    if args.generation_number is not None:
+        pebble.dump_logs(args.generation_number)
+    else:
+        for i in xrange(4):
+            pebble.dump_logs(i)
+
 def cmd_list_apps(pebble, args):
     apps = pebble.get_appbank_status()
     if apps is not False:
@@ -193,6 +200,10 @@ def main():
 
     logcat_parser = subparsers.add_parser('logcat', help='view logs sent from a connected watch')
     logcat_parser.set_defaults(func=cmd_logcat)
+
+    log_dump_parser = subparsers.add_parser('log_dump', help='dump logs stored on the watch for previous generations')
+    log_dump_parser.add_argument('--generation_number', type=int, help='the generation to dump')
+    log_dump_parser.set_defaults(func=cmd_log_dump)
 
     list_apps_parser = subparsers.add_parser('list', help='list installed apps')
     list_apps_parser.set_defaults(func=cmd_list_apps)

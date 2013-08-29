@@ -160,7 +160,7 @@ class LightBluePebble(object):
                         # TODO: Should probably have some kind of timeout here
                         pass
                 try:
-                    print (endpoint, resp, rec_data)
+                    # print (endpoint, resp, rec_data)
                     self.rec_queue.put((endpoint, resp, rec_data))
 
                 except (IOError, EOFError):
