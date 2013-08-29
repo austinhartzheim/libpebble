@@ -552,7 +552,7 @@ class Pebble(object):
         else:
             self._install_app_pebble_protocol(bundle)
 
-        if launch_on_install:
+        if launch_on_install and not self.using_ws:
             app_metadata = bundle.get_app_metadata()
             self.launcher_message(app_metadata['uuid'].bytes, "RUNNING", uuid_is_string=False)
 
