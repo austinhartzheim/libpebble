@@ -40,7 +40,6 @@ def echo_server_start(port, blocking=False):
             p = Process(target=run, args=(port,))
             p.daemon = True
             p.start()
-            sleep(1)
 
 class EchoServerProtocol(WebSocketServerProtocol):
     peers = [];

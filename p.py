@@ -242,6 +242,8 @@ def main():
 
     if args.ws:
         echo_server_start(libpebble.DEFAULT_PEBBLE_PORT)
+        # FIXME: This sleep is longer than the phone's reconnection interval (2s), to give it time to connect.
+        sleep(2.5)
         pebble = libpebble.Pebble(using_lightblue=args.lightblue, pair_first=args.pair, using_ws=args.ws)
 
     else:
@@ -265,7 +267,6 @@ def main():
         pebble.disconnect()
         raise e
         return
-    p.terminate();
     pebble.disconnect()
 
 

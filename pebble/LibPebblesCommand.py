@@ -13,6 +13,8 @@ class LibPebbleCommand(PblCommand):
 
     def run(self, args):
         echo_server_start(libpebble.DEFAULT_PEBBLE_PORT)
+        # FIXME: This sleep is longer than the phone's reconnection interval (2s), to give it time to connect.
+        sleep(2.5)
         self.pebble = libpebble.Pebble(using_lightblue=False, pair_first=False, using_ws=True)
 
 class PblServerCommand(LibPebbleCommand):
