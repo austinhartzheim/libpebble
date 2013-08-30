@@ -477,11 +477,12 @@ class Pebble(object):
 
         # attempt to remove an app by its name
         apps = self.get_appbank_status()
-        for app in apps["apps"]:
-            if app["name"] == app_metadata['app_name']:
-                result_name = self.remove_app(app["id"], app["index"])
-                if endpoint_check(result_name, pbz_path):
-                    return self.install_app(pbz_path, launch_on_install)
+        if type(apps) is dict:
+            for app in apps["apps"]:
+                if app["name"] == app_metadata['app_name']:
+                    result_name = self.remove_app(app["id"], app["index"])
+                    if endpoint_check(result_name, pbz_path):
+                        return self.install_app(pbz_path, launch_on_install)
 
         return self.install_app(pbz_path, launch_on_install)
 
