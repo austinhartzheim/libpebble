@@ -139,9 +139,8 @@ void config_provider(ClickConfig **config, Window *window) {
 
 void handle_init(void) {
   window = window_create();
-  window_stack_push(window, true /* Animated */);
-
   window_set_click_config_provider(window, (ClickConfigProvider) config_provider);
+  window_stack_push(window, true /* Animated */);
 
   text_layer = text_layer_create(GRect(/* x: */ 0, /* y: */ 74,
                                        /* width: */ 144, /* height: */ 20));
@@ -151,12 +150,17 @@ void handle_init(void) {
 }
 
 void handle_deinit(void) {
-  text_layer_destroy(text_layer);
+  window_stack_remove(window, false /* Animated */);
   window_destroy(window);
+
+  text_layer_destroy(text_layer);
 }
 
 int main(void) {
   handle_init();
+
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Done initializing, pushed window: %p", window);
+
   app_event_loop();
   handle_deinit();
 }
