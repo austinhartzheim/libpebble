@@ -73,13 +73,16 @@ class PblListCommand(LibPebbleCommand):
     def run(self, args):
         LibPebbleCommand.run(self, args)
 
-        apps = self.pebble.get_appbank_status()
-        if apps is not False:
-            for app in apps['apps']:
+        try:
+            response = self.pebble.get_appbank_status()
+            apps = response['apps']
+            if len(apps) == 0:
+                logging.info("No apps installed.")
+                return
+            for app in apps:
                 logging.info('[{}] {}'.format(app['index'], app['name']))
-        else:
-            logging.info("No apps.")
-
+        except:
+            logging.error("Error getting apps list.")
 
 class PblRemoveCommand(LibPebbleCommand):
     name = 'rm'
