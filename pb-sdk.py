@@ -6,7 +6,7 @@ import logging
 import pebble as libpebble
 from pebble.PblCommand          import PblCommand
 from pebble.PblProjectCreator   import PblProjectCreator
-from pebble.PblBuildCommand     import PblBuildCommand
+from pebble.PblBuildCommand     import PblBuildCommand, PblCleanCommand
 from pebble.LibPebblesCommand   import *
 
 
@@ -17,6 +17,7 @@ class PbSDKShell:
         self.commands.append(PblServerCommand())
         self.commands.append(PblProjectCreator())
         self.commands.append(PblBuildCommand())
+        self.commands.append(PblCleanCommand())
         self.commands.append(PblInstallCommand())
         self.commands.append(PblPingCommand())
         self.commands.append(PblListCommand())
