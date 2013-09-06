@@ -1,4 +1,4 @@
-import sh, os
+import sh, os, subprocess
 from PblCommand import PblCommand
 
 class PblWafCommand(PblCommand):
@@ -15,7 +15,7 @@ class PblBuildCommand(PblWafCommand):
         PblCommand.configure_subparser(self, parser)
 
     def run(self, args):
-        os.system(self.waf_path(args) + " configure build")
+        return subprocess.call(self.waf_path(args) + " configure build", shell=True)
 
 class PblCleanCommand(PblWafCommand):
     name = 'clean'

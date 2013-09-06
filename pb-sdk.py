@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import sys
 
 import pebble as libpebble
 from pebble.PblCommand          import PblCommand
@@ -39,19 +40,24 @@ class PbSDKShell:
 
         logging.basicConfig(format='[%(levelname)-8s] %(message)s', level = log_level)
 
-        self.run_action(args.command, args)
+        return self.run_action(args.command, args)
 
     def run_action(self, action, args):
         # Find the extension that was called
         command = [x for x in self.commands if x.name == args.command][0]
 
         try:
-            command.run(args)
+            return command.run(args)
         except libpebble.PebbleError as e:
             if args.debug:
                 raise e
             else:
                 logging.error(e)
+                return 1
 
 if __name__ == '__main__':
-    PbSDKShell().main()
+    retval = PbSDKShell().main()
+    if retval is None:
+        retval = 0
+    sys.exit(retval)
+
