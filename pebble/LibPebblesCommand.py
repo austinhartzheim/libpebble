@@ -74,7 +74,7 @@ class PblListCommand(LibPebbleCommand):
         LibPebbleCommand.run(self, args)
 
         apps = self.pebble.get_appbank_status()
-        if apps is not False:
+        if apps is not False and len(apps['apps']) > 0:
             for app in apps['apps']:
                 logging.info('[{}] {}'.format(app['index'], app['name']))
         else:
@@ -97,6 +97,9 @@ class PblRemoveCommand(LibPebbleCommand):
                 self.pebble.remove_app(app["id"], app["index"])
                 logging.info("App removed")
                 return 0
+
+        logging.info("No app found in bank %u" % args.bank_id)
+        return 1
 
 
 class PblLogsCommand(LibPebbleCommand):
