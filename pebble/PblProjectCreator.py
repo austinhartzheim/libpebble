@@ -9,6 +9,7 @@ class PblProjectCreator(PblCommand):
 
     def configure_subparser(self, parser):
         parser.add_argument("name", help = "Name of the project you want to create")
+        parser.add_argument("--javascript", action="store_true", help = "Generate javascript related files")
 
     def run(self, args):
         print "Creating new project {}".format(args.name)
@@ -30,13 +31,27 @@ class PblProjectCreator(PblCommand):
         self.generate_main_file(os.path.join(project_src, "%s.c" % (project_name)))
 
         # Add resource file
-        open(os.path.join(project_resources_src, "resource_map.json"), "w").write(FILE_DUMMY_RESOURCE_MAP)
+        with open(os.path.join(project_resources_src, "resource_map.json"), "w") as f:
+            f.write(FILE_DUMMY_RESOURCE_MAP)
 
         # Add wscript file
-        open(os.path.join(project_root, "wscript"), "w").write(FILE_WSCRIPT)
+        with open(os.path.join(project_root, "wscript"), "w") as f:
+            f.write(FILE_WSCRIPT)
 
         # Add .gitignore file
-        open(os.path.join(project_root, ".gitignore"), "w").write(FILE_GITIGNORE)
+        with open(os.path.join(project_root, ".gitignore"), "w") as f:
+            f.write(FILE_GITIGNORE)
+
+        if args.javascript:
+            project_js_src = os.path.join(project_src, "js")
+            os.makedirs(project_js_src)
+
+            with open(os.path.join(project_js_src, "appinfo.json"), "w") as f:
+                f.write(FILE_DUMMY_JAVASCRIPT_APPINFO)
+
+            with open(os.path.join(project_js_src, "pebble-js-app.js"), "w") as f:
+                f.write(FILE_DUMMY_JAVASCRIPT_SRC)
+
 
     def generate_uuid_as_array(self):
         """
@@ -163,3 +178,24 @@ int main(void) {
   handle_deinit();
 }
 """
+
+FILE_DUMMY_JAVASCRIPT_APPINFO = """{
+  "info": {
+    "app_id": "com.getpebble.example",
+    "app_uuid": "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF",
+    "app_name": "Template Javascript App",
+    "support_url": "http://www.yourwebsite.com",
+    "version_code": 1,
+    "version_label": "1.0.0",
+    "app_key_type": "manual"
+  },
+  "app_keys": {
+    "dummy": 0
+  }
+}
+"""
+
+FILE_DUMMY_JAVASCRIPT_SRC = """\
+Pebble.showSimpleNotificationOnPebble("Hello world!", "Sent from your javascript application.")
+"""
+
