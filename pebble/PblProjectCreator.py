@@ -150,10 +150,8 @@ void handle_init(void) {
 }
 
 void handle_deinit(void) {
-  window_stack_remove(window, false /* Animated */);
-  window_destroy(window);
-
   text_layer_destroy(text_layer);
+  window_destroy(window);
 }
 
 int main(void) {
