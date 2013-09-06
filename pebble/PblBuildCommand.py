@@ -1,4 +1,4 @@
-import sh, os
+import sh, os, subprocess
 from PblCommand import PblCommand
 
 class PblBuildCommand(PblCommand):
@@ -9,7 +9,7 @@ class PblBuildCommand(PblCommand):
         PblCommand.configure_subparser(self, parser)
 
     def run(self, args):
-        os.system(self.waf_path(args) + " configure build")
+        return subprocess.call(self.waf_path(args) + " configure build", shell=True)
 
     def waf_path(self, args):
         return os.path.join(os.path.join(self.sdk_path(args), 'Pebble'), 'waf')
