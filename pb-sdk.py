@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import sys
 
 import pebble as libpebble
 from pebble.PblCommand          import PblCommand
@@ -55,7 +56,7 @@ class PbSDKShell:
 
 if __name__ == '__main__':
     retval = PbSDKShell().main()
-    if type(retval) is int or type(retval) is long:
-        exit(retval)
-    else:
-        exit(0)
+    if retval is None:
+        retval = 0
+    sys.exit(retval)
+
