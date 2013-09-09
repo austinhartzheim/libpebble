@@ -1,5 +1,6 @@
 import sh, os, subprocess
 from PblCommand import PblCommand
+from PblProjectCreator import requires_project_dir
 
 class PblWafCommand(PblCommand):
     """ Helper class for build commands that execute waf """
@@ -14,6 +15,7 @@ class PblBuildCommand(PblWafCommand):
     def configure_subparser(self, parser):
         PblCommand.configure_subparser(self, parser)
 
+    @requires_project_dir
     def run(self, args):
         return subprocess.call(self.waf_path(args) + " configure build", shell=True)
 
@@ -24,6 +26,9 @@ class PblCleanCommand(PblWafCommand):
     def configure_subparser(self, parser):
         PblCommand.configure_subparser(self, parser)
 
+    @requires_project_dir
     def run(self, args):
+        check_project_directory()
+
         os.system(self.waf_path(args) + " distclean")
 
