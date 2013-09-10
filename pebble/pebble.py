@@ -446,62 +446,20 @@ class Pebble(object):
         self._send_message("TIME", data)
 
 
-    def reinstall_app(self, pbz_path, launch_on_install=True):
-
-        """
-        A convenience method to uninstall and install an app
-
-        If the UUID uninstallation method fails, app name in metadata will be used.
-        """
-
-        def endpoint_check(result, pbz_path):
-            if result == 'app removed':
-                return True
-            else:
-                if DEBUG_PROTOCOL:
-                    log.warn("Failed to remove supplied app, app manager message was: " + result)
-                return False
-
-        # get the bundle's metadata to identify the app being replaced
-        bundle = PebbleBundle(pbz_path)
-        if not bundle.is_app_bundle():
-            raise PebbleError(self.id, "This is not an app bundle")
-        app_metadata = bundle.get_app_metadata()
-
-        # attempt to remove an app by its UUIDgit
-        result_uuid = self.remove_app_by_uuid(app_metadata['uuid'].bytes, uuid_is_string=False)
-        if endpoint_check(result_uuid, pbz_path):
-            return self.install_app(pbz_path, launch_on_install)
-
-        if DEBUG_PROTOCOL:
-            log.warn("UUID removal failure, attempting to remove existing app by app name")
-
-        # attempt to remove an app by its name
-        apps = self.get_appbank_status()
-        for app in apps["apps"]:
-            if app["name"] == app_metadata['app_name']:
-                result_name = self.remove_app(app["id"], app["index"])
-                if endpoint_check(result_name, pbz_path):
-                    return self.install_app(pbz_path, launch_on_install)
-
-        return self.install_app(pbz_path, launch_on_install)
-
-    def reinstall_app_by_uuid(self, uuid, pbz_path):
-
-        """
-        A convenience method to uninstall and install an app by UUID.
-
-        Must supply app UUID from source. ex: '54D3008F0E46462C995C0D0B4E01148C'
-        """
-        self.remove_app_by_uuid(uuid)
-        self.install_app(pbz_path)
-
-    def _install_app_ws(self, pbz_path):
-        f = open(pbz_path, 'r')
+    def install_app_ws(self, pbw_path):
+        f = open(pbw_path, 'r')
         data = f.read()
         self._ser.write(data, ws_cmd=WebSocketPebble.WS_CMD_APP_INSTALL)
 
-    def _install_app_pebble_protocol(self, bundle):
+    def install_app_pebble_protocol(self, pbw_path, launch_on_install=True):
+
+        bundle = PebbleBundle(pbw_path)
+        if not bundle.is_app_bundle():
+            raise PebbleError(self.id, "This is not an app bundle")
+
+        app_metadata = bundle.get_app_metadata()
+        self.remove_app_by_uuid(app_metadata['uuid'].bytes, uuid_is_string=False)
+
         apps = self.get_appbank_status()
         if not apps:
             raise PebbleError(self.id, "could not obtain app list; try again")
@@ -525,7 +483,7 @@ class Pebble(object):
         while not client._done and not client._error:
             pass
         if client._error:
-            raise PebbleError(self.id, "Failed to send application binary %s/pebble-app.bin" % pbz_path)
+            raise PebbleError(self.id, "Failed to send application binary %s/pebble-app.bin" % pbw_path)
 
         if resources:
             client = PutBytesClient(self, first_free, "RESOURCES", resources)
@@ -534,28 +492,23 @@ class Pebble(object):
             while not client._done and not client._error:
                 pass
             if client._error:
-                raise PebbleError(self.id, "Failed to send application resources %s/app_resources.pbpack" % pbz_path)
+                raise PebbleError(self.id, "Failed to send application resources %s/app_resources.pbpack" % pbw_path)
 
         time.sleep(2)
         self._add_app(first_free)
         time.sleep(2)
 
-    def install_app(self, pbz_path, launch_on_install=True):
+        if launch_on_install:
+            self.launcher_message(app_metadata['uuid'].bytes, "RUNNING", uuid_is_string=False)
+
+    def install_app(self, pbw_path, launch_on_install=True):
 
         """Install an app bundle (*.pbw) to the target Pebble."""
 
-        bundle = PebbleBundle(pbz_path)
-        if not bundle.is_app_bundle():
-            raise PebbleError(self.id, "This is not an app bundle")
-
         if self.using_ws:
-            self._install_app_ws(pbz_path)
+            self.install_app_ws(pbw_path)
         else:
-            self._install_app_pebble_protocol(bundle)
-
-        if launch_on_install and not self.using_ws:
-            app_metadata = bundle.get_app_metadata()
-            self.launcher_message(app_metadata['uuid'].bytes, "RUNNING", uuid_is_string=False)
+            self.install_app_pebble_protocol(pbw_path, launch_on_install)
 
     def install_firmware(self, pbz_path, recovery=False):
 
