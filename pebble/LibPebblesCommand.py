@@ -1,11 +1,15 @@
-import sh, os
-import websocket
+import fnmatch
 import logging
+import os
 import time
-from autobahn.websocket import *
-from PblCommand import PblCommand
+import sh
+import websocket
+
 import pebble as libpebble
+
+from autobahn.websocket import *
 from EchoServerProtocol import *
+from PblCommand import PblCommand
 
 class LibPebbleCommand(PblCommand):
     def configure_subparser(self, parser):
@@ -47,10 +51,20 @@ class PblInstallCommand(LibPebbleCommand):
 
     def configure_subparser(self, parser):
         PblCommand.configure_subparser(self, parser)
-        parser.add_argument('bundle', type=str)
+        parser.add_argument('bundle', type=str, nargs='?')
         parser.add_argument('--logs', action='store_true', help='Display logs after installing the app')
 
+    def find_bundle(self, args):
+        for root, dirnames, filenames in os.walk('build'):
+            for filename in fnmatch.filter(filenames, '*.pbw'):
+                return os.path.join(root, filename)
+
+        return 'build/{}.pbw'.format(os.path.basename(os.getcwd()))
+
     def run(self, args):
+        if not args.bundle:
+            args.bundle = self.find_bundle(args)
+
         LibPebbleCommand.run(self, args)
         self.pebble.reinstall_app(args.bundle, True)
 
