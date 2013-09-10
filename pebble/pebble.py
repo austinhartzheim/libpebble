@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import binascii
+import datetime
 import glob
 import itertools
 import json
@@ -714,6 +715,54 @@ class Pebble(object):
 
         self._send_message("RESET", "\x00")
 
+    def dump_logs(self, generation_number):
+        """Dump the saved logs from the watch.
+
+        Arguments:
+        generation_number -- The genration to dump, where 0 is the current boot and 3 is the oldest boot.
+        """
+
+        if generation_number > 3:
+            raise Exception("Invalid generation number %u, should be [0-3]" % generation_number)
+
+        log.info('=== Generation %u ===' % generation_number)
+
+        class LogDumpClient(object):
+            def __init__(self, pebble):
+                self.done = False
+                self._pebble = pebble
+
+            def parse_log_dump_response(self, endpoint, data):
+                if (len(data) < 5):
+                    log.warn("Unable to decode log dump message (length %d is less than 8)" % len(data))
+                    return
+
+                response_type, response_cookie = unpack("!BI", data[:5])
+                if response_type == 0x81:
+                    self.done = True
+                    return
+                elif response_type != 0x80 or response_cookie != cookie:
+                    log.info("Received unexpected message with type 0x%x cookie %u expected 0x80 %u" %
+                        (response_type, response_cookie, cookie))
+                    self.done = True
+                    return
+
+                timestamp, str_level, filename, linenumber, message = self._pebble._parse_log_response(data[5:])
+
+                timestamp_str = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+
+                log.info("{} {} {}:{}> {}".format(str_level, timestamp_str, filename, linenumber, message))
+
+        client = LogDumpClient(self)
+        self.register_endpoint("LOG_DUMP", client.parse_log_dump_response)
+
+        import random
+        cookie = random.randint(0, pow(2, 32) - 1)
+        self._send_message("LOG_DUMP", pack("!BBI", 0x10, generation_number, cookie))
+
+        while not client.done:
+            time.sleep(1)
+
     def disconnect(self):
 
         """Disconnect from the target Pebble."""
@@ -739,16 +788,21 @@ class Pebble(object):
         else:
             log.info("Got 'unknown' system message...")
 
+    def _parse_log_response(self, log_message_data):
+        timestamp, level, msgsize, linenumber = unpack("!IBBH", log_message_data[:8])
+        filename = log_message_data[8:24].decode('utf-8')
+        message = log_message_data[24:24+msgsize].decode('utf-8')
+
+        str_level = self.log_levels[level] if level in self.log_levels else "?"
+
+        return timestamp, str_level, filename, linenumber, message
+
     def _log_response(self, endpoint, data):
         if (len(data) < 8):
             log.warn("Unable to decode log message (length %d is less than 8)" % len(data))
             return
 
-        timestamp, level, msgsize, linenumber = unpack("!IBBH", data[:8])
-        filename = data[8:24].decode('utf-8')
-        message = data[24:24+msgsize].decode('utf-8')
-
-        str_level = self.log_levels[level] if level in self.log_levels else "?"
+        timestamp, str_level, filename, linenumber, message = self._parse_log_response(data)
 
         log.info("{} {} {} {} {}".format(timestamp, str_level, filename, linenumber, message))
 
@@ -758,11 +812,7 @@ class Pebble(object):
             return
 
         app_uuid = uuid.UUID(bytes=data[0:16])
-        timestamp, level, msgsize, linenumber = unpack("!IBBH", data[16:24])
-        filename = data[24:40].decode('utf-8')
-        message = data[40:40+msgsize].decode('utf-8')
-
-        str_level = self.log_levels[level] if level in self.log_levels else "?"
+        timestamp, str_level, filename, linenumber, message = self._parse_log_response(data[16:])
 
         log.info("{} {}:{} {}".format(str_level, filename, linenumber, message))
 
