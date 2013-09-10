@@ -400,7 +400,8 @@ class Pebble(object):
         self._send_message("APP_MANAGER", "\x01")
 
         if not async:
-            return EndpointSync(self, "APP_MANAGER").get_data()
+            apps = EndpointSync(self, "APP_MANAGER").get_data()
+            return apps if type(apps) is dict else { 'apps': [] }
 
     def remove_app(self, appid, index, async=False):
 
@@ -477,12 +478,11 @@ class Pebble(object):
 
         # attempt to remove an app by its name
         apps = self.get_appbank_status()
-        if type(apps) is dict:
-            for app in apps["apps"]:
-                if app["name"] == app_metadata['app_name']:
-                    result_name = self.remove_app(app["id"], app["index"])
-                    if endpoint_check(result_name, pbz_path):
-                        return self.install_app(pbz_path, launch_on_install)
+        for app in apps["apps"]:
+            if app["name"] == app_metadata['app_name']:
+                result_name = self.remove_app(app["id"], app["index"])
+                if endpoint_check(result_name, pbz_path):
+                    return self.install_app(pbz_path, launch_on_install)
 
         return self.install_app(pbz_path, launch_on_install)
 
