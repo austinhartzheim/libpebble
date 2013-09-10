@@ -10,8 +10,6 @@ from pebble.PblProjectCreator   import PblProjectCreator
 from pebble.PblBuildCommand     import PblBuildCommand, PblCleanCommand
 from pebble.LibPebblesCommand   import *
 
-SDK_VERSION = "0.0.0" # Don't touch, auto-replaced by make.py!
-
 class PbSDKShell:
     commands = []
 
@@ -26,10 +24,17 @@ class PbSDKShell:
         self.commands.append(PblRemoveCommand())
         self.commands.append(PblLogsCommand())
 
+    def _get_version(self):
+        try:
+            from pebble.VersionGenerated import SDK_VERSION
+            return SDK_VERSION
+        except:
+            return "'Development'"
+
     def main(self):
         parser = argparse.ArgumentParser(description = 'Pebble SDK Shell')
         parser.add_argument('--debug', action="store_true", help="Enable debugging output")
-        parser.add_argument('--version', action='version', version='PebbleSDK %s' % SDK_VERSION)
+        parser.add_argument('--version', action='version', version='PebbleSDK %s' % self._get_version())
         subparsers = parser.add_subparsers(dest="command", title="Command", description="Action to perform")
         for command in self.commands:
             subparser = subparsers.add_parser(command.name, help = command.help)
