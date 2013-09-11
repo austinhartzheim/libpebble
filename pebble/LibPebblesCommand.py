@@ -16,10 +16,11 @@ class LibPebbleCommand(PblCommand):
         pass
 
     def run(self, args):
-        echo_server_start(libpebble.DEFAULT_PEBBLE_PORT)
+        echo_server_start(libpebble.DEFAULT_WEBSOCKET_PORT)
         # FIXME: This sleep is longer than the phone's reconnection interval (2s), to give it time to connect.
         sleep(2.5)
-        self.pebble = libpebble.Pebble(using_lightblue=False, pair_first=False, using_ws=True)
+        self.pebble = libpebble.Pebble()
+        self.pebble.connect_via_websocket()
 
 class PblServerCommand(LibPebbleCommand):
     name = 'server'
@@ -29,9 +30,9 @@ class PblServerCommand(LibPebbleCommand):
         PblCommand.configure_subparser(self, parser)
 
     def run(self, args):
-        logging.info("Starting a Pebble WS server on port {}".format(libpebble.DEFAULT_PEBBLE_PORT))
+        logging.info("Starting a Pebble WS server on port {}".format(libpebble.DEFAULT_WEBSOCKET_PORT))
         logging.info("Type Ctrl-C to interrupt.")
-        echo_server_start(libpebble.DEFAULT_PEBBLE_PORT, blocking=True)
+        echo_server_start(libpebble.DEFAULT_WEBSOCKET_PORT, blocking=True)
 
 class PblPingCommand(LibPebbleCommand):
     name = 'ping'
