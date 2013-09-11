@@ -149,8 +149,9 @@ def main():
     parser.add_argument('--pebble_id', type=str, help='the last 4 digits of the target Pebble\'s MAC address. \nNOTE: if \
                         --lightblue is set, providing a full MAC address (ex: "A0:1B:C0:D3:DC:93") won\'t require the pebble \
                         to be discoverable and will be faster')
-    parser.add_argument('--ws', action="store_true", help='use WebSockets API')
-    parser.add_argument('--lightblue', action="store_true", help='use LightBlue bluetooth API')
+    parser.add_argument('-w', '--websocket', action="store_true", help='use WebSockets API')
+    parser.add_argument('--host', metavar='HOST', type=str, default=libpebble.DEFAULT_WEBSOCKET_HOST, help='the host of the WebSocket server to connect to when using the WebSockets API')
+    parser.add_argument('-b', '--lightblue', action="store_true", help='use LightBlue bluetooth API')
     parser.add_argument('--pair', action="store_true", help='pair to the pebble from LightBlue bluetooth API before connecting.')
 
     subparsers = parser.add_subparsers(help='commands', dest='which')
@@ -243,11 +244,15 @@ def main():
 
     args = parser.parse_args()
 
-    if args.ws:
-        echo_server_start(libpebble.DEFAULT_PEBBLE_PORT)
+    if args.pebble_id is None and "PEBBLE_ID" in os.environ:
+        args.pebble_id = os.environ["PEBBLE_ID"]
+
+    if args.websocket:
+        echo_server_start(libpebble.DEFAULT_WEBSOCKET_PORT)
         # FIXME: This sleep is longer than the phone's reconnection interval (2s), to give it time to connect.
         sleep(2.5)
-        pebble = libpebble.Pebble(using_lightblue=args.lightblue, pair_first=args.pair, using_ws=args.ws)
+        pebble = libpebble.Pebble(args.pebble_id)
+        pebble.connect_via_websocket(args.host)
 
     else:
         attempts = 0
@@ -255,10 +260,8 @@ def main():
             if attempts > MAX_ATTEMPTS:
                 raise 'Could not connect to Pebble'
             try:
-                pebble_id = args.pebble_id
-                if pebble_id is None and "PEBBLE_ID" in os.environ:
-                    pebble_id = os.environ["PEBBLE_ID"]
-                pebble = libpebble.Pebble(pebble_id, args.lightblue, args.pair,using_ws=args.ws)
+                pebble = libpebble.Pebble(args.pebble_id)
+                pebble.connect_via_lightblue(args.pair)
                 break
             except:
                 time.sleep(5)

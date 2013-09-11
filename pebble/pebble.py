@@ -23,7 +23,8 @@ from collections import OrderedDict
 from struct import pack, unpack
 
 DEFAULT_PEBBLE_ID = None #Triggers autodetection on unix-like systems
-DEFAULT_PEBBLE_PORT = 9000
+DEFAULT_WEBSOCKET_HOST = 'localhost'
+DEFAULT_WEBSOCKET_PORT = 9000
 DEBUG_PROTOCOL = False
 APP_ELF_PATH = 'build/pebble-app.elf'
 
@@ -222,12 +223,11 @@ class Pebble(object):
 
 
 
-    def __init__(self, id = None, using_lightblue = True, pair_first = False, using_ws = True, ws_ip = "ws://localhost:{}".format(DEFAULT_PEBBLE_PORT)):
-        if id is None and not using_lightblue and not using_ws:
-            id = Pebble.AutodetectDevice()
+    def __init__(self, id = None):
         self.id = id
-        self.using_lightblue = using_lightblue
-        self.using_ws = using_ws
+        self._connection_type = None
+        self._ser = None
+        self._read_thread = None
         self._alive = True
         self._endpoint_handlers = {}
         self._internal_endpoint_handlers = {
@@ -244,22 +244,8 @@ class Pebble(object):
                 self.endpoints["APP_MANAGER"]: self._appbank_status_response
         }
 
+    def init_reader(self):
         try:
-            if using_ws:
-                WebSocketPebble.enableTrace(False)
-                self._ser = WebSocketPebble.create_connection(ws_ip)
-            else:
-                if using_lightblue:
-                    from LightBluePebble import LightBluePebble
-                    self._ser = LightBluePebble(self.id, pair_first)
-                    signal.signal(signal.SIGINT, self._exit_signal_handler)
-                else:
-                    import serial
-                    devicefile = "/dev/tty.Pebble"+id+"-SerialPortSe"
-                    log.debug("Attempting to open %s as Pebble device %s" % (devicefile, id))
-                    self._ser = serial.Serial(devicefile, 115200, timeout=1)
-
-
             log.debug("Initializing reader thread")
             self._read_thread = threading.Thread(target=self._reader)
             self._read_thread.setDaemon(True)
@@ -270,7 +256,35 @@ class Pebble(object):
         except:
             raise
 
+    def connect_via_serial(self, id = None):
+        self._connection_type = 'serial'
 
+        if id != None:
+            self.id = id
+        if self.id is None:
+            self.id = Pebble.AutodetectDevice()
+
+        import serial
+        devicefile = "/dev/tty.Pebble{}-SerialPortSe".format(self.id)
+        log.debug("Attempting to open %s as Pebble device %s" % (devicefile, self.id))
+        self._ser = serial.Serial(devicefile, 115200, timeout=1)
+        self.init_reader()
+
+    def connect_via_lightblue(self, pair_first = False):
+        self._connection_type = 'lightblue'
+
+        from LightBluePebble import LightBluePebble
+        self._ser = LightBluePebble(self.id, pair_first)
+        signal.signal(signal.SIGINT, self._exit_signal_handler)
+        self.init_reader()
+
+    def connect_via_websocket(self, host = DEFAULT_WEBSOCKET_HOST, port = DEFAULT_WEBSOCKET_PORT):
+        self._connection_type = 'websocket'
+
+        WebSocketPebble.enableTrace(False)
+        address = "ws://{}:{}".format(host, port)
+        self._ser = WebSocketPebble.create_connection(address)
+        self.init_reader()
 
     def _exit_signal_handler(self, signum, frame):
         log.warn("Disconnecting before exiting...")
@@ -323,11 +337,9 @@ class Pebble(object):
         self._ser.write(msg)
 
     def _recv_message(self):
-        if self.using_lightblue or self.using_ws:
+        if self._connection_type != 'serial':
             try:
                 endpoint, resp, data = self._ser.read()
-
-
                 if resp is None:
                     return None, None
             except TypeError:
@@ -506,7 +518,7 @@ class Pebble(object):
 
         """Install an app bundle (*.pbw) to the target Pebble."""
 
-        if self.using_ws:
+        if self._connection_type == 'websocket':
             self.install_app_ws(pbw_path)
         else:
             self.install_app_pebble_protocol(pbw_path, launch_on_install)
