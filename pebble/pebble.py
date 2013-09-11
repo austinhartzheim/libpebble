@@ -729,6 +729,14 @@ class Pebble(object):
         while not client.done:
             time.sleep(1)
 
+    def app_log_enable(self):
+        log.info("Enabling application logging...")
+        self._send_message("APP_LOGS", pack("!B", 0x01))
+
+    def app_log_disable(self):
+        log.info("Disabling application logging...")
+        self._send_message("APP_LOGS", pack("!B", 0x00))
+
     def disconnect(self):
 
         """Disconnect from the target Pebble."""
