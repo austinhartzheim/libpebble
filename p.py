@@ -269,11 +269,8 @@ def main():
 
     try:
         args.func(pebble, args)
-    except Exception as e:
+    finally:
         pebble.disconnect()
-        raise e
-        return
-    pebble.disconnect()
 
 
 if __name__ == '__main__':
