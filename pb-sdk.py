@@ -6,7 +6,8 @@ import sys
 
 import pebble as libpebble
 from pebble.PblCommand          import PblCommand
-from pebble.PblProjectCreator   import PblProjectCreator
+from pebble.PblProjectCreator   import PblProjectCreator, PblProjectConverter
+from pebble.PblProjectCreator   import InvalidProjectException, OutdatedProjectException
 from pebble.PblBuildCommand     import PblBuildCommand, PblCleanCommand
 from pebble.LibPebblesCommand   import *
 
@@ -16,6 +17,7 @@ class PbSDKShell:
     def __init__(self):
         self.commands.append(PblServerCommand())
         self.commands.append(PblProjectCreator())
+        self.commands.append(PblProjectConverter())
         self.commands.append(PblBuildCommand())
         self.commands.append(PblCleanCommand())
         self.commands.append(PblInstallCommand())
@@ -61,6 +63,14 @@ class PbSDKShell:
             else:
                 logging.error(e)
                 return 1
+        except InvalidProjectException as e:
+            logging.error("This command must be run from a Pebble project directory")
+            return 1
+        except OutdatedProjectException as e:
+            logging.error("The Pebble project directory is using an outdated version of the SDK!")
+            logging.error("Try running `pb-sdk convert-project` to update the project")
+            return 1
+
 
 if __name__ == '__main__':
     retval = PbSDKShell().main()

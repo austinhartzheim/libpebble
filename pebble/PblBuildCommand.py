@@ -1,5 +1,6 @@
 import sh, os, subprocess
 from PblCommand import PblCommand
+from PblProjectCreator import requires_project_dir
 
 class PblWafCommand(PblCommand):
     """ Helper class for build commands that execute waf """
@@ -9,6 +10,7 @@ class PblWafCommand(PblCommand):
     def waf_path(self, args):
         return os.path.join(os.path.join(self.sdk_path(args), 'Pebble'), 'waf')
 
+    @requires_project_dir
     def run(self, args):
         return subprocess.call(self.waf_path(args) + " " + self.waf_cmds, shell=True)
 
