@@ -20,7 +20,7 @@ class LibPebbleCommand(PblCommand):
         # FIXME: This sleep is longer than the phone's reconnection interval (2s), to give it time to connect.
         sleep(2.5)
         self.pebble = libpebble.Pebble()
-        self.pebble.connect_via_websocket()
+        self.pebble.connect_via_websocket(args.host)
 
 class PblServerCommand(LibPebbleCommand):
     name = 'server'
@@ -39,7 +39,7 @@ class PblPingCommand(LibPebbleCommand):
     help = 'Ping your Pebble project to your watch'
 
     def configure_subparser(self, parser):
-        PblCommand.configure_subparser(self, parser)
+        PblCommand.configure_subparser(self, parser, is_connect=True)
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
@@ -51,7 +51,7 @@ class PblInstallCommand(LibPebbleCommand):
     help = 'Install your Pebble project to your watch'
 
     def configure_subparser(self, parser):
-        PblCommand.configure_subparser(self, parser)
+        PblCommand.configure_subparser(self, parser, is_connect=True)
         parser.add_argument('pbw_path', type=str, nargs='?')
         parser.add_argument('--logs', action='store_true', help='Display logs after installing the app')
 
@@ -83,7 +83,7 @@ class PblListCommand(LibPebbleCommand):
     help = 'List the apps installed on your watch'
 
     def configure_subparser(self, parser):
-        PblCommand.configure_subparser(self, parser)
+        PblCommand.configure_subparser(self, parser, is_connect=True)
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
@@ -104,7 +104,7 @@ class PblRemoveCommand(LibPebbleCommand):
     help = 'Remove an app from your watch'
 
     def configure_subparser(self, parser):
-        PblCommand.configure_subparser(self, parser)
+        PblCommand.configure_subparser(self, parser, is_connect=True)
         parser.add_argument('bank_id', type=int, help="The bank id of the app to remove (between 1 and 8)")
 
     def run(self, args):
@@ -125,7 +125,7 @@ class PblLogsCommand(LibPebbleCommand):
     help = 'Continuously displays logs from the watch'
 
     def configure_subparser(self, parser):
-        PblCommand.configure_subparser(self, parser)
+        PblCommand.configure_subparser(self, parser, is_connect=True)
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
