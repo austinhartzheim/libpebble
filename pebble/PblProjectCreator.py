@@ -1,5 +1,6 @@
 import os, sh
 import uuid
+import string
 
 from PblCommand import PblCommand
 
@@ -19,24 +20,24 @@ class PblProjectCreator(PblCommand):
         project_name = os.path.split(project_path)[1]
         project_root = os.path.join(os.getcwd(), project_path)
 
-        project_resources_src = os.path.join(project_root, os.path.join("resources","src"))
         project_src = os.path.join(project_root, "src")
 
         # Create directories
         os.makedirs(project_root)
-        os.makedirs(project_resources_src)
+        os.makedirs(os.path.join(project_root, "resources"))
         os.makedirs(project_src)
 
         # Create main .c file
-        self.generate_main_file(os.path.join(project_src, "%s.c" % (project_name)))
-
-        # Add resource file
-        with open(os.path.join(project_resources_src, "resource_map.json"), "w") as f:
-            f.write(FILE_DUMMY_RESOURCE_MAP)
+        with open(os.path.join(project_src, "%s.c" % (project_name)), "w") as f:
+            f.write(FILE_DUMMY_MAIN)
 
         # Add wscript file
         with open(os.path.join(project_root, "wscript"), "w") as f:
             f.write(FILE_WSCRIPT)
+
+        # Add appinfo.json file
+        with open(os.path.join(project_root, "appinfo.json"), "w") as f:
+            f.write(FILE_DUMMY_APPINFO.substitute(uuid=str(uuid.uuid4())))
 
         # Add .gitignore file
         with open(os.path.join(project_root, ".gitignore"), "w") as f:
@@ -46,32 +47,9 @@ class PblProjectCreator(PblCommand):
             project_js_src = os.path.join(project_src, "js")
             os.makedirs(project_js_src)
 
-            with open(os.path.join(project_js_src, "appinfo.json"), "w") as f:
-                f.write(FILE_DUMMY_JAVASCRIPT_APPINFO)
-
             with open(os.path.join(project_js_src, "pebble-js-app.js"), "w") as f:
                 f.write(FILE_DUMMY_JAVASCRIPT_SRC)
 
-
-    def generate_uuid_as_array(self):
-        """
-        Returns a freshly generated UUID value in string form formatted as
-        a C array for inclusion in a template's "#define MY_UUID {...}"
-        macro.
-        """
-        return ", ".join(["0x%02X" % ord(b) for b in uuid.uuid4().bytes])
-
-
-    def generate_main_file(self, destination_filepath):
-        """
-        Generates the main file *and* replaces a dummy UUID
-        value in it with a freshly generated value.
-        """
-
-        # This is the dummy UUID value in the template file.
-        UUID_VALUE_TO_REPLACE="/* GENERATE YOURSELF USING `uuidgen` */ 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF"
-
-        open(destination_filepath, "w").write(FILE_DUMMY_MAIN.replace(UUID_VALUE_TO_REPLACE, self.generate_uuid_as_array(), 1))
 
 
 FILE_GITIGNORE = """
@@ -99,37 +77,9 @@ def build(ctx):
   ctx.load('pebble_sdk')
 """
 
-# When an empty resource map is required this can be used but...
-FILE_DEFAULT_RESOURCE_MAP = """
-{"friendlyVersion": "VERSION", "versionDefName": "VERSION", "media": []}
-"""
-
-# ...for the moment we need to have one with a dummy entry due to
-# a bug that causes a hang when there's an empty resource map.
-FILE_DUMMY_RESOURCE_MAP = """
-{"friendlyVersion": "VERSION",
- "versionDefName": "VERSION",
- "media": [
-     {
-      "type":"raw",
-      "defName":"DUMMY",
-      "file":"resource_map.json"
-     }
-    ]
-}
-"""
-
 FILE_DUMMY_MAIN = """#include <pebble_os.h>
 #include <pebble_app.h>
 #include <pebble_fonts.h>
-
-
-#define MY_UUID { /* GENERATE YOURSELF USING `uuidgen` */ 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF }
-PBL_APP_INFO(MY_UUID,
-             "Template App", "Your Company",
-             1, 0, /* App version */
-             DEFAULT_MENU_ICON,
-             APP_INFO_STANDARD_APP);
 
 static Window *window;
 static TextLayer *text_layer;
@@ -179,21 +129,30 @@ int main(void) {
 }
 """
 
-FILE_DUMMY_JAVASCRIPT_APPINFO = """{
-  "info": {
-    "app_id": "com.getpebble.example",
-    "app_uuid": "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF",
-    "app_name": "Template Javascript App",
-    "support_url": "http://www.yourwebsite.com",
-    "version_code": 1,
-    "version_label": "1.0.0",
-    "app_key_type": "manual"
+FILE_DUMMY_APPINFO = string.Template("""{
+  "uuid": "${uuid}",
+  "short_name": "Template App",
+  "long_name": "Pebble Template App",
+  "company_name": "Your Company",
+  "version_code": 1,
+  "version_label": "1.0.0",
+  "watchapp": {
+    "watchface": false
   },
   "app_keys": {
     "dummy": 0
+  },
+  "resources": {
+    "media": [
+      {
+        "type": "raw",
+        "name": "DUMMY",
+        "file": "appinfo.json"
+      }
+    ]
   }
 }
-"""
+""")
 
 FILE_DUMMY_JAVASCRIPT_SRC = """\
 Pebble.showSimpleNotificationOnPebble("Hello world!", "Sent from your javascript application.")
@@ -211,7 +170,7 @@ def check_project_directory():
     Raises an InvalidProjectException or an OutdatedProjectException if everything isn't quite right.
     """
 
-    if not os.path.isdir('src') or not os.path.exists('resources/src/resource_map.json'):
+    if not os.path.isdir('src') or not os.path.exists('wscript'):
         raise InvalidProjectException
 
     if os.path.islink('pebble_app.ld'):
