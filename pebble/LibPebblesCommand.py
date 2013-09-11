@@ -114,10 +114,13 @@ class PblLogsCommand(LibPebbleCommand):
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
+        self.pebble.app_log_enable()
 
         logging.info('Displaying logs ... Ctrl-C to interrupt.')
         try:
             while True:
                 time.sleep(1)
         except KeyboardInterrupt:
+            print "\n"
+            self.pebble.app_log_disable()
             return
