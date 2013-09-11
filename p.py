@@ -20,7 +20,7 @@ MAX_ATTEMPTS = 5
 def cmd_ping(pebble, args):
     pebble.ping(cookie=0xDEADBEEF)
 
-def cmd_load(pebble, args):
+def cmd_install(pebble, args):
     pebble.install_app(args.app_bundle, args.nolaunch)
 
 def cmd_load_fw(pebble, args):
@@ -90,6 +90,13 @@ def cmd_logcat(pebble, args):
     except KeyboardInterrupt:
         return
 
+def cmd_log_dump(pebble, args):
+    if args.generation_number is not None:
+        pebble.dump_logs(args.generation_number)
+    else:
+        for i in xrange(4):
+            pebble.dump_logs(i)
+
 def cmd_list_apps(pebble, args):
     apps = pebble.get_appbank_status()
     if apps is not False:
@@ -116,9 +123,6 @@ def cmd_rm_app(pebble, args):
                 return 0
     except:
         print 'Invalid arguments. Use bank index or hex app UUID (16 bytes / 32 hex digits)'
-
-def cmd_reinstall_app(pebble, args):
-    pebble.reinstall_app(args.app_bundle, args.nolaunch)
 
 def cmd_reset(pebble, args):
     pebble.reset()
@@ -182,10 +186,10 @@ def main():
     msg_send_bytes_parser.add_argument('tuple_bytes', type=str, help='a byte array to send along')
     msg_send_bytes_parser.set_defaults(func=cmd_app_msg_send_bytes)
 
-    load_parser = subparsers.add_parser('load', help='load an app onto a connected watch')
-    load_parser.add_argument('--nolaunch', action="store_false", help='do not launch the application after install')
-    load_parser.add_argument('app_bundle', metavar='FILE', type=str, help='a compiled app bundle')
-    load_parser.set_defaults(func=cmd_load)
+    install_parser = subparsers.add_parser('install', help='load an app onto a connected watch')
+    install_parser.add_argument('--nolaunch', action="store_false", help='do not launch the application after install')
+    install_parser.add_argument('app_bundle', metavar='FILE', type=str, help='a compiled app bundle')
+    install_parser.set_defaults(func=cmd_install)
 
     load_fw_parser = subparsers.add_parser('load_fw', help='load new firmware onto a connected watch')
     load_fw_parser.add_argument('fw_bundle', metavar='FILE', type=str, help='a compiled app bundle')
@@ -194,17 +198,16 @@ def main():
     logcat_parser = subparsers.add_parser('logcat', help='view logs sent from a connected watch')
     logcat_parser.set_defaults(func=cmd_logcat)
 
+    log_dump_parser = subparsers.add_parser('log_dump', help='dump logs stored on the watch for previous generations')
+    log_dump_parser.add_argument('--generation_number', type=int, help='the generation to dump')
+    log_dump_parser.set_defaults(func=cmd_log_dump)
+
     list_apps_parser = subparsers.add_parser('list', help='list installed apps')
     list_apps_parser.set_defaults(func=cmd_list_apps)
 
     rm_app_parser = subparsers.add_parser('rm', help='remove installed app')
     rm_app_parser.add_argument('app_index_or_hex_uuid', metavar='IDX or UUID in the form of: 54D3008F0E46462C995C0D0B4E01148C', type=str, help='the app index or UUID to delete')
     rm_app_parser.set_defaults(func=cmd_rm_app)
-
-    reinstall_app_parser = subparsers.add_parser('reinstall', help='reinstall then launch an installed app')
-    reinstall_app_parser.add_argument('app_bundle', metavar='FILE', type=str, help='a compiled app bundle')
-    reinstall_app_parser.add_argument('--nolaunch', action="store_false", help='do not launch the application after install')
-    reinstall_app_parser.set_defaults(func=cmd_reinstall_app)
 
     reset_parser = subparsers.add_parser('reset', help='reset the watch remotely')
     reset_parser.set_defaults(func=cmd_reset)
