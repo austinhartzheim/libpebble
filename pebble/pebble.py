@@ -401,7 +401,8 @@ class Pebble(object):
         self._send_message("APP_MANAGER", "\x01")
 
         if not async:
-            return EndpointSync(self, "APP_MANAGER").get_data()
+            apps = EndpointSync(self, "APP_MANAGER").get_data()
+            return apps if type(apps) is dict else { 'apps': [] }
 
     def remove_app(self, appid, index, async=False):
 
