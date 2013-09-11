@@ -199,3 +199,66 @@ FILE_DUMMY_JAVASCRIPT_SRC = """\
 Pebble.showSimpleNotificationOnPebble("Hello world!", "Sent from your javascript application.")
 """
 
+class InvalidProjectException(Exception):
+    pass
+
+class OutdatedProjectException(Exception):
+    pass
+
+def check_project_directory():
+    """Check to see if the current directly matches what is created by PblProjectCreator.run.
+
+    Raises an InvalidProjectException or an OutdatedProjectException if everything isn't quite right.
+    """
+
+    if not os.path.isdir('src') or not os.path.exists('resources/src/resource_map.json'):
+        raise InvalidProjectException
+
+    if os.path.islink('pebble_app.ld'):
+        raise OutdatedProjectException
+
+def requires_project_dir(func):
+    def wrapper(self, args):
+        check_project_directory()
+        func(self, args)
+    return wrapper
+
+def convert_project():
+    links_to_remove = [
+            'include',
+            'lib',
+            'pebble_app.ld',
+            'tools',
+            'waf',
+            'wscript'
+            ]
+
+    for l in links_to_remove:
+        if not os.path.islink(l):
+            raise Exception("Don't know how to convert this project, %s is not a symlink" % l)
+        os.unlink(l)
+
+    os.remove('.gitignore')
+    os.remove('.hgignore')
+
+    with open("wscript", "w") as f:
+        f.write(FILE_WSCRIPT)
+
+    with open(".gitignore", "w") as f:
+        f.write(FILE_GITIGNORE)
+
+class PblProjectConverter(PblCommand):
+    name = 'convert-project'
+    help = """convert an existing Pebble project to the current SDK.
+
+Note: This will only convert the project, you'll still have to update your source to match the new APIs."""
+
+    def run(self, args):
+        try:
+            check_project_directory()
+        except OutdatedProjectException:
+            convert_project()
+            print "Project successfully converted!"
+
+        print "No conversion required"
+

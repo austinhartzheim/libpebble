@@ -51,10 +51,10 @@ class PblInstallCommand(LibPebbleCommand):
 
     def configure_subparser(self, parser):
         PblCommand.configure_subparser(self, parser)
-        parser.add_argument('bundle', type=str, nargs='?')
+        parser.add_argument('pbw_path', type=str, nargs='?')
         parser.add_argument('--logs', action='store_true', help='Display logs after installing the app')
 
-    def find_bundle(self, args):
+    def find_pbw_path(self, args):
         for root, dirnames, filenames in os.walk('build'):
             for filename in fnmatch.filter(filenames, '*.pbw'):
                 return os.path.join(root, filename)
@@ -62,11 +62,11 @@ class PblInstallCommand(LibPebbleCommand):
         return 'build/{}.pbw'.format(os.path.basename(os.getcwd()))
 
     def run(self, args):
-        if not args.bundle:
-            args.bundle = self.find_bundle(args)
+        if not args.pbw_path:
+            args.pbw_path = self.find_pbw_path(args)
 
         LibPebbleCommand.run(self, args)
-        self.pebble.reinstall_app(args.bundle, True)
+        self.pebble.install_app_ws(args.pbw_path)
 
         if args.logs:
             logging.info('Displaying logs ... Ctrl-C to interrupt.')

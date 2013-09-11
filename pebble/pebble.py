@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import binascii
+import datetime
 import glob
 import itertools
 import json
@@ -400,7 +401,8 @@ class Pebble(object):
         self._send_message("APP_MANAGER", "\x01")
 
         if not async:
-            return EndpointSync(self, "APP_MANAGER").get_data()
+            apps = EndpointSync(self, "APP_MANAGER").get_data()
+            return apps if type(apps) is dict else { 'apps': [] }
 
     def remove_app(self, appid, index, async=False):
 
@@ -445,62 +447,20 @@ class Pebble(object):
         self._send_message("TIME", data)
 
 
-    def reinstall_app(self, pbz_path, launch_on_install=True):
-
-        """
-        A convenience method to uninstall and install an app
-
-        If the UUID uninstallation method fails, app name in metadata will be used.
-        """
-
-        def endpoint_check(result, pbz_path):
-            if result == 'app removed':
-                return True
-            else:
-                if DEBUG_PROTOCOL:
-                    log.warn("Failed to remove supplied app, app manager message was: " + result)
-                return False
-
-        # get the bundle's metadata to identify the app being replaced
-        bundle = PebbleBundle(pbz_path)
-        if not bundle.is_app_bundle():
-            raise PebbleError(self.id, "This is not an app bundle")
-        app_metadata = bundle.get_app_metadata()
-
-        # attempt to remove an app by its UUIDgit
-        result_uuid = self.remove_app_by_uuid(app_metadata['uuid'].bytes, uuid_is_string=False)
-        if endpoint_check(result_uuid, pbz_path):
-            return self.install_app(pbz_path, launch_on_install)
-
-        if DEBUG_PROTOCOL:
-            log.warn("UUID removal failure, attempting to remove existing app by app name")
-
-        # attempt to remove an app by its name
-        apps = self.get_appbank_status()
-        for app in apps["apps"]:
-            if app["name"] == app_metadata['app_name']:
-                result_name = self.remove_app(app["id"], app["index"])
-                if endpoint_check(result_name, pbz_path):
-                    return self.install_app(pbz_path, launch_on_install)
-
-        return self.install_app(pbz_path, launch_on_install)
-
-    def reinstall_app_by_uuid(self, uuid, pbz_path):
-
-        """
-        A convenience method to uninstall and install an app by UUID.
-
-        Must supply app UUID from source. ex: '54D3008F0E46462C995C0D0B4E01148C'
-        """
-        self.remove_app_by_uuid(uuid)
-        self.install_app(pbz_path)
-
-    def _install_app_ws(self, pbz_path):
-        f = open(pbz_path, 'r')
+    def install_app_ws(self, pbw_path):
+        f = open(pbw_path, 'r')
         data = f.read()
         self._ser.write(data, ws_cmd=WebSocketPebble.WS_CMD_APP_INSTALL)
 
-    def _install_app_pebble_protocol(self, bundle):
+    def install_app_pebble_protocol(self, pbw_path, launch_on_install=True):
+
+        bundle = PebbleBundle(pbw_path)
+        if not bundle.is_app_bundle():
+            raise PebbleError(self.id, "This is not an app bundle")
+
+        app_metadata = bundle.get_app_metadata()
+        self.remove_app_by_uuid(app_metadata['uuid'].bytes, uuid_is_string=False)
+
         apps = self.get_appbank_status()
         if not apps:
             raise PebbleError(self.id, "could not obtain app list; try again")
@@ -524,7 +484,7 @@ class Pebble(object):
         while not client._done and not client._error:
             pass
         if client._error:
-            raise PebbleError(self.id, "Failed to send application binary %s/pebble-app.bin" % pbz_path)
+            raise PebbleError(self.id, "Failed to send application binary %s/pebble-app.bin" % pbw_path)
 
         if resources:
             client = PutBytesClient(self, first_free, "RESOURCES", resources)
@@ -533,28 +493,23 @@ class Pebble(object):
             while not client._done and not client._error:
                 pass
             if client._error:
-                raise PebbleError(self.id, "Failed to send application resources %s/app_resources.pbpack" % pbz_path)
+                raise PebbleError(self.id, "Failed to send application resources %s/app_resources.pbpack" % pbw_path)
 
         time.sleep(2)
         self._add_app(first_free)
         time.sleep(2)
 
-    def install_app(self, pbz_path, launch_on_install=True):
+        if launch_on_install:
+            self.launcher_message(app_metadata['uuid'].bytes, "RUNNING", uuid_is_string=False)
+
+    def install_app(self, pbw_path, launch_on_install=True):
 
         """Install an app bundle (*.pbw) to the target Pebble."""
 
-        bundle = PebbleBundle(pbz_path)
-        if not bundle.is_app_bundle():
-            raise PebbleError(self.id, "This is not an app bundle")
-
         if self.using_ws:
-            self._install_app_ws(pbz_path)
+            self.install_app_ws(pbw_path)
         else:
-            self._install_app_pebble_protocol(bundle)
-
-        if launch_on_install and not self.using_ws:
-            app_metadata = bundle.get_app_metadata()
-            self.launcher_message(app_metadata['uuid'].bytes, "RUNNING", uuid_is_string=False)
+            self.install_app_pebble_protocol(pbw_path, launch_on_install)
 
     def install_firmware(self, pbz_path, recovery=False):
 
@@ -714,6 +669,54 @@ class Pebble(object):
 
         self._send_message("RESET", "\x00")
 
+    def dump_logs(self, generation_number):
+        """Dump the saved logs from the watch.
+
+        Arguments:
+        generation_number -- The genration to dump, where 0 is the current boot and 3 is the oldest boot.
+        """
+
+        if generation_number > 3:
+            raise Exception("Invalid generation number %u, should be [0-3]" % generation_number)
+
+        log.info('=== Generation %u ===' % generation_number)
+
+        class LogDumpClient(object):
+            def __init__(self, pebble):
+                self.done = False
+                self._pebble = pebble
+
+            def parse_log_dump_response(self, endpoint, data):
+                if (len(data) < 5):
+                    log.warn("Unable to decode log dump message (length %d is less than 8)" % len(data))
+                    return
+
+                response_type, response_cookie = unpack("!BI", data[:5])
+                if response_type == 0x81:
+                    self.done = True
+                    return
+                elif response_type != 0x80 or response_cookie != cookie:
+                    log.info("Received unexpected message with type 0x%x cookie %u expected 0x80 %u" %
+                        (response_type, response_cookie, cookie))
+                    self.done = True
+                    return
+
+                timestamp, str_level, filename, linenumber, message = self._pebble._parse_log_response(data[5:])
+
+                timestamp_str = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+
+                log.info("{} {} {}:{}> {}".format(str_level, timestamp_str, filename, linenumber, message))
+
+        client = LogDumpClient(self)
+        self.register_endpoint("LOG_DUMP", client.parse_log_dump_response)
+
+        import random
+        cookie = random.randint(0, pow(2, 32) - 1)
+        self._send_message("LOG_DUMP", pack("!BBI", 0x10, generation_number, cookie))
+
+        while not client.done:
+            time.sleep(1)
+
     def disconnect(self):
 
         """Disconnect from the target Pebble."""
@@ -739,16 +742,21 @@ class Pebble(object):
         else:
             log.info("Got 'unknown' system message...")
 
+    def _parse_log_response(self, log_message_data):
+        timestamp, level, msgsize, linenumber = unpack("!IBBH", log_message_data[:8])
+        filename = log_message_data[8:24].decode('utf-8')
+        message = log_message_data[24:24+msgsize].decode('utf-8')
+
+        str_level = self.log_levels[level] if level in self.log_levels else "?"
+
+        return timestamp, str_level, filename, linenumber, message
+
     def _log_response(self, endpoint, data):
         if (len(data) < 8):
             log.warn("Unable to decode log message (length %d is less than 8)" % len(data))
             return
 
-        timestamp, level, msgsize, linenumber = unpack("!IBBH", data[:8])
-        filename = data[8:24].decode('utf-8')
-        message = data[24:24+msgsize].decode('utf-8')
-
-        str_level = self.log_levels[level] if level in self.log_levels else "?"
+        timestamp, str_level, filename, linenumber, message = self._parse_log_response(data)
 
         log.info("{} {} {} {} {}".format(timestamp, str_level, filename, linenumber, message))
 
@@ -758,11 +766,7 @@ class Pebble(object):
             return
 
         app_uuid = uuid.UUID(bytes=data[0:16])
-        timestamp, level, msgsize, linenumber = unpack("!IBBH", data[16:24])
-        filename = data[24:40].decode('utf-8')
-        message = data[40:40+msgsize].decode('utf-8')
-
-        str_level = self.log_levels[level] if level in self.log_levels else "?"
+        timestamp, str_level, filename, linenumber, message = self._parse_log_response(data[16:])
 
         log.info("{} {}:{} {}".format(str_level, filename, linenumber, message))
 

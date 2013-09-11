@@ -6,10 +6,10 @@ import sys
 
 import pebble as libpebble
 from pebble.PblCommand          import PblCommand
-from pebble.PblProjectCreator   import PblProjectCreator
+from pebble.PblProjectCreator   import PblProjectCreator, PblProjectConverter
+from pebble.PblProjectCreator   import InvalidProjectException, OutdatedProjectException
 from pebble.PblBuildCommand     import PblBuildCommand, PblCleanCommand
 from pebble.LibPebblesCommand   import *
-
 
 class PbSDKShell:
     commands = []
@@ -17,6 +17,7 @@ class PbSDKShell:
     def __init__(self):
         self.commands.append(PblServerCommand())
         self.commands.append(PblProjectCreator())
+        self.commands.append(PblProjectConverter())
         self.commands.append(PblBuildCommand())
         self.commands.append(PblCleanCommand())
         self.commands.append(PblInstallCommand())
@@ -25,9 +26,17 @@ class PbSDKShell:
         self.commands.append(PblRemoveCommand())
         self.commands.append(PblLogsCommand())
 
+    def _get_version(self):
+        try:
+            from pebble.VersionGenerated import SDK_VERSION
+            return SDK_VERSION
+        except:
+            return "'Development'"
+
     def main(self):
         parser = argparse.ArgumentParser(description = 'Pebble SDK Shell')
         parser.add_argument('--debug', action="store_true", help="Enable debugging output")
+        parser.add_argument('--version', action='version', version='PebbleSDK %s' % self._get_version())
         subparsers = parser.add_subparsers(dest="command", title="Command", description="Action to perform")
         for command in self.commands:
             subparser = subparsers.add_parser(command.name, help = command.help)
@@ -54,6 +63,14 @@ class PbSDKShell:
             else:
                 logging.error(e)
                 return 1
+        except InvalidProjectException as e:
+            logging.error("This command must be run from a Pebble project directory")
+            return 1
+        except OutdatedProjectException as e:
+            logging.error("The Pebble project directory is using an outdated version of the SDK!")
+            logging.error("Try running `pb-sdk convert-project` to update the project")
+            return 1
+
 
 if __name__ == '__main__':
     retval = PbSDKShell().main()
