@@ -12,8 +12,10 @@ from EchoServerProtocol import *
 from PblCommand import PblCommand
 
 class LibPebbleCommand(PblCommand):
+
     def configure_subparser(self, parser):
-        pass
+        PblCommand.configure_subparser(self, parser)
+        parser.add_argument('host', type=str, nargs='?', default=libpebble.DEFAULT_WEBSOCKET_HOST, help='The host of the WebSocket server to connect')
 
     def run(self, args):
         echo_server_start(libpebble.DEFAULT_WEBSOCKET_PORT)
@@ -27,7 +29,7 @@ class PblServerCommand(LibPebbleCommand):
     help = 'Run a websocket server to keep the connection to your phone and Pebble opened.'
 
     def configure_subparser(self, parser):
-        PblCommand.configure_subparser(self, parser)
+        LibPebbleCommand.configure_subparser(self, parser)
 
     def run(self, args):
         logging.info("Starting a Pebble WS server on port {}".format(libpebble.DEFAULT_WEBSOCKET_PORT))
@@ -39,7 +41,7 @@ class PblPingCommand(LibPebbleCommand):
     help = 'Ping your Pebble project to your watch'
 
     def configure_subparser(self, parser):
-        PblCommand.configure_subparser(self, parser, is_connect=True)
+        LibPebbleCommand.configure_subparser(self, parser)
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
@@ -51,7 +53,7 @@ class PblInstallCommand(LibPebbleCommand):
     help = 'Install your Pebble project to your watch'
 
     def configure_subparser(self, parser):
-        PblCommand.configure_subparser(self, parser, is_connect=True)
+        LibPebbleCommand.configure_subparser(self, parser)
         parser.add_argument('pbw_path', type=str, nargs='?', help='Path to the pbw to install (ie: build/*.pbw)')
         parser.add_argument('--logs', action='store_true', help='Display logs after installing the app')
 
@@ -83,7 +85,7 @@ class PblListCommand(LibPebbleCommand):
     help = 'List the apps installed on your watch'
 
     def configure_subparser(self, parser):
-        PblCommand.configure_subparser(self, parser, is_connect=True)
+        LibPebbleCommand.configure_subparser(self, parser)
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
@@ -104,7 +106,7 @@ class PblRemoveCommand(LibPebbleCommand):
     help = 'Remove an app from your watch'
 
     def configure_subparser(self, parser):
-        PblCommand.configure_subparser(self, parser, is_connect=True)
+        LibPebbleCommand.configure_subparser(self, parser)
         parser.add_argument('bank_id', type=int, help="The bank id of the app to remove (between 1 and 8)")
 
     def run(self, args):
@@ -125,7 +127,7 @@ class PblLogsCommand(LibPebbleCommand):
     help = 'Continuously displays logs from the watch'
 
     def configure_subparser(self, parser):
-        PblCommand.configure_subparser(self, parser, is_connect=True)
+        LibPebbleCommand.configure_subparser(self, parser)
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
