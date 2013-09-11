@@ -52,7 +52,7 @@ class PblInstallCommand(LibPebbleCommand):
 
     def configure_subparser(self, parser):
         PblCommand.configure_subparser(self, parser, is_connect=True)
-        parser.add_argument('pbw_path', type=str, nargs='?')
+        parser.add_argument('pbw_path', type=str, nargs='?', help='Path to the pbw to install (ie: build/*.pbw)')
         parser.add_argument('--logs', action='store_true', help='Display logs after installing the app')
 
     def find_pbw_path(self, args):
