@@ -308,6 +308,7 @@ class Pebble(object):
 
                 if endpoint in self._internal_endpoint_handlers:
                     resp = self._internal_endpoint_handlers[endpoint](endpoint, resp)
+                    log.debug("handled message for endpoint " + str(endpoint) + " resp : " + str(resp))
 
                 if endpoint in self._endpoint_handlers and resp:
                     self._endpoint_handlers[endpoint](endpoint, resp)
@@ -459,7 +460,9 @@ class Pebble(object):
         self._send_message("TIME", data)
 
 
+#    def handle_install_msg_ws(
     def install_app_ws(self, pbw_path):
+        self.register_endpoint("PUTBYTES", client.handle_message)
         f = open(pbw_path, 'r')
         data = f.read()
         self._ser.write(data, ws_cmd=WebSocketPebble.WS_CMD_APP_INSTALL)
@@ -987,6 +990,14 @@ class AppMessage(object):
         ])
         return ''.join(app_message.values())
 
+
+#class AppInstallClient(object):
+#  states = {
+#    "NOT_STARTED": 0,
+#    "IN_PROGRESS": 1,
+#    "COMPLETE": 2,
+#    "FAILED": 3
+#  }
 
 class PutBytesClient(object):
     states = {
