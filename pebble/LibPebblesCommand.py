@@ -69,7 +69,11 @@ class PblInstallCommand(LibPebbleCommand):
 
     def run(self, args):
         if not args.pbw_path:
-            args.pbw_path = self.find_pbw_path(args)
+            # FIXME: The parser should determine this when parsing the command
+            if os.path.splitext(args.host)[1] == '.pbw':
+                args.pbw_path, args.host = args.host, libpebble.DEFAULT_WEBSOCKET_HOST
+            else:
+                args.pbw_path = self.find_pbw_path(args)
 
         LibPebbleCommand.run(self, args)
         self.pebble.install_app_ws(args.pbw_path)
