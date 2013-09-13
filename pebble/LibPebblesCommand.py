@@ -47,7 +47,6 @@ class PblPingCommand(LibPebbleCommand):
         LibPebbleCommand.run(self, args)
         self.pebble.ping(cookie=0xDEADBEEF)
 
-
 class PblInstallCommand(LibPebbleCommand):
     name = 'install'
     help = 'Install your Pebble project to your watch'
@@ -58,11 +57,15 @@ class PblInstallCommand(LibPebbleCommand):
         parser.add_argument('--logs', action='store_true', help='Display logs after installing the app')
 
     def find_pbw_path(self, args):
+        pbw_path = 'build/{}.pbw'.format(os.path.basename(os.getcwd()))
+        if os.path.exists(pbw_path):
+            return pbw_path
+
         for root, dirnames, filenames in os.walk('build'):
             for filename in fnmatch.filter(filenames, '*.pbw'):
                 return os.path.join(root, filename)
 
-        return 'build/{}.pbw'.format(os.path.basename(os.getcwd()))
+        return pbw_path
 
     def run(self, args):
         if not args.pbw_path:
