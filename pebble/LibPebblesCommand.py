@@ -1,8 +1,8 @@
 import fnmatch
 import logging
 import os
-import time
 import sh
+import time
 import websocket
 
 import pebble as libpebble
@@ -74,6 +74,10 @@ class PblInstallCommand(LibPebbleCommand):
                 args.pbw_path, args.host = args.host, libpebble.DEFAULT_WEBSOCKET_HOST
             else:
                 args.pbw_path = self.find_pbw_path(args)
+
+        if not os.path.exists(args.pbw_path):
+            logging.error("Could not find pbw <{}> for install.".format(args.pbw_path))
+            return 1
 
         LibPebbleCommand.run(self, args)
         self.pebble.install_app_ws(args.pbw_path)
