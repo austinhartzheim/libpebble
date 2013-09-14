@@ -82,8 +82,8 @@ def extract_c_appinfo(project_root):
 
     appinfo_c_def = convert_c_expr_dict(c_code, appinfo_c_def)
 
-    version_major = int(appinfo_c_def['version_major'])
-    version_minor = int(appinfo_c_def['version_minor'])
+    version_major = int(appinfo_c_def['version_major'], 0)
+    version_minor = int(appinfo_c_def['version_minor'], 0)
 
     appinfo_json_def = {
         'uuid': convert_c_uuid(appinfo_c_def['uuid']),
