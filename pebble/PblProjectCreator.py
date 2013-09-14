@@ -310,14 +310,14 @@ def read_c_code(c_path):
 
         return c_code
 
-def generate_appinfo_from_old_project(project_root):
+def generate_appinfo_from_old_project(project_root, js_appinfo_path=None, resources_media_path=None):
     appinfo_json_def = extract_c_appinfo(project_root)
 
-    js_appinfo_path = os.path.join(project_root, "src/js/appinfo.json")
-    resources_media = os.path.join(project_root, "resources/src/resource_map.json")
+    if js_appinfo_path and os.path.exists(js_appinfo_path):
+        appinfo_json_def['app_keys'] = load_app_keys(js_appinfo_path)
 
-    appinfo_json_def['app_keys'] = load_app_keys(js_appinfo_path)
-    appinfo_json_def['resources_media'] = load_resources_map(resources_media)
+    if resources_media_path and os.path.exists(resources_media_path):
+        appinfo_json_def['resources_media'] = load_resources_map(resources_media_path)
 
     with open(os.path.join(project_root, "appinfo.json"), "w") as f:
         f.write(FILE_DUMMY_APPINFO.substitute(**appinfo_json_def))
@@ -325,7 +325,13 @@ def generate_appinfo_from_old_project(project_root):
 def convert_project():
     project_root = os.getcwd()
 
-    generate_appinfo_from_old_project(project_root)
+    js_appinfo_path = os.path.join(project_root, "src/js/appinfo.json")
+    resources_media_path = os.path.join(project_root, "resources/src/resource_map.json")
+
+    generate_appinfo_from_old_project(
+            project_root,
+            js_appinfo_path=js_appinfo_path,
+            resources_media_path=resources_media_path)
 
     links_to_remove = [
             'include',
@@ -352,6 +358,11 @@ def convert_project():
     with open(".gitignore", "w") as f:
         f.write(FILE_GITIGNORE)
 
+    if os.path.exists(js_appinfo_path):
+        os.remove(js_appinfo_path)
+
+    if os.path.exists(resources_media_path):
+        os.remove(resources_media_path)
 
 class PblProjectConverter(PblCommand):
     name = 'convert-project'
