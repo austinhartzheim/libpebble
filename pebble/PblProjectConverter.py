@@ -9,7 +9,7 @@ from PblProjectCreator import *
 PBL_APP_INFO_PATTERN = (
         'PBL_APP_INFO(?:_SIMPLE)?\(\s*' +
         '\s*,\s*'.join(['([^,]+)'] * 4) +
-        '(?:\s*,\s*' + '\s*,\s*'.join(['([^,]+)'] * 3) + ')' +
+        '(?:\s*,\s*' + '\s*,\s*'.join(['([^,]+)'] * 3) + ')?' +
         '\s*\)'
         )
 
@@ -44,6 +44,9 @@ def convert_c_uuid(c_uuid):
 
 def convert_c_expr_dict(c_code, c_expr_dict):
     for k, v in c_expr_dict.iteritems():
+        if v == None:
+            continue
+
         # Expand C macros
         if re.match(C_MACRO_USAGE_PATTERN, v):
             m = re.search(C_DEFINE_PATTERN.format(v), c_code)
@@ -78,12 +81,12 @@ def extract_c_appinfo(project_root):
     if m:
         appinfo_c_def = dict(zip(PBL_APP_INFO_FIELDS, m.groups()))
     else:
-        raise Exception("Could not find PBL_APP_INFO in {}".format(c_path))
+        raise Exception("Could not find PBL_APP_INFO in {}".format(main_c_path))
 
     appinfo_c_def = convert_c_expr_dict(c_code, appinfo_c_def)
 
     version_major = int(appinfo_c_def['version_major'], 0)
-    version_minor = int(appinfo_c_def['version_minor'], 0)
+    version_minor = int(appinfo_c_def['version_minor'] or '0', 0)
 
     appinfo_json_def = {
         'uuid': convert_c_uuid(appinfo_c_def['uuid']),
