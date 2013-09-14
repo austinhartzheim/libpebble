@@ -6,10 +6,22 @@ import shutil
 from PblCommand import PblCommand
 from PblProjectCreator import *
 
+C_LITERAL_PATTERN = '([^,]+|"[^"]*")'
+
+C_SINGLELINE_COMMENT_PATTERN = '//.*'
+C_MULTILINE_COMMENT_PATTERN = '/\*.*\*/'
+
+C_MACRO_USAGE_PATTERN = '^[A-Za-z_]\w*$'
+C_DEFINE_PATTERN = '#define\s+{}\s+\(*(.+)\)*\s*'
+C_STRING_PATTERN = '^"(.*)"$'
+
+C_UUID_BYTE_PATTERN = '0x([0-9A-Fa-f]{2})'
+C_UUID_PATTERN = '^{\s*' + '\s*,\s*'.join([C_UUID_BYTE_PATTERN] * 16) + '\s*}$'
+
 PBL_APP_INFO_PATTERN = (
         'PBL_APP_INFO(?:_SIMPLE)?\(\s*' +
-        '\s*,\s*'.join(['([^,]+)'] * 4) +
-        '(?:\s*,\s*' + '\s*,\s*'.join(['([^,]+)'] * 3) + ')?' +
+        '\s*,\s*'.join([C_LITERAL_PATTERN] * 4) +
+        '(?:\s*,\s*' + '\s*,\s*'.join([C_LITERAL_PATTERN] * 3) + ')?' +
         '\s*\)'
         )
 
@@ -23,15 +35,6 @@ PBL_APP_INFO_FIELDS = [
         'type'
         ]
 
-C_SINGLELINE_COMMENT_PATTERN = '//.*'
-C_MULTILINE_COMMENT_PATTERN = '/\*.*\*/'
-
-C_MACRO_USAGE_PATTERN = '^[A-Za-z_]\w*$'
-C_DEFINE_PATTERN = '#define\s+{}\s+\(*(.+)\)*\s*'
-C_STRING_PATTERN = '^"(.*)"$'
-
-C_UUID_BYTE_PATTERN = '0x([0-9A-Fa-f]{2})'
-C_UUID_PATTERN = '^{\s*' + '\s*,\s*'.join([C_UUID_BYTE_PATTERN] * 16) + '\s*}$'
 C_RESOURCE_PREFIX = 'RESOURCE_ID_'
 
 UUID_TEMPLATE = "{}{}{}{}-{}{}-{}{}-{}{}-{}{}{}{}{}{}"
@@ -63,8 +66,8 @@ def convert_c_expr_dict(c_code, c_expr_dict):
 
     return c_expr_dict
 
-def read_c_code(c_path):
-    with open(c_path, 'r') as f:
+def read_c_code(c_file_path):
+    with open(c_file_path, 'r') as f:
         c_code = f.read()
 
         c_code = re.sub(C_SINGLELINE_COMMENT_PATTERN, '', c_code)
@@ -72,11 +75,29 @@ def read_c_code(c_path):
 
         return c_code
 
-def extract_c_appinfo(project_root):
-    project_name = os.path.basename(project_root)
-    main_c_path = "src/{}.c".format(project_name)
+def check_main_c_file(main_c_path):
+    if not os.path.exists(main_c_path):
+        return False, None
 
     c_code = read_c_code(main_c_path)
+    is_main = True if re.search(PBL_APP_INFO_PATTERN, read_c_code(main_c_path)) else False
+    return is_main, c_code
+
+def find_main_c_file(project_root):
+    src_path = os.path.join(project_root, 'src')
+    for root, dirnames, filenames in os.walk(src_path):
+        for f in filenames:
+            file_path = os.path.join(root, f)
+            is_main, c_code = check_main_c_file(file_path)
+            if is_main:
+                return file_path, c_code
+
+    return None, None
+
+def extract_c_appinfo(project_root):
+    main_c_path, c_code = find_main_c_file(project_root)
+    if not main_c_path:
+        raise Exception("Could not find usage of PBL_APP_INFO")
 
     m = re.search(PBL_APP_INFO_PATTERN, c_code)
     if m:
