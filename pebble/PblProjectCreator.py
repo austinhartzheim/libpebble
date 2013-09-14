@@ -244,6 +244,22 @@ def convert_c_expr_dict(c_code, c_expr_dict):
 
     return c_expr_dict
 
+def load_resources_map(project_root):
+    def convert_resources_media_item(item):
+        item['name'] = item['defName']
+        del item['defName']
+        return item
+
+    with open(os.path.join(project_root, "resources/src/resource_map.json"), "r") as f:
+        try:
+            resources_media = json.load(f)['media']
+        except:
+            raise Exception("Failed to import resource_map.json into appinfo.json")
+
+        resources_media = [convert_resources_media_item(item) for item in resources_media]
+        resources_media = json.dumps(resources_media, indent=2)
+        return re.sub('\s*\n', '\n    ', resources_media)
+
 def extract_c_appinfo(c_code, c_path):
     m = re.search(PBL_APP_INFO_PATTERN, c_code)
     if m:
@@ -287,11 +303,14 @@ def generate_appinfo_from_old_project():
     c_code = read_c_code(main_c_path)
 
     appinfo_json_def = extract_c_appinfo(c_code, main_c_path)
+    appinfo_json_def['resources_media'] = load_resources_map(project_root)
 
     with open(os.path.join(project_root, "appinfo.json"), "w") as f:
         f.write(FILE_DUMMY_APPINFO.substitute(**appinfo_json_def))
 
 def convert_project():
+    generate_appinfo_from_old_project()
+
     links_to_remove = [
             'include',
             'lib',
@@ -317,7 +336,6 @@ def convert_project():
     with open(".gitignore", "w") as f:
         f.write(FILE_GITIGNORE)
 
-    generate_appinfo_from_old_project()
 
 class PblProjectConverter(PblCommand):
     name = 'convert-project'
