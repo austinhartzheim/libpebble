@@ -244,23 +244,38 @@ def convert_c_expr_dict(c_code, c_expr_dict):
 
     return c_expr_dict
 
-def load_resources_map(project_root):
+def load_app_keys(js_appinfo_path):
+    with open(js_appinfo_path, "r") as f:
+        try:
+            app_keys = json.load(f)['app_keys']
+        except:
+            raise Exception("Failed to import app_keys from {} into new appinfo.json".format(js_appinfo_path))
+
+        app_keys = json.dumps(app_keys, indent=2)
+        return re.sub('\s*\n', '\n  ', app_keys)
+
+def load_resources_map(resources_map_path):
     def convert_resources_media_item(item):
         item['name'] = item['defName']
         del item['defName']
         return item
 
-    with open(os.path.join(project_root, "resources/src/resource_map.json"), "r") as f:
+    with open(resources_map_path, "r") as f:
         try:
             resources_media = json.load(f)['media']
         except:
-            raise Exception("Failed to import resource_map.json into appinfo.json")
+            raise Exception("Failed to import {} into appinfo.json".format(resources_map_path))
 
         resources_media = [convert_resources_media_item(item) for item in resources_media]
         resources_media = json.dumps(resources_media, indent=2)
         return re.sub('\s*\n', '\n    ', resources_media)
 
-def extract_c_appinfo(c_code, c_path):
+def extract_c_appinfo(project_root):
+    project_name = os.path.basename(project_root)
+    main_c_path = "src/{}.c".format(project_name)
+
+    c_code = read_c_code(main_c_path)
+
     m = re.search(PBL_APP_INFO_PATTERN, c_code)
     if m:
         appinfo_c_def = dict(zip(PBL_APP_INFO_FIELDS, m.groups()))
@@ -295,21 +310,22 @@ def read_c_code(c_path):
 
         return c_code
 
-def generate_appinfo_from_old_project():
-    project_root = os.getcwd()
-    project_name = os.path.basename(project_root)
-    main_c_path = "src/{}.c".format(project_name)
+def generate_appinfo_from_old_project(project_root):
+    appinfo_json_def = extract_c_appinfo(project_root)
 
-    c_code = read_c_code(main_c_path)
+    js_appinfo_path = os.path.join(project_root, "src/js/appinfo.json")
+    resources_media = os.path.join(project_root, "resources/src/resource_map.json")
 
-    appinfo_json_def = extract_c_appinfo(c_code, main_c_path)
-    appinfo_json_def['resources_media'] = load_resources_map(project_root)
+    appinfo_json_def['app_keys'] = load_app_keys(js_appinfo_path)
+    appinfo_json_def['resources_media'] = load_resources_map(resources_media)
 
     with open(os.path.join(project_root, "appinfo.json"), "w") as f:
         f.write(FILE_DUMMY_APPINFO.substitute(**appinfo_json_def))
 
 def convert_project():
-    generate_appinfo_from_old_project()
+    project_root = os.getcwd()
+
+    generate_appinfo_from_old_project(project_root)
 
     links_to_remove = [
             'include',
