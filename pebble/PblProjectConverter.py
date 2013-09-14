@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shutil
 
 from PblCommand import PblCommand
 from PblProjectCreator import *
@@ -139,8 +140,10 @@ def generate_appinfo_from_old_project(project_root, js_appinfo_path=None, resour
 def convert_project():
     project_root = os.getcwd()
 
-    js_appinfo_path = os.path.join(project_root, "src/js/appinfo.json")
-    resources_media_path = os.path.join(project_root, "resources/src/resource_map.json")
+    js_appinfo_path = os.path.join(project_root, 'src/js/appinfo.json')
+
+    resources_path = 'resources/src'
+    resources_media_path = os.path.join(project_root, os.path.join(resources_path, 'resource_map.json'))
 
     generate_appinfo_from_old_project(
             project_root,
@@ -177,6 +180,14 @@ def convert_project():
 
     if os.path.exists(resources_media_path):
         os.remove(resources_media_path)
+
+    if os.path.exists(resources_path):
+        try:
+            for f in os.listdir(resources_path):
+                shutil.move(os.path.join(resources_path, f), os.path.join('resources', f))
+            os.rmdir(resources_path)
+        except:
+            raise Exception("Could not move all files in {} up one level".format(resources_path))
 
 class PblProjectConverter(PblCommand):
     name = 'convert-project'
