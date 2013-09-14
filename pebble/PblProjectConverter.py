@@ -32,6 +32,7 @@ C_STRING_PATTERN = '^"(.*)"$'
 
 C_UUID_BYTE_PATTERN = '0x([0-9A-Fa-f]{2})'
 C_UUID_PATTERN = '^{\s*' + '\s*,\s*'.join([C_UUID_BYTE_PATTERN] * 16) + '\s*}$'
+C_RESOURCE_PREFIX = 'RESOURCE_ID_'
 
 UUID_TEMPLATE = "{}{}{}{}-{}{}-{}{}-{}{}-{}{}{}{}{}{}"
 
@@ -85,7 +86,7 @@ def extract_c_appinfo(project_root):
 
     appinfo_c_def = convert_c_expr_dict(c_code, appinfo_c_def)
 
-    version_major = int(appinfo_c_def['version_major'], 0)
+    version_major = int(appinfo_c_def['version_major'] or '1', 0)
     version_minor = int(appinfo_c_def['version_minor'] or '0', 0)
 
     appinfo_json_def = {
@@ -95,9 +96,10 @@ def extract_c_appinfo(project_root):
         'company_name': appinfo_c_def['company_name'],
         'version_code': version_major,
         'version_label': '{}.{}.0'.format(version_major, version_minor),
+        'menu_icon': appinfo_c_def['menu_icon'],
         'is_watchface': 'true' if appinfo_c_def['type'] == 'APP_INFO_WATCH_FACE' else 'false',
         'app_keys': '{}',
-        'resources_media': '[]'
+        'resources_media': '[]',
     }
 
     return appinfo_json_def
@@ -112,13 +114,18 @@ def load_app_keys(js_appinfo_path):
         app_keys = json.dumps(app_keys, indent=2)
         return re.sub('\s*\n', '\n  ', app_keys)
 
-def load_resources_map(resources_map_path):
+def load_resources_map(resources_map_path, menu_icon_name=None):
     def convert_resources_media_item(item):
         if item['file'] == 'resource_map.json':
             return None
         else:
-            item['name'] = item['defName']
+            item_name = item['defName']
             del item['defName']
+            item['name'] = item_name
+
+            if menu_icon_name and C_RESOURCE_PREFIX + item_name == menu_icon_name:
+                item['menuIcon'] = True
+
             return item
 
     with open(resources_map_path, "r") as f:
@@ -138,7 +145,8 @@ def generate_appinfo_from_old_project(project_root, js_appinfo_path=None, resour
         appinfo_json_def['app_keys'] = load_app_keys(js_appinfo_path)
 
     if resources_media_path and os.path.exists(resources_media_path):
-        appinfo_json_def['resources_media'] = load_resources_map(resources_media_path)
+        menu_icon_name = appinfo_json_def['menu_icon']
+        appinfo_json_def['resources_media'] = load_resources_map(resources_media_path, menu_icon_name)
 
     with open(os.path.join(project_root, "appinfo.json"), "w") as f:
         f.write(FILE_DUMMY_APPINFO.substitute(**appinfo_json_def))
