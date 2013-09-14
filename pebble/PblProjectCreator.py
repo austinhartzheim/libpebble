@@ -1,6 +1,9 @@
-import os, sh
-import uuid
+import json
+import os
+import re
+import sh
 import string
+import uuid
 
 from PblCommand import PblCommand
 
@@ -36,8 +39,10 @@ class PblProjectCreator(PblCommand):
             f.write(FILE_WSCRIPT)
 
         # Add appinfo.json file
+        appinfo_dummy = DICT_DUMMY_APPINFO.copy()
+        appinfo_dummy['uuid'] = str(uuid.uuid4())
         with open(os.path.join(project_root, "appinfo.json"), "w") as f:
-            f.write(FILE_DUMMY_APPINFO.substitute(uuid=str(uuid.uuid4())))
+            f.write(FILE_DUMMY_APPINFO.substitute(**appinfo_dummy))
 
         # Add .gitignore file
         with open(os.path.join(project_root, ".gitignore"), "w") as f:
@@ -129,27 +134,32 @@ int main(void) {
 }
 """
 
+DICT_DUMMY_APPINFO = {
+    'short_name': 'Template App',
+    'long_name': 'Pebble Template App',
+    'company_name': 'Your Company',
+    'version_code': 1,
+    'version_label': '1.0.0',
+    'is_watchface': 'false',
+    'app_keys': """{
+    "dummy": 0
+  }""",
+    'resources_media': '[]'
+}
+
 FILE_DUMMY_APPINFO = string.Template("""{
   "uuid": "${uuid}",
-  "shortName": "Template App",
-  "longName": "Pebble Template App",
-  "companyName": "Your Company",
-  "versionCode": 1,
-  "versionLabel": "1.0.0",
+  "shortName": "${short_name}",
+  "longName": "${long_name}",
+  "companyName": "${company_name}",
+  "versionCode": ${version_code},
+  "versionLabel": "${version_label}",
   "watchapp": {
-    "watchface": false
+    "watchface": ${is_watchface}
   },
-  "appKeys": {
-    "dummy": 0
-  },
+  "appKeys": ${app_keys},
   "resources": {
-    "media": [
-      {
-        "type": "raw",
-        "name": "DUMMY",
-        "file": "appinfo.json"
-      }
-    ]
+    "media": ${resources_media}
   }
 }
 """)
@@ -173,7 +183,7 @@ def check_project_directory():
     if not os.path.isdir('src') or not os.path.exists('wscript'):
         raise InvalidProjectException
 
-    if os.path.islink('pebble_app.ld'):
+    if os.path.islink('pebble_app.ld') or os.path.exists('resources/src/resource_map.json'):
         raise OutdatedProjectException
 
 def requires_project_dir(func):
@@ -181,6 +191,105 @@ def requires_project_dir(func):
         check_project_directory()
         func(self, args)
     return wrapper
+
+PBL_APP_INFO_PATTERN = ('PBL_APP_INFO(?:_SIMPLE)?\(\s*'
+        + '\s*,\s*'.join(['([^,]+)'] * 4)
+        + '(?:\s*,\s*' + '\s*,\s*'.join(['([^,]+)'] * 3) + ')'
+        + '\s*\)'
+        )
+
+PBL_APP_INFO_FIELDS = [
+        'uuid',
+        'name',
+        'company_name',
+        'version_major',
+        'version_minor',
+        'menu_icon',
+        'type'
+        ]
+
+C_SINGLELINE_COMMENT_PATTERN = '//.*'
+C_MULTILINE_COMMENT_PATTERN = '/\*.*\*/'
+
+C_MACRO_USAGE_PATTERN = '^[A-Za-z_]\w*$'
+C_DEFINE_PATTERN = '#define\s+{}\s+\(*(.+)\)*\s*'
+C_STRING_PATTERN = '^"(.*)"$'
+
+C_UUID_BYTE_PATTERN = '0x([0-9A-Fa-f]{2})'
+C_UUID_PATTERN = '^{\s*' + '\s*,\s*'.join([C_UUID_BYTE_PATTERN] * 16) + '\s*}$'
+
+UUID_TEMPLATE = "{}{}{}{}-{}{}-{}{}-{}{}-{}{}{}{}{}{}"
+
+def convert_c_uuid(c_uuid):
+    c_uuid = c_uuid.lower()
+    if re.match(C_UUID_PATTERN, c_uuid):
+        return UUID_TEMPLATE.format(*re.findall(C_UUID_BYTE_PATTERN, c_uuid))
+    else:
+        return c_uuid
+
+def convert_c_expr_dict(c_code, c_expr_dict):
+    for k, v in c_expr_dict.iteritems():
+        # Expand C macros
+        if re.match(C_MACRO_USAGE_PATTERN, v):
+            m = re.search(C_DEFINE_PATTERN.format(v), c_code)
+            if m:
+                v = m.groups()[0]
+
+        # Format C strings
+        m = re.match(C_STRING_PATTERN, v)
+        if m:
+            v = m.groups()[0].decode('string-escape')
+
+        c_expr_dict[k] = v
+
+    return c_expr_dict
+
+def extract_c_appinfo(c_code, c_path):
+    m = re.search(PBL_APP_INFO_PATTERN, c_code)
+    if m:
+        appinfo_c_def = dict(zip(PBL_APP_INFO_FIELDS, m.groups()))
+    else:
+        raise Exception("Could not find PBL_APP_INFO in {}".format(c_path))
+
+    appinfo_c_def = convert_c_expr_dict(c_code, appinfo_c_def)
+
+    version_major = int(appinfo_c_def['version_major'])
+    version_minor = int(appinfo_c_def['version_minor'])
+
+    appinfo_json_def = {
+        'uuid': convert_c_uuid(appinfo_c_def['uuid']),
+        'short_name': appinfo_c_def['name'],
+        'long_name': appinfo_c_def['name'],
+        'company_name': appinfo_c_def['company_name'],
+        'version_code': version_major,
+        'version_label': '{}.{}.0'.format(version_major, version_minor),
+        'is_watchface': 'true' if appinfo_c_def['type'] == 'APP_INFO_WATCH_FACE' else 'false',
+        'app_keys': '{}',
+        'resources_media': '[]'
+    }
+
+    return appinfo_json_def
+
+def read_c_code(c_path):
+    with open(c_path, 'r') as f:
+        c_code = f.read()
+
+        c_code = re.sub(C_SINGLELINE_COMMENT_PATTERN, '', c_code)
+        c_code = re.sub(C_MULTILINE_COMMENT_PATTERN, '', c_code)
+
+        return c_code
+
+def generate_appinfo_from_old_project():
+    project_root = os.getcwd()
+    project_name = os.path.basename(project_root)
+    main_c_path = "src/{}.c".format(project_name)
+
+    c_code = read_c_code(main_c_path)
+
+    appinfo_json_def = extract_c_appinfo(c_code, main_c_path)
+
+    with open(os.path.join(project_root, "appinfo.json"), "w") as f:
+        f.write(FILE_DUMMY_APPINFO.substitute(**appinfo_json_def))
 
 def convert_project():
     links_to_remove = [
@@ -193,18 +302,22 @@ def convert_project():
             ]
 
     for l in links_to_remove:
-        if not os.path.islink(l):
-            raise Exception("Don't know how to convert this project, %s is not a symlink" % l)
-        os.unlink(l)
+        if os.path.islink(l):
+            os.unlink(l)
 
-    os.remove('.gitignore')
-    os.remove('.hgignore')
+    if os.path.exists('.gitignore'):
+        os.remove('.gitignore')
+
+    if os.path.exists('.hgignore'):
+        os.remove('.hgignore')
 
     with open("wscript", "w") as f:
         f.write(FILE_WSCRIPT)
 
     with open(".gitignore", "w") as f:
         f.write(FILE_GITIGNORE)
+
+    generate_appinfo_from_old_project()
 
 class PblProjectConverter(PblCommand):
     name = 'convert-project'
@@ -215,9 +328,9 @@ Note: This will only convert the project, you'll still have to update your sourc
     def run(self, args):
         try:
             check_project_directory()
+            print "No conversion required"
         except OutdatedProjectException:
             convert_project()
             print "Project successfully converted!"
 
-        print "No conversion required"
 
