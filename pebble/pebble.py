@@ -304,12 +304,14 @@ class Pebble(object):
             while self._alive:
                 endpoint, resp = self._recv_message() #reading message if socket is closed causes exceptions
 
-                if resp == None:
+                if resp is None:
+                    # ignore message
                     continue
 
-                if endpoint == None:
-                   # phone status message
-                   self._ws_status_client.handle_status(resp)
+                if endpoint is None:
+                    # phone status message
+                    self._ws_status_client.handle_status(resp)
+                    continue
 
                 #log.info("message for endpoint " + str(endpoint) + " resp : " + str(resp))
                 if endpoint in self._internal_endpoint_handlers:
@@ -1003,15 +1005,6 @@ class AppMessage(object):
         ])
         return ''.join(app_message.values())
 
-
-#class AppInstallClient(object):
-#  states = {
-#    "NOT_STARTED": 0,
-#    "IN_PROGRESS": 1,
-#    "COMPLETE": 2,
-#    "FAILED": 3
-#  }
-
 class WSStatusClient(object):
     states = {
       "IDLE": 0,
@@ -1057,7 +1050,7 @@ class WSStatusClient(object):
       if status == self.status_types["SUCCESS"]:
         self._success = True
       else :
-          log.error("failed with code %d" % status)
+          log.debug("WS Operation failed with status %d" % status)
       self._received = True
 
 class PutBytesClient(object):
