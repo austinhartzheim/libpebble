@@ -111,9 +111,12 @@ def load_app_keys(js_appinfo_path):
 
 def load_resources_map(resources_map_path):
     def convert_resources_media_item(item):
-        item['name'] = item['defName']
-        del item['defName']
-        return item
+        if item['file'] == 'resource_map.json':
+            return None
+        else:
+            item['name'] = item['defName']
+            del item['defName']
+            return item
 
     with open(resources_map_path, "r") as f:
         try:
@@ -121,7 +124,7 @@ def load_resources_map(resources_map_path):
         except:
             raise Exception("Failed to import {} into appinfo.json".format(resources_map_path))
 
-        resources_media = [convert_resources_media_item(item) for item in resources_media]
+        resources_media = filter(None, [convert_resources_media_item(item) for item in resources_media])
         resources_media = json.dumps(resources_media, indent=2)
         return re.sub('\s*\n', '\n    ', resources_media)
 
