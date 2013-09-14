@@ -131,15 +131,15 @@ int main(void) {
 
 FILE_DUMMY_APPINFO = string.Template("""{
   "uuid": "${uuid}",
-  "short_name": "Template App",
-  "long_name": "Pebble Template App",
-  "company_name": "Your Company",
-  "version_code": 1,
-  "version_label": "1.0.0",
+  "shortName": "Template App",
+  "longName": "Pebble Template App",
+  "companyName": "Your Company",
+  "versionCode": 1,
+  "versionLabel": "1.0.0",
   "watchapp": {
     "watchface": false
   },
-  "app_keys": {
+  "appKeys": {
     "dummy": 0
   },
   "resources": {
