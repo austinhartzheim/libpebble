@@ -13,6 +13,7 @@ WS_CMD_PHONE_TO_WATCH = 0x01
 WS_CMD_PHONE_APP_LOG = 0x02
 WS_CMD_SERVER_LOG = 0x03
 WS_CMD_APP_INSTALL = 0x04
+WS_CMD_STATUS = 0x5
 
 class WebSocketPebble(WebSocket):
 
@@ -37,9 +38,12 @@ class WebSocketPebble(WebSocket):
         if self.get_mask_key:
             frame.get_mask_key = self.get_mask_key
         data = frame.format()
-        self.io_sock.send(data)
-        if traceEnabled:
-            logging.debug('send>>> ' + data.encode('hex'))
+
+        sent = 0
+        while sent < len(data):
+            sent += self.io_sock.send(data[sent:])
+            if traceEnabled:
+                logging.debug('send>>> ' + data.encode('hex'))
 
     def read(self):
         """
@@ -57,8 +61,6 @@ class WebSocketPebble(WebSocket):
         """
         try:
             opcode, data = self.recv_data()
-            size, endpoint = unpack("!HH", data[1:5])
-            resp = data[5:]
             ws_cmd = unpack('!b',data[0])
             if ws_cmd[0]==WS_CMD_SERVER_LOG:
                 logging.debug("Server: %s" % repr(data[1:]))
@@ -68,7 +70,13 @@ class WebSocketPebble(WebSocket):
                 logging.debug("Phone ==> Watch: %s" % data[1:].encode("hex"))
             if ws_cmd[0]==WS_CMD_WATCH_TO_PHONE:
                 logging.debug("Watch ==> Phone: %s" % data[1:].encode("hex"))
+                size, endpoint = unpack("!HH", data[1:5])
+                resp = data[5:]
                 return (endpoint, resp, data[1:5])
+            if ws_cmd[0]==WS_CMD_STATUS:
+                logging.debug("Status: %s" % repr(data[1:]))
+                status = unpack("I", data[1:5])[0]
+                return (None, status, data[1:5])
             else:
                 return (None, None, data)
         except:

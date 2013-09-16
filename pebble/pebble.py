@@ -228,6 +228,7 @@ class Pebble(object):
         self._ser = None
         self._read_thread = None
         self._alive = True
+        self._ws_status_client = WSStatusClient()
         self._endpoint_handlers = {}
         self._internal_endpoint_handlers = {
                 self.endpoints["TIME"]: self._get_time_response,
@@ -302,9 +303,16 @@ class Pebble(object):
             while self._alive:
                 endpoint, resp = self._recv_message() #reading message if socket is closed causes exceptions
 
-                if resp == None:
+                if resp is None:
+                    # ignore message
                     continue
 
+                if endpoint is None:
+                    # phone status message
+                    self._ws_status_client.handle_status(resp)
+                    continue
+
+                #log.info("message for endpoint " + str(endpoint) + " resp : " + str(resp))
                 if endpoint in self._internal_endpoint_handlers:
                     resp = self._internal_endpoint_handlers[endpoint](endpoint, resp)
 
@@ -462,6 +470,13 @@ class Pebble(object):
         f = open(pbw_path, 'r')
         data = f.read()
         self._ser.write(data, ws_cmd=WebSocketPebble.WS_CMD_APP_INSTALL)
+        self._ws_status_client.listen()
+        while not self._ws_status_client._received and not self._ws_status_client._error:
+          pass
+        if self._ws_status_client._success:
+          log.info("Installation succesful")
+        else:
+          log.error("Failed to install %s" % repr(pbw_path))
 
     def install_app_pebble_protocol(self, pbw_path, launch_on_install=True):
 
@@ -839,6 +854,9 @@ class Pebble(object):
             message_id = int(''.join(map(str, message_id)))
             return app_install_message[message_id]
 
+        else:
+            return restype
+
     def _version_response(self, endpoint, data):
         fw_names = {
                 0: "normal_fw",
@@ -986,6 +1004,53 @@ class AppMessage(object):
         ])
         return ''.join(app_message.values())
 
+class WSStatusClient(object):
+    states = {
+      "IDLE": 0,
+      "LISTENING": 1,
+    }
+
+    status_types = {
+      "NONE": -1,
+      "SUCCESS": 0,
+      "INSTALL_FAILED": 1,
+    }
+
+    def __init__(self):
+      self._state = self.states["IDLE"]
+      self._status = self.status_types["NONE"]
+      self._received = False
+      self._error = False
+      self._success = False
+      self._timer = threading.Timer(5.0, self.timeout)
+
+    def timeout(self):
+      if (self._state != self.states["LISTENING"]):
+        log.error("Timeout triggered when not listening")
+        return
+      self._error = True
+      self._received = False
+      self._state = self.states["IDLE"]
+
+    def listen(self):
+      self._state = self.states["LISTENING"]
+      self._received = False
+      self._error = False
+      self._success = False
+      self._timer.start()
+
+    def handle_status(self, status):
+      if self._state != self.states["LISTENING"]:
+        log.debug("Unexpected status message")
+        self._error = True
+
+      self._timer.cancel()
+      self._status = status;
+      if status == self.status_types["SUCCESS"]:
+        self._success = True
+      else :
+          log.debug("WS Operation failed with status %d" % status)
+      self._received = True
 
 class PutBytesClient(object):
     states = {

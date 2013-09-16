@@ -14,7 +14,6 @@ from twisted.python import log
 from twisted.web.server import Site
 from twisted.web.static import File
 from autobahn.websocket import *
-from pebble.EchoServerProtocol import *
 from pebble.LibPebblesCommand import *
 
 MAX_ATTEMPTS = 5
@@ -151,7 +150,7 @@ def main():
     parser.add_argument('--pebble_id', type=str, help='the last 4 digits of the target Pebble\'s MAC address. \nNOTE: if \
                         --lightblue is set, providing a full MAC address (ex: "A0:1B:C0:D3:DC:93") won\'t require the pebble \
                         to be discoverable and will be faster')
-    parser.add_argument('--phone', type=str, default=get_phone_env(), help='the host of the WebSocket server to connect to when using the WebSockets API')
+    parser.add_argument('--phone', type=str, default=os.getenv(PEBBLE_PHONE_ENVVAR), help='the host of the WebSocket server to connect to when using the WebSockets API')
     parser.add_argument('-b', '--lightblue', action="store_true", help='use LightBlue bluetooth API')
     parser.add_argument('--pair', action="store_true", help='pair to the pebble from LightBlue bluetooth API before connecting.')
 
@@ -248,11 +247,9 @@ def main():
     if args.pebble_id is None and "PEBBLE_ID" in os.environ:
         args.pebble_id = os.environ["PEBBLE_ID"]
 
+    pebble = libpebble.Pebble(args.pebble_id)
+
     if args.phone:
-        echo_server_start(libpebble.DEFAULT_WEBSOCKET_PORT)
-        # FIXME: This sleep is longer than the phone's reconnection interval (2s), to give it time to connect.
-        sleep(2.5)
-        pebble = libpebble.Pebble(args.pebble_id)
         pebble.connect_via_websocket(args.phone)
 
     else:
@@ -261,7 +258,6 @@ def main():
             if attempts > MAX_ATTEMPTS:
                 raise 'Could not connect to Pebble'
             try:
-                pebble = libpebble.Pebble(args.pebble_id)
                 pebble.connect_via_lightblue(args.pair)
                 break
             except:
