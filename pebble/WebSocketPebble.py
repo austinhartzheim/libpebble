@@ -38,9 +38,12 @@ class WebSocketPebble(WebSocket):
         if self.get_mask_key:
             frame.get_mask_key = self.get_mask_key
         data = frame.format()
-        self.io_sock.send(data)
-        if traceEnabled:
-            logging.debug('send>>> ' + data.encode('hex'))
+
+        sent = 0
+        while sent < len(data):
+            sent += self.io_sock.send(data[sent:])
+            if traceEnabled:
+                logging.debug('send>>> ' + data.encode('hex'))
 
     def read(self):
         """

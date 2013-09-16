@@ -3,12 +3,9 @@ import logging
 import os
 import time
 import sh
-import websocket
 
 import pebble as libpebble
 
-from autobahn.websocket import *
-from EchoServerProtocol import *
 from PblCommand import PblCommand
 
 class LibPebbleCommand(PblCommand):
@@ -18,23 +15,8 @@ class LibPebbleCommand(PblCommand):
         parser.add_argument('host', type=str, nargs='?', default=libpebble.DEFAULT_WEBSOCKET_HOST, help='The host of the WebSocket server to connect')
 
     def run(self, args):
-        echo_server_start(libpebble.DEFAULT_WEBSOCKET_PORT)
-        # FIXME: This sleep is longer than the phone's reconnection interval (2s), to give it time to connect.
-        sleep(2.5)
         self.pebble = libpebble.Pebble()
         self.pebble.connect_via_websocket(args.host)
-
-class PblServerCommand(LibPebbleCommand):
-    name = 'server'
-    help = 'Run a websocket server to keep the connection to your phone and Pebble opened.'
-
-    def configure_subparser(self, parser):
-        LibPebbleCommand.configure_subparser(self, parser)
-
-    def run(self, args):
-        logging.info("Starting a Pebble WS server on port {}".format(libpebble.DEFAULT_WEBSOCKET_PORT))
-        logging.info("Type Ctrl-C to interrupt.")
-        echo_server_start(libpebble.DEFAULT_WEBSOCKET_PORT, blocking=True)
 
 class PblPingCommand(LibPebbleCommand):
     name = 'ping'
