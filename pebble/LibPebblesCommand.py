@@ -11,18 +11,26 @@ from autobahn.websocket import *
 from EchoServerProtocol import *
 from PblCommand import PblCommand
 
+PEBBLE_PHONE_ENVVAR='PEBBLE_PHONE'
+
+def get_phone_env():
+    default = os.getenv(PEBBLE_PHONE_ENVVAR)
+    required = False if default else True
+    return default, required
+
 class LibPebbleCommand(PblCommand):
 
     def configure_subparser(self, parser):
         PblCommand.configure_subparser(self, parser)
-        parser.add_argument('host', type=str, nargs='?', default=libpebble.DEFAULT_WEBSOCKET_HOST, help='The host of the WebSocket server to connect')
+        phone_default, phone_required = get_phone_env()
+        parser.add_argument('--phone', type=str, default=phone_default, required=phone_required, help='The host of the WebSocket server to connect')
 
     def run(self, args):
         echo_server_start(libpebble.DEFAULT_WEBSOCKET_PORT)
         # FIXME: This sleep is longer than the phone's reconnection interval (2s), to give it time to connect.
         sleep(2.5)
         self.pebble = libpebble.Pebble()
-        self.pebble.connect_via_websocket(args.host)
+        self.pebble.connect_via_websocket(args.phone)
 
 class PblServerCommand(LibPebbleCommand):
     name = 'server'
@@ -69,10 +77,6 @@ class PblInstallCommand(LibPebbleCommand):
 
     def run(self, args):
         if not args.pbw_path:
-            # FIXME: The parser should determine this when parsing the command
-            if os.path.splitext(args.host)[1] == '.pbw':
-                args.pbw_path, args.host = args.host, libpebble.DEFAULT_WEBSOCKET_HOST
-            else:
                 args.pbw_path = self.find_pbw_path(args)
 
         if not os.path.exists(args.pbw_path):
