@@ -59,25 +59,15 @@ class PblInstallCommand(LibPebbleCommand):
     name = 'install'
     help = 'Install your Pebble project to your watch'
 
+    def get_pbw_path(self):
+        return 'build/{}.pbw'.format(os.path.basename(os.getcwd()))
+
     def configure_subparser(self, parser):
         LibPebbleCommand.configure_subparser(self, parser)
-        parser.add_argument('pbw_path', type=str, nargs='?', help='Path to the pbw to install (ie: build/*.pbw)')
+        parser.add_argument('pbw_path', type=str, nargs='?', default=self.get_pbw_path(), help='Path to the pbw to install (ie: build/*.pbw)')
         parser.add_argument('--logs', action='store_true', help='Display logs after installing the app')
 
-    def find_pbw_path(self, args):
-        pbw_path = 'build/{}.pbw'.format(os.path.basename(os.getcwd()))
-        if os.path.exists(pbw_path):
-            return pbw_path
-
-        for root, dirnames, filenames in os.walk('build'):
-            for filename in fnmatch.filter(filenames, '*.pbw'):
-                return os.path.join(root, filename)
-
-        return pbw_path
-
     def run(self, args):
-        if not args.pbw_path:
-                args.pbw_path = self.find_pbw_path(args)
 
         if not os.path.exists(args.pbw_path):
             logging.error("Could not find pbw <{}> for install.".format(args.pbw_path))
