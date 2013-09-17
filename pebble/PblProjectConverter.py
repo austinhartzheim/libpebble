@@ -11,8 +11,8 @@ C_LITERAL_PATTERN = '([^,]+|"[^"]*")'
 C_SINGLELINE_COMMENT_PATTERN = '//.*'
 C_MULTILINE_COMMENT_PATTERN = '/\*.*\*/'
 
-C_MACRO_USAGE_PATTERN = '^[A-Za-z_]\w*$'
-C_DEFINE_PATTERN = '#define\s+{}\s+\(*(.+)\)*\s*'
+C_IDENTIFER_PATTERN = '[A-Za-z_]\w*'
+C_DEFINE_PATTERN = '#define\s+('+C_IDENTIFER_PATTERN+')\s+\(*(.+)\)*\s*'
 C_STRING_PATTERN = '^"(.*)"$'
 
 C_UUID_BYTE_PATTERN = '0x([0-9A-Fa-f]{2})'
@@ -46,16 +46,29 @@ def convert_c_uuid(c_uuid):
     else:
         return c_uuid
 
-def convert_c_expr_dict(c_code, c_expr_dict):
+def extract_c_macros_from_code(c_code, macros={}):
+    for m in re.finditer(C_DEFINE_PATTERN, c_code):
+        groups = m.groups()
+        macros[groups[0]] = groups[1]
+
+def extract_c_macros_from_project(project_root, macros={}):
+    src_path = os.path.join(project_root, 'src')
+    for root, dirnames, filenames in os.walk(src_path):
+        for f in filenames:
+            file_path = os.path.join(root, f)
+            extract_c_macros_from_code(read_c_code(file_path), macros)
+
+    return macros
+
+def convert_c_expr_dict(c_expr_dict, project_root):
+    macros = extract_c_macros_from_project(project_root)
     for k, v in c_expr_dict.iteritems():
         if v == None:
             continue
 
         # Expand C macros
-        if re.match(C_MACRO_USAGE_PATTERN, v):
-            m = re.search(C_DEFINE_PATTERN.format(v), c_code)
-            if m:
-                v = m.groups()[0]
+        if v in macros:
+            v = macros[v]
 
         # Format C strings
         m = re.match(C_STRING_PATTERN, v)
@@ -65,6 +78,7 @@ def convert_c_expr_dict(c_code, c_expr_dict):
         c_expr_dict[k] = v
 
     return c_expr_dict
+
 
 def read_c_code(c_file_path):
     with open(c_file_path, 'r') as f:
@@ -105,7 +119,7 @@ def extract_c_appinfo(project_root):
     else:
         raise Exception("Could not find PBL_APP_INFO in {}".format(main_c_path))
 
-    appinfo_c_def = convert_c_expr_dict(c_code, appinfo_c_def)
+    appinfo_c_def = convert_c_expr_dict(appinfo_c_def, project_root)
 
     version_major = int(appinfo_c_def['version_major'] or '1', 0)
     version_minor = int(appinfo_c_def['version_minor'] or '0', 0)
