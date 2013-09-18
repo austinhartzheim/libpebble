@@ -112,7 +112,7 @@ def create_connection(host, port=9000, timeout=None, **options):
     url = "ws://{}:{}".format(host, port)
     try:
         sockopt = options.get("sockopt", ())
-        websock = WebSocketPebble(sockopt=sockopt) #changed this to WebSocketPebble
+        websock = WebSocketPebble(sockopt=sockopt)
         websock.settimeout(timeout != None and timeout or default_timeout)
         websock.connect(url, **options)
     except socket.error as e:
