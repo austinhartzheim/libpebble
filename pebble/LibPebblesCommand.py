@@ -1,22 +1,26 @@
 import fnmatch
 import logging
 import os
-import time
 import sh
+import time
 
 import pebble as libpebble
 
 from PblCommand import PblCommand
 
+PEBBLE_PHONE_ENVVAR='PEBBLE_PHONE'
+
 class LibPebbleCommand(PblCommand):
 
     def configure_subparser(self, parser):
         PblCommand.configure_subparser(self, parser)
-        parser.add_argument('host', type=str, nargs='?', default=libpebble.DEFAULT_WEBSOCKET_HOST, help='The host of the WebSocket server to connect')
+        phone_default = os.getenv(PEBBLE_PHONE_ENVVAR)
+        phone_required = False if phone_default else True
+        parser.add_argument('--phone', type=str, default=phone_default, required=phone_required, help='The host of the WebSocket server to connect')
 
     def run(self, args):
         self.pebble = libpebble.Pebble()
-        self.pebble.connect_via_websocket(args.host)
+        self.pebble.connect_via_websocket(args.phone)
 
 class PblPingCommand(LibPebbleCommand):
     name = 'ping'
@@ -29,26 +33,23 @@ class PblPingCommand(LibPebbleCommand):
         LibPebbleCommand.run(self, args)
         self.pebble.ping(cookie=0xDEADBEEF)
 
-
 class PblInstallCommand(LibPebbleCommand):
     name = 'install'
     help = 'Install your Pebble project to your watch'
 
-    def configure_subparser(self, parser):
-        LibPebbleCommand.configure_subparser(self, parser)
-        parser.add_argument('pbw_path', type=str, nargs='?', help='Path to the pbw to install (ie: build/*.pbw)')
-        parser.add_argument('--logs', action='store_true', help='Display logs after installing the app')
-
-    def find_pbw_path(self, args):
-        for root, dirnames, filenames in os.walk('build'):
-            for filename in fnmatch.filter(filenames, '*.pbw'):
-                return os.path.join(root, filename)
-
+    def get_pbw_path(self):
         return 'build/{}.pbw'.format(os.path.basename(os.getcwd()))
 
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('pbw_path', type=str, nargs='?', default=self.get_pbw_path(), help='Path to the pbw to install (ie: build/*.pbw)')
+        parser.add_argument('--logs', action='store_true', help='Display logs after installing the app')
+
     def run(self, args):
-        if not args.pbw_path:
-            args.pbw_path = self.find_pbw_path(args)
+
+        if not os.path.exists(args.pbw_path):
+            logging.error("Could not find pbw <{}> for install.".format(args.pbw_path))
+            return 1
 
         LibPebbleCommand.run(self, args)
         self.pebble.install_app_ws(args.pbw_path)

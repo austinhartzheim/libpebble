@@ -23,7 +23,6 @@ from collections import OrderedDict
 from struct import pack, unpack
 
 DEFAULT_PEBBLE_ID = None #Triggers autodetection on unix-like systems
-DEFAULT_WEBSOCKET_HOST = 'localhost'
 DEFAULT_WEBSOCKET_PORT = 9000
 DEBUG_PROTOCOL = False
 APP_ELF_PATH = 'build/pebble-app.elf'
@@ -279,7 +278,7 @@ class Pebble(object):
         signal.signal(signal.SIGINT, self._exit_signal_handler)
         self.init_reader()
 
-    def connect_via_websocket(self, host = DEFAULT_WEBSOCKET_HOST, port = DEFAULT_WEBSOCKET_PORT):
+    def connect_via_websocket(self, host, port=DEFAULT_WEBSOCKET_PORT):
         self._connection_type = 'websocket'
 
         WebSocketPebble.enableTrace(False)
