@@ -59,28 +59,25 @@ class WebSocketPebble(WebSocket):
                     log.debug("LightBlue process has shutdown (queue read)")
                 return (None, None, '')
         """
-        try:
-            opcode, data = self.recv_data()
-            ws_cmd = unpack('!b',data[0])
-            if ws_cmd[0]==WS_CMD_SERVER_LOG:
-                logging.debug("Server: %s" % repr(data[1:]))
-            if ws_cmd[0]==WS_CMD_PHONE_APP_LOG:
-                logging.debug("Log: %s" % repr(data[1:]))
-            if ws_cmd[0]==WS_CMD_PHONE_TO_WATCH:
-                logging.debug("Phone ==> Watch: %s" % data[1:].encode("hex"))
-            if ws_cmd[0]==WS_CMD_WATCH_TO_PHONE:
-                logging.debug("Watch ==> Phone: %s" % data[1:].encode("hex"))
-                size, endpoint = unpack("!HH", data[1:5])
-                resp = data[5:]
-                return (endpoint, resp, data[1:5])
-            if ws_cmd[0]==WS_CMD_STATUS:
-                logging.debug("Status: %s" % repr(data[1:]))
-                status = unpack("I", data[1:5])[0]
-                return (None, status, data[1:5])
-            else:
-                return (None, None, data)
-        except:
-            pass # supressing warnings upon disconnection
+        opcode, data = self.recv_data()
+        ws_cmd = unpack('!b',data[0])
+        if ws_cmd[0]==WS_CMD_SERVER_LOG:
+            logging.debug("Server: %s" % repr(data[1:]))
+        if ws_cmd[0]==WS_CMD_PHONE_APP_LOG:
+            logging.debug("Log: %s" % repr(data[1:]))
+        if ws_cmd[0]==WS_CMD_PHONE_TO_WATCH:
+            logging.debug("Phone ==> Watch: %s" % data[1:].encode("hex"))
+        if ws_cmd[0]==WS_CMD_WATCH_TO_PHONE:
+            logging.debug("Watch ==> Phone: %s" % data[1:].encode("hex"))
+            size, endpoint = unpack("!HH", data[1:5])
+            resp = data[5:]
+            return (endpoint, resp, data[1:5])
+        if ws_cmd[0]==WS_CMD_STATUS:
+            logging.debug("Status: %s" % repr(data[1:]))
+            status = unpack("I", data[1:5])[0]
+            return (None, status, data[1:5])
+        else:
+            return (None, None, data)
 
 
 
