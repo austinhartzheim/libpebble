@@ -24,11 +24,11 @@ def convert_c_uuid(c_uuid):
     C_UUID_BYTE_PATTERN = '0x([0-9A-Fa-f]{2})'
     C_UUID_PATTERN = '^{\s*' + '\s*,\s*'.join([C_UUID_BYTE_PATTERN] * 16) + '\s*}$'
 
-    UUID_TEMPLATE = "{}{}{}{}-{}{}-{}{}-{}{}-{}{}{}{}{}{}"
+    UUID_FORMAT = "{}{}{}{}-{}{}-{}{}-{}{}-{}{}{}{}{}{}"
 
     c_uuid = c_uuid.lower()
     if re.match(C_UUID_PATTERN, c_uuid):
-        return UUID_TEMPLATE.format(*re.findall(C_UUID_BYTE_PATTERN, c_uuid))
+        return UUID_FORMAT.format(*re.findall(C_UUID_BYTE_PATTERN, c_uuid))
     else:
         return c_uuid
 
