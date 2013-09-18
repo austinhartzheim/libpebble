@@ -1023,7 +1023,7 @@ class WSStatusClient(object):
       self._received = False
       self._error = False
       self._success = False
-      self._timer = threading.Timer(5.0, self.timeout)
+      self._timer = threading.Timer(30.0, self.timeout)
 
     def timeout(self):
       if (self._state != self.states["LISTENING"]):
