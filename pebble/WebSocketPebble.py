@@ -1,3 +1,4 @@
+import errno
 import sys
 import logging
 from websocket import *
@@ -83,11 +84,11 @@ class WebSocketPebble(WebSocket):
 
 ######################################
 
-def create_connection(url, timeout=None, **options):
+def create_connection(host, port=9000, timeout=None, **options):
     """
-    connect to url and return websocket object.
+    connect to ws://host:port and return websocket object.
 
-    Connect to url and return the WebSocket object.
+    Connect to ws://host:port and return the WebSocket object.
     Passing optional timeout parameter will set the timeout on the socket.
     If no timeout is supplied, the global default timeout setting returned by getdefauttimeout() is used.
     You can customize using 'options'.
@@ -105,10 +106,22 @@ def create_connection(url, timeout=None, **options):
              if you set header as dict value, the custom HTTP headers are added.
     """
 
-    sockopt = options.get("sockopt", ())
-    websock = WebSocketPebble(sockopt=sockopt) #changed this to WebSocketPebble
-    websock.settimeout(timeout != None and timeout or default_timeout)
-    websock.connect(url, **options)
+    url = "ws://{}:{}".format(host, port)
+    try:
+        sockopt = options.get("sockopt", ())
+        websock = WebSocketPebble(sockopt=sockopt)
+        websock.settimeout(timeout != None and timeout or default_timeout)
+        websock.connect(url, **options)
+    except socket.error as e:
+        if e.errno == errno.ECONNREFUSED:
+            logging.error("Could not connect to phone at {}:{}. "
+                      "Ensure that 'Developer Connection' is enabled in the Pebble app.".format(host, port))
+            os._exit(-1)
+        else:
+            raise e
+    except WebSocketConnectionClosedException as e:
+        logging.error("Connection was rejected. The Pebble app is already connected to another client.")
+        os._exit(-1)
     return websock
 
 _MAX_INTEGER = (1 << 32) -1
