@@ -6,40 +6,26 @@ import shutil
 from PblCommand import PblCommand
 from PblProjectCreator import *
 
-C_LITERAL_PATTERN = '([^,]+|"[^"]*")'
+def read_c_code(c_file_path):
 
-C_SINGLELINE_COMMENT_PATTERN = '//.*'
-C_MULTILINE_COMMENT_PATTERN = '/\*.*\*/'
+    C_SINGLELINE_COMMENT_PATTERN = '//.*'
+    C_MULTILINE_COMMENT_PATTERN = '/\*.*\*/'
 
-C_IDENTIFER_PATTERN = '[A-Za-z_]\w*'
-C_DEFINE_PATTERN = '#define\s+('+C_IDENTIFER_PATTERN+')\s+\(*(.+)\)*\s*'
-C_STRING_PATTERN = '^"(.*)"$'
+    with open(c_file_path, 'r') as f:
+        c_code = f.read()
 
-C_UUID_BYTE_PATTERN = '0x([0-9A-Fa-f]{2})'
-C_UUID_PATTERN = '^{\s*' + '\s*,\s*'.join([C_UUID_BYTE_PATTERN] * 16) + '\s*}$'
+        c_code = re.sub(C_SINGLELINE_COMMENT_PATTERN, '', c_code)
+        c_code = re.sub(C_MULTILINE_COMMENT_PATTERN, '', c_code)
 
-PBL_APP_INFO_PATTERN = (
-        'PBL_APP_INFO(?:_SIMPLE)?\(\s*' +
-        '\s*,\s*'.join([C_LITERAL_PATTERN] * 4) +
-        '(?:\s*,\s*' + '\s*,\s*'.join([C_LITERAL_PATTERN] * 3) + ')?' +
-        '\s*\)'
-        )
-
-PBL_APP_INFO_FIELDS = [
-        'uuid',
-        'name',
-        'company_name',
-        'version_major',
-        'version_minor',
-        'menu_icon',
-        'type'
-        ]
-
-C_RESOURCE_PREFIX = 'RESOURCE_ID_'
-
-UUID_TEMPLATE = "{}{}{}{}-{}{}-{}{}-{}{}-{}{}{}{}{}{}"
+        return c_code
 
 def convert_c_uuid(c_uuid):
+
+    C_UUID_BYTE_PATTERN = '0x([0-9A-Fa-f]{2})'
+    C_UUID_PATTERN = '^{\s*' + '\s*,\s*'.join([C_UUID_BYTE_PATTERN] * 16) + '\s*}$'
+
+    UUID_TEMPLATE = "{}{}{}{}-{}{}-{}{}-{}{}-{}{}{}{}{}{}"
+
     c_uuid = c_uuid.lower()
     if re.match(C_UUID_PATTERN, c_uuid):
         return UUID_TEMPLATE.format(*re.findall(C_UUID_BYTE_PATTERN, c_uuid))
@@ -47,6 +33,10 @@ def convert_c_uuid(c_uuid):
         return c_uuid
 
 def extract_c_macros_from_code(c_code, macros={}):
+
+    C_IDENTIFIER_PATTERN = '[A-Za-z_]\w*'
+    C_DEFINE_PATTERN = '#define\s+('+C_IDENTIFIER_PATTERN+')\s+\(*(.+)\)*\s*'
+
     for m in re.finditer(C_DEFINE_PATTERN, c_code):
         groups = m.groups()
         macros[groups[0]] = groups[1]
@@ -61,6 +51,9 @@ def extract_c_macros_from_project(project_root, macros={}):
     return macros
 
 def convert_c_expr_dict(c_expr_dict, project_root):
+
+    C_STRING_PATTERN = '^"(.*)"$'
+
     macros = extract_c_macros_from_project(project_root)
     for k, v in c_expr_dict.iteritems():
         if v == None:
@@ -79,45 +72,40 @@ def convert_c_expr_dict(c_expr_dict, project_root):
 
     return c_expr_dict
 
+def find_pbl_app_info(project_root):
 
-def read_c_code(c_file_path):
-    with open(c_file_path, 'r') as f:
-        c_code = f.read()
+    C_LITERAL_PATTERN = '([^,]+|"[^"]*")'
 
-        c_code = re.sub(C_SINGLELINE_COMMENT_PATTERN, '', c_code)
-        c_code = re.sub(C_MULTILINE_COMMENT_PATTERN, '', c_code)
+    PBL_APP_INFO_PATTERN = (
+            'PBL_APP_INFO(?:_SIMPLE)?\(\s*' +
+            '\s*,\s*'.join([C_LITERAL_PATTERN] * 4) +
+            '(?:\s*,\s*' + '\s*,\s*'.join([C_LITERAL_PATTERN] * 3) + ')?' +
+            '\s*\)'
+            )
 
-        return c_code
+    PBL_APP_INFO_FIELDS = [
+            'uuid',
+            'name',
+            'company_name',
+            'version_major',
+            'version_minor',
+            'menu_icon',
+            'type'
+            ]
 
-def check_main_c_file(main_c_path):
-    if not os.path.exists(main_c_path):
-        return False, None
-
-    c_code = read_c_code(main_c_path)
-    is_main = True if re.search(PBL_APP_INFO_PATTERN, read_c_code(main_c_path)) else False
-    return is_main, c_code
-
-def find_main_c_file(project_root):
     src_path = os.path.join(project_root, 'src')
     for root, dirnames, filenames in os.walk(src_path):
         for f in filenames:
             file_path = os.path.join(root, f)
-            is_main, c_code = check_main_c_file(file_path)
-            if is_main:
-                return file_path, c_code
-
-    return None, None
+            m = re.search(PBL_APP_INFO_PATTERN, read_c_code(file_path))
+            if m:
+                return dict(zip(PBL_APP_INFO_FIELDS, m.groups()))
 
 def extract_c_appinfo(project_root):
-    main_c_path, c_code = find_main_c_file(project_root)
-    if not main_c_path:
-        raise Exception("Could not find usage of PBL_APP_INFO")
 
-    m = re.search(PBL_APP_INFO_PATTERN, c_code)
-    if m:
-        appinfo_c_def = dict(zip(PBL_APP_INFO_FIELDS, m.groups()))
-    else:
-        raise Exception("Could not find PBL_APP_INFO in {}".format(main_c_path))
+    appinfo_c_def = find_pbl_app_info(project_root)
+    if not appinfo_c_def:
+        raise Exception("Could not find usage of PBL_APP_INFO")
 
     appinfo_c_def = convert_c_expr_dict(appinfo_c_def, project_root)
 
@@ -150,6 +138,9 @@ def load_app_keys(js_appinfo_path):
         return re.sub('\s*\n', '\n  ', app_keys)
 
 def load_resources_map(resources_map_path, menu_icon_name=None):
+
+    C_RESOURCE_PREFIX = 'RESOURCE_ID_'
+
     def convert_resources_media_item(item):
         if item['file'] == 'resource_map.json':
             return None
