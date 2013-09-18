@@ -282,8 +282,7 @@ class Pebble(object):
         self._connection_type = 'websocket'
 
         WebSocketPebble.enableTrace(False)
-        address = "ws://{}:{}".format(host, port)
-        self._ser = WebSocketPebble.create_connection(address)
+        self._ser = WebSocketPebble.create_connection(host, port)
         self.init_reader()
 
     def _exit_signal_handler(self, signum, frame):
