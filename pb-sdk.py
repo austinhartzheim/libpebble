@@ -5,7 +5,6 @@ import logging
 import sys
 
 import pebble as libpebble
-from pebble.PblCommand          import PblCommand
 from pebble.PblProjectCreator   import PblProjectCreator
 from pebble.PblProjectConverter import PblProjectConverter
 from pebble.PblProjectConverter import InvalidProjectException, OutdatedProjectException
@@ -16,7 +15,6 @@ class PbSDKShell:
     commands = []
 
     def __init__(self):
-        self.commands.append(PblServerCommand())
         self.commands.append(PblProjectCreator())
         self.commands.append(PblProjectConverter())
         self.commands.append(PblBuildCommand())
