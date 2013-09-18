@@ -1,6 +1,6 @@
-import os, sh
-import uuid
+import os
 import string
+import uuid
 
 from PblCommand import PblCommand
 
@@ -36,8 +36,10 @@ class PblProjectCreator(PblCommand):
             f.write(FILE_WSCRIPT)
 
         # Add appinfo.json file
+        appinfo_dummy = DICT_DUMMY_APPINFO.copy()
+        appinfo_dummy['uuid'] = str(uuid.uuid4())
         with open(os.path.join(project_root, "appinfo.json"), "w") as f:
-            f.write(FILE_DUMMY_APPINFO.substitute(uuid=str(uuid.uuid4())))
+            f.write(FILE_DUMMY_APPINFO.substitute(**appinfo_dummy))
 
         # Add .gitignore file
         with open(os.path.join(project_root, ".gitignore"), "w") as f:
@@ -129,27 +131,32 @@ int main(void) {
 }
 """
 
+DICT_DUMMY_APPINFO = {
+    'short_name': 'Template App',
+    'long_name': 'Pebble Template App',
+    'company_name': 'Your Company',
+    'version_code': 1,
+    'version_label': '1.0.0',
+    'is_watchface': 'false',
+    'app_keys': """{
+    "dummy": 0
+  }""",
+    'resources_media': '[]'
+}
+
 FILE_DUMMY_APPINFO = string.Template("""{
   "uuid": "${uuid}",
-  "shortName": "Template App",
-  "longName": "Pebble Template App",
-  "companyName": "Your Company",
-  "versionCode": 1,
-  "versionLabel": "1.0.0",
+  "shortName": "${short_name}",
+  "longName": "${long_name}",
+  "companyName": "${company_name}",
+  "versionCode": ${version_code},
+  "versionLabel": "${version_label}",
   "watchapp": {
-    "watchface": false
+    "watchface": ${is_watchface}
   },
-  "appKeys": {
-    "dummy": 0
-  },
+  "appKeys": ${app_keys},
   "resources": {
-    "media": [
-      {
-        "type": "raw",
-        "name": "DUMMY",
-        "file": "appinfo.json"
-      }
-    ]
+    "media": ${resources_media}
   }
 }
 """)
@@ -173,7 +180,7 @@ def check_project_directory():
     if not os.path.isdir('src') or not os.path.exists('wscript'):
         raise InvalidProjectException
 
-    if os.path.islink('pebble_app.ld'):
+    if os.path.islink('pebble_app.ld') or os.path.exists('resources/src/resource_map.json'):
         raise OutdatedProjectException
 
 def requires_project_dir(func):
@@ -181,43 +188,4 @@ def requires_project_dir(func):
         check_project_directory()
         func(self, args)
     return wrapper
-
-def convert_project():
-    links_to_remove = [
-            'include',
-            'lib',
-            'pebble_app.ld',
-            'tools',
-            'waf',
-            'wscript'
-            ]
-
-    for l in links_to_remove:
-        if not os.path.islink(l):
-            raise Exception("Don't know how to convert this project, %s is not a symlink" % l)
-        os.unlink(l)
-
-    os.remove('.gitignore')
-    os.remove('.hgignore')
-
-    with open("wscript", "w") as f:
-        f.write(FILE_WSCRIPT)
-
-    with open(".gitignore", "w") as f:
-        f.write(FILE_GITIGNORE)
-
-class PblProjectConverter(PblCommand):
-    name = 'convert-project'
-    help = """convert an existing Pebble project to the current SDK.
-
-Note: This will only convert the project, you'll still have to update your source to match the new APIs."""
-
-    def run(self, args):
-        try:
-            check_project_directory()
-        except OutdatedProjectException:
-            convert_project()
-            print "Project successfully converted!"
-
-        print "No conversion required"
 

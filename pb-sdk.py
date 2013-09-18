@@ -5,8 +5,9 @@ import logging
 import sys
 
 import pebble as libpebble
-from pebble.PblProjectCreator   import PblProjectCreator, PblProjectConverter
-from pebble.PblProjectCreator   import InvalidProjectException, OutdatedProjectException
+from pebble.PblProjectCreator   import PblProjectCreator
+from pebble.PblProjectConverter import PblProjectConverter
+from pebble.PblProjectConverter import InvalidProjectException, OutdatedProjectException
 from pebble.PblBuildCommand     import PblBuildCommand, PblCleanCommand
 from pebble.LibPebblesCommand   import *
 
