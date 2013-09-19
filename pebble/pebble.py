@@ -282,8 +282,7 @@ class Pebble(object):
         self._connection_type = 'websocket'
 
         WebSocketPebble.enableTrace(False)
-        address = "ws://{}:{}".format(host, port)
-        self._ser = WebSocketPebble.create_connection(address)
+        self._ser = WebSocketPebble.create_connection(host, port)
         self.init_reader()
 
     def _exit_signal_handler(self, signum, frame):
@@ -319,9 +318,9 @@ class Pebble(object):
                 if endpoint in self._endpoint_handlers and resp:
                     self._endpoint_handlers[endpoint](endpoint, resp)
         except:
-            traceback.print_exc()
-            raise PebbleError(self.id, "Lost connection to Pebble")
+            log.error("Lost connection to Pebble")
             self._alive = False
+            os._exit(-1)
 
 
     def _pack_message_data(self, lead, parts):
@@ -1022,7 +1021,7 @@ class WSStatusClient(object):
       self._received = False
       self._error = False
       self._success = False
-      self._timer = threading.Timer(5.0, self.timeout)
+      self._timer = threading.Timer(30.0, self.timeout)
 
     def timeout(self):
       if (self._state != self.states["LISTENING"]):

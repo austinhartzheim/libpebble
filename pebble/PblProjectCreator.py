@@ -1,6 +1,6 @@
-import os, sh
-import uuid
+import os
 import string
+import uuid
 
 from PblCommand import PblCommand
 
@@ -36,8 +36,10 @@ class PblProjectCreator(PblCommand):
             f.write(FILE_WSCRIPT)
 
         # Add appinfo.json file
+        appinfo_dummy = DICT_DUMMY_APPINFO.copy()
+        appinfo_dummy['uuid'] = str(uuid.uuid4())
         with open(os.path.join(project_root, "appinfo.json"), "w") as f:
-            f.write(FILE_DUMMY_APPINFO.substitute(uuid=str(uuid.uuid4())))
+            f.write(FILE_DUMMY_APPINFO.substitute(**appinfo_dummy))
 
         # Add .gitignore file
         with open(os.path.join(project_root, ".gitignore"), "w") as f:
@@ -84,72 +86,89 @@ FILE_DUMMY_MAIN = """#include <pebble_os.h>
 static Window *window;
 static TextLayer *text_layer;
 
-void select_click_handler(ClickRecognizerRef recognizer, void *context) {
+static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
   text_layer_set_text(text_layer, "Select");
 }
 
-void up_click_handler(ClickRecognizerRef recognizer, void *context) {
+static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
   text_layer_set_text(text_layer, "Up");
 }
 
-void down_click_handler(ClickRecognizerRef recognizer, void *context) {
+static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
   text_layer_set_text(text_layer, "Down");
 }
 
-void config_provider(ClickConfig **config, Window *window) {
+static void click_config_provider(ClickConfig **config, void *context) {
   config[BUTTON_ID_SELECT]->click.handler = select_click_handler;
   config[BUTTON_ID_UP]->click.handler = up_click_handler;
   config[BUTTON_ID_DOWN]->click.handler = down_click_handler;
 }
 
-void handle_init(void) {
-  window = window_create();
-  window_set_click_config_provider(window, (ClickConfigProvider) config_provider);
-  window_stack_push(window, true /* Animated */);
+static void window_load(Window *window) {
+  Layer *window_layer = window_get_root_layer(window);
+  GRect bounds = layer_get_bounds(window_layer);
 
-  text_layer = text_layer_create(GRect(/* x: */ 0, /* y: */ 74,
-                                       /* width: */ 144, /* height: */ 20));
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_layer));
-
+  text_layer = text_layer_create((GRect) { .origin = { 0, 72 }, .size = { bounds.size.w, 20 } });
   text_layer_set_text(text_layer, "Press a button");
+  text_layer_set_text_alignment(text_layer, GTextAlignmentCenter);
+  layer_add_child(window_layer, text_layer_get_layer(text_layer));
 }
 
-void handle_deinit(void) {
+static void window_unload(Window *window) {
   text_layer_destroy(text_layer);
+}
+
+static void init(void) {
+  window = window_create();
+  window_set_click_config_provider(window, click_config_provider);
+  window_set_window_handlers(window, (WindowHandlers) {
+    .load = window_load,
+    .unload = window_unload,
+  });
+  const bool animated = true;
+  window_stack_push(window, animated);
+}
+
+static void deinit(void) {
   window_destroy(window);
 }
 
 int main(void) {
-  handle_init();
+  init();
 
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Done initializing, pushed window: %p", window);
 
   app_event_loop();
-  handle_deinit();
+  deinit();
 }
 """
 
+DICT_DUMMY_APPINFO = {
+    'short_name': 'Template App',
+    'long_name': 'Pebble Template App',
+    'company_name': 'Your Company',
+    'version_code': 1,
+    'version_label': '1.0.0',
+    'is_watchface': 'false',
+    'app_keys': """{
+    "dummy": 0
+  }""",
+    'resources_media': '[]'
+}
+
 FILE_DUMMY_APPINFO = string.Template("""{
   "uuid": "${uuid}",
-  "shortName": "Template App",
-  "longName": "Pebble Template App",
-  "companyName": "Your Company",
-  "versionCode": 1,
-  "versionLabel": "1.0.0",
+  "shortName": "${short_name}",
+  "longName": "${long_name}",
+  "companyName": "${company_name}",
+  "versionCode": ${version_code},
+  "versionLabel": "${version_label}",
   "watchapp": {
-    "watchface": false
+    "watchface": ${is_watchface}
   },
-  "appKeys": {
-    "dummy": 0
-  },
+  "appKeys": ${app_keys},
   "resources": {
-    "media": [
-      {
-        "type": "raw",
-        "name": "DUMMY",
-        "file": "appinfo.json"
-      }
-    ]
+    "media": ${resources_media}
   }
 }
 """)
@@ -173,7 +192,7 @@ def check_project_directory():
     if not os.path.isdir('src') or not os.path.exists('wscript'):
         raise InvalidProjectException
 
-    if os.path.islink('pebble_app.ld'):
+    if os.path.islink('pebble_app.ld') or os.path.exists('resources/src/resource_map.json'):
         raise OutdatedProjectException
 
 def requires_project_dir(func):
@@ -181,43 +200,4 @@ def requires_project_dir(func):
         check_project_directory()
         func(self, args)
     return wrapper
-
-def convert_project():
-    links_to_remove = [
-            'include',
-            'lib',
-            'pebble_app.ld',
-            'tools',
-            'waf',
-            'wscript'
-            ]
-
-    for l in links_to_remove:
-        if not os.path.islink(l):
-            raise Exception("Don't know how to convert this project, %s is not a symlink" % l)
-        os.unlink(l)
-
-    os.remove('.gitignore')
-    os.remove('.hgignore')
-
-    with open("wscript", "w") as f:
-        f.write(FILE_WSCRIPT)
-
-    with open(".gitignore", "w") as f:
-        f.write(FILE_GITIGNORE)
-
-class PblProjectConverter(PblCommand):
-    name = 'convert-project'
-    help = """convert an existing Pebble project to the current SDK.
-
-Note: This will only convert the project, you'll still have to update your source to match the new APIs."""
-
-    def run(self, args):
-        try:
-            check_project_directory()
-        except OutdatedProjectException:
-            convert_project()
-            print "Project successfully converted!"
-
-        print "No conversion required"
 
