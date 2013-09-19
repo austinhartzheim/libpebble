@@ -124,3 +124,22 @@ class PblLogsCommand(LibPebbleCommand):
             print "\n"
             self.pebble.app_log_disable()
             return
+
+class PblReplCommand(LibPebbleCommand):
+    name = 'repl'
+    help = 'Launch an interactive python shell with a `pebble` object to execute methods on.'
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+        self.pebble.app_log_enable()
+
+        def start_repl(pebble):
+            import code
+            import readline
+            import rlcompleter
+
+            readline.set_completer(rlcompleter.Completer(locals()).complete)
+            readline.parse_and_bind('tab:complete')
+            code.interact(local=locals())
+
+        start_repl(self.pebble)

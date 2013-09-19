@@ -24,6 +24,7 @@ class PbSDKShell:
         self.commands.append(PblListCommand())
         self.commands.append(PblRemoveCommand())
         self.commands.append(PblLogsCommand())
+        self.commands.append(PblReplCommand())
 
     def _get_version(self):
         try:
