@@ -12,6 +12,7 @@ class PblWafCommand(PblCommand):
 
     @requires_project_dir
     def run(self, args):
+        os.environ['PATH'] = "{}:{}".format(os.path.join(self.sdk_path(args), "arm-cs-tools", "bin"), os.environ['PATH'])
         return subprocess.call(self.waf_path(args) + " " + self.waf_cmds, shell=True)
 
     def configure_subparser(self, parser):
