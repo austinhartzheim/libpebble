@@ -25,6 +25,28 @@ class LibPebbleCommand(PblCommand):
         self.pebble = libpebble.Pebble()
         self.pebble.connect_via_websocket(args.phone)
 
+    def tail(self, interactive=False):
+        self.pebble.app_log_enable()
+        if interactive:
+            logging.info('Entering interactive mode ... Ctrl-D to interrupt.')
+            def start_repl(pebble):
+                import code
+                import readline
+                import rlcompleter
+
+                readline.set_completer(rlcompleter.Completer(locals()).complete)
+                readline.parse_and_bind('tab:complete')
+                code.interact(local=locals())
+            start_repl(self.pebble)
+        else:
+            logging.info('Displaying logs ... Ctrl-C to interrupt.')
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                print "\n"
+        self.pebble.app_log_disable()
+
 class PblPingCommand(LibPebbleCommand):
     name = 'ping'
     help = 'Ping your Pebble project to your watch'
@@ -58,13 +80,7 @@ class PblInstallCommand(LibPebbleCommand):
         self.pebble.install_app_ws(args.pbw_path)
 
         if args.logs:
-            logging.info('Displaying logs ... Ctrl-C to interrupt.')
-            try:
-                while True:
-                    time.sleep(1)
-            except KeyboardInterrupt:
-                return
-
+            self.tail()
 
 class PblListCommand(LibPebbleCommand):
     name = 'list'
@@ -117,16 +133,7 @@ class PblLogsCommand(LibPebbleCommand):
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
-        self.pebble.app_log_enable()
-
-        logging.info('Displaying logs ... Ctrl-C to interrupt.')
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            print "\n"
-            self.pebble.app_log_disable()
-            return
+        self.tail()
 
 class PblReplCommand(LibPebbleCommand):
     name = 'repl'
@@ -134,15 +141,4 @@ class PblReplCommand(LibPebbleCommand):
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
-        self.pebble.app_log_enable()
-
-        def start_repl(pebble):
-            import code
-            import readline
-            import rlcompleter
-
-            readline.set_completer(rlcompleter.Completer(locals()).complete)
-            readline.parse_and_bind('tab:complete')
-            code.interact(local=locals())
-
-        start_repl(self.pebble)
+        self.tail(interactive=True)
