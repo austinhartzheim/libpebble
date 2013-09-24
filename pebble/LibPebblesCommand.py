@@ -16,7 +16,7 @@ class LibPebbleCommand(PblCommand):
         PblCommand.configure_subparser(self, parser)
         phone_default = os.getenv(PEBBLE_PHONE_ENVVAR)
         phone_required = False if phone_default else True
-        parser.add_argument('--phone', type=str, default=phone_default, required=phone_required, help='The host of the WebSocket server to connect')
+        parser.add_argument('--phone', type=str, default=phone_default, required=phone_required, help='The IP address or hostname of your phone - Can also be provided through PEBBLE_PHONE environment variable.')
 
     def run(self, args):
         self.pebble = libpebble.Pebble()
