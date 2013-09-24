@@ -10,6 +10,9 @@ from PblCommand import PblCommand
 
 PEBBLE_PHONE_ENVVAR='PEBBLE_PHONE'
 
+class ConfigurationException(Exception):
+    pass
+
 class LibPebbleCommand(PblCommand):
 
     def configure_subparser(self, parser):
@@ -18,7 +21,7 @@ class LibPebbleCommand(PblCommand):
 
     def run(self, args):
         if not args.phone:
-            raise libpebble.PebbleError(None, "Argument --phone is required (Or set a PEBBLE_PHONE environment variable)")
+            raise ConfigurationException("Argument --phone is required (Or set a PEBBLE_PHONE environment variable)")
         self.pebble = libpebble.Pebble()
         self.pebble.connect_via_websocket(args.phone)
 

@@ -5,9 +5,8 @@ import logging
 import sys
 
 import pebble as libpebble
-from pebble.PblProjectCreator   import PblProjectCreator
+from pebble.PblProjectCreator   import PblProjectCreator, InvalidProjectException, OutdatedProjectException
 from pebble.PblProjectConverter import PblProjectConverter
-from pebble.PblProjectConverter import InvalidProjectException, OutdatedProjectException
 from pebble.PblBuildCommand     import PblBuildCommand, PblCleanCommand
 from pebble.LibPebblesCommand   import *
 
@@ -63,6 +62,9 @@ class PbSDKShell:
             else:
                 logging.error(e)
                 return 1
+        except ConfigurationException as e:
+            logging.error(e)
+            return 1
         except InvalidProjectException as e:
             logging.error("This command must be run from a Pebble project directory")
             return 1
