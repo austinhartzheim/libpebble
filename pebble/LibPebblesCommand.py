@@ -14,11 +14,11 @@ class LibPebbleCommand(PblCommand):
 
     def configure_subparser(self, parser):
         PblCommand.configure_subparser(self, parser)
-        phone_default = os.getenv(PEBBLE_PHONE_ENVVAR)
-        phone_required = False if phone_default else True
-        parser.add_argument('--phone', type=str, default=phone_default, required=phone_required, help='The IP address or hostname of your phone - Can also be provided through PEBBLE_PHONE environment variable.')
+        parser.add_argument('--phone', type=str, default=os.getenv(PEBBLE_PHONE_ENVVAR), help='The IP address or hostname of your phone - Can also be provided through PEBBLE_PHONE environment variable.')
 
     def run(self, args):
+        if not args.phone:
+            raise libpebble.PebbleError(None, "Argument --phone is required (Or set a PEBBLE_PHONE environment variable)")
         self.pebble = libpebble.Pebble()
         self.pebble.connect_via_websocket(args.phone)
 
@@ -46,12 +46,12 @@ class PblInstallCommand(LibPebbleCommand):
         parser.add_argument('--logs', action='store_true', help='Display logs after installing the app')
 
     def run(self, args):
+        LibPebbleCommand.run(self, args)
 
         if not os.path.exists(args.pbw_path):
             logging.error("Could not find pbw <{}> for install.".format(args.pbw_path))
             return 1
 
-        LibPebbleCommand.run(self, args)
         self.pebble.install_app_ws(args.pbw_path)
 
         if args.logs:
