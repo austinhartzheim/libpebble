@@ -162,10 +162,7 @@ class PebbleError(Exception):
         self._message = message
 
     def __str__(self):
-        if (self._id):
-            return "%s (ID:%s)" % (self._message, self._id)
-        else:
-            return self._message
+        return "%s (ID:%s)" % (self._message, self._id)
 
 class Pebble(object):
 
