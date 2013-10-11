@@ -198,6 +198,6 @@ def check_project_directory():
 def requires_project_dir(func):
     def wrapper(self, args):
         check_project_directory()
-        func(self, args)
+        return func(self, args)
     return wrapper
 
