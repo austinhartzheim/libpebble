@@ -473,7 +473,7 @@ class Pebble(object):
         while not self._ws_status_client._received and not self._ws_status_client._error:
           pass
         if self._ws_status_client._success:
-          log.info("Installation succesful")
+          log.info("Installation successful")
         else:
           log.error("Failed to install %s" % repr(pbw_path))
 
