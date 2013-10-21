@@ -22,6 +22,8 @@ class PbSDKShell:
         self.commands.append(PblPingCommand())
         self.commands.append(PblListCommand())
         self.commands.append(PblRemoveCommand())
+        self.commands.append(PblCurrentAppCommand())
+        self.commands.append(PblListUuidCommand())
         self.commands.append(PblLogsCommand())
         self.commands.append(PblReplCommand())
 
