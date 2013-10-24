@@ -39,7 +39,7 @@ def extract_c_macros_from_code(c_code, macros={}):
 
     for m in re.finditer(C_DEFINE_PATTERN, c_code):
         groups = m.groups()
-        macros[groups[0]] = groups[1]
+        macros[groups[0]] = groups[1].strip()
 
 def extract_c_macros_from_project(project_root, macros={}):
     src_path = os.path.join(project_root, 'src')
