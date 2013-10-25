@@ -317,7 +317,8 @@ class Pebble(object):
 
                 if endpoint in self._endpoint_handlers and resp:
                     self._endpoint_handlers[endpoint](endpoint, resp)
-        except:
+        except Exception, e:
+            print str(e)
             log.error("Lost connection to Pebble")
             self._alive = False
             os._exit(-1)
@@ -843,6 +844,11 @@ class Pebble(object):
                 log.warn("Tried to look up where you app crashed, but cannot find '%s'." % APP_ELF_PATH)
 
     def _appbank_status_response(self, endpoint, data):
+        def unpack_uuid(data):
+            UUID_FORMAT = "{}{}{}{}-{}{}-{}{}-{}{}-{}{}{}{}{}{}"
+            uuid = unpack("!bbbbbbbbbbbbbbbb", data)
+            uuid = ["%02x" % (x & 0xff) for x in uuid]
+            return UUID_FORMAT.format(*uuid)
         apps = {}
         restype, = unpack("!b", data[0])
 
@@ -887,8 +893,7 @@ class Pebble(object):
             uuid_size = 16
             offset = 5
             for i in xrange(apps_installed):
-                uuid = unpack("!bbbbbbbbbbbbbbbb", data[offset:offset+uuid_size])
-                uuid = ''.join("%02x" % (x & 0xff) for x in uuid)
+                uuid = unpack_uuid(data[offset:offset+uuid_size])
                 offset += uuid_size
                 uuids.append(uuid)
             return uuids
@@ -901,8 +906,7 @@ class Pebble(object):
             return app
 
         elif restype == 7:
-            uuid = unpack("!bbbbbbbbbbbbbbbb", data[1:17])
-            uuid = ''.join("%02x" % (x & 0xff) for x in uuid)
+            uuid = unpack_uuid(data[1:17])
             return uuid
 
         else:

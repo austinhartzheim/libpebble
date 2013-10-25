@@ -131,14 +131,15 @@ class PblCurrentAppCommand(LibPebbleCommand):
         LibPebbleCommand.run(self, args)
 
         uuid = self.pebble.current_running_uuid()
+        uuid_hex = uuid.translate(None, '-')
         if not uuid:
             return
-        elif int(uuid, 16) == 0:
+        elif int(uuid_hex, 16) == 0:
             print "System"
             return
 
         print uuid
-        d = self.pebble.describe_app_by_uuid(uuid)
+        d = self.pebble.describe_app_by_uuid(uuid_hex)
         if not isinstance(d, dict):
             return
         print "Name: %s\nCompany: %s\nVersion: %d" % (d.get("name"), d.get("company"), d.get("version"))
@@ -152,7 +153,8 @@ class PblListUuidCommand(LibPebbleCommand):
         LibPebbleCommand.run(self, args)
 
         for uuid in self.pebble.list_apps_by_uuid():
-            description = self.pebble.describe_app_by_uuid(uuid)
+            uuid_hex = uuid.translate(None, '-')
+            description = self.pebble.describe_app_by_uuid(uuid_hex)
             if not description:
                 continue
 
