@@ -85,8 +85,7 @@ def build(ctx):
                    js=ctx.path.ant_glob('js/**/*.js'))
 """
 
-FILE_DUMMY_MAIN = """#include <pebble_os.h>
-#include <pebble_app.h>
+FILE_DUMMY_MAIN = """#include <pebble.h>
 #include <pebble_fonts.h>
 
 static Window *window;
