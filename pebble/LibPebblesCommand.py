@@ -123,6 +123,43 @@ class PblRemoveCommand(LibPebbleCommand):
         logging.info("No app found in bank %u" % args.bank_id)
         return 1
 
+class PblCurrentAppCommand(LibPebbleCommand):
+    name = 'current'
+    help = 'Get the uuid and name of the current app'
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+
+        uuid = self.pebble.current_running_uuid()
+        uuid_hex = uuid.translate(None, '-')
+        if not uuid:
+            return
+        elif int(uuid_hex, 16) == 0:
+            print "System"
+            return
+
+        print uuid
+        d = self.pebble.describe_app_by_uuid(uuid_hex)
+        if not isinstance(d, dict):
+            return
+        print "Name: %s\nCompany: %s\nVersion: %d" % (d.get("name"), d.get("company"), d.get("version"))
+        return
+
+class PblListUuidCommand(LibPebbleCommand):
+    name = 'uuids'
+    help = 'List the uuids and names of installed apps'
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+
+        for uuid in self.pebble.list_apps_by_uuid():
+            uuid_hex = uuid.translate(None, '-')
+            description = self.pebble.describe_app_by_uuid(uuid_hex)
+            if not description:
+                continue
+
+            print '%s - %s' % (description["name"], uuid)
+
 
 class PblLogsCommand(LibPebbleCommand):
     name = 'logs'
