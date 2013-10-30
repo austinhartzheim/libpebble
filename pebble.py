@@ -73,7 +73,10 @@ class PbSDKShell:
             if retval:
                 analytics.cmdFailEvt(args.command, 'unknown error')
             else:
-                analytics.cmdSuccessEvt(args.command)
+                cmdName = args.command
+                if cmdName == 'install' and args.logs is True:
+                    cmdName = 'install --logs'
+                analytics.cmdSuccessEvt(cmdName)
             return retval
                 
         except libpebble.PebbleError as e:
@@ -99,7 +102,7 @@ class PbSDKShell:
             analytics.cmdFailEvt(args.command, 'outdated project')
             logging.error("The Pebble project directory is using an outdated "
                           "version of the SDK!")
-            logging.error("Try running `pb-sdk convert-project` to update the "
+            logging.error("Try running `pebble convert-project` to update the "
                           "project")
             return 1
         
