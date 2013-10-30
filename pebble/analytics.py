@@ -40,9 +40,10 @@ class _Analytics(object):
         # TODO: Generate this
         self.clientId = '35009a79-1a05-49d7-b876-2b884d0f825b'
         
-        curVersion = self._getVersion()
+        curSDKVersion = self._getVersion()
         osStr = platform.platform()
-        self.userAgent = 'Pebble SDK/%s (%s)' % (curVersion, osStr) 
+        self.userAgent = 'Pebble SDK/%s (%s-python-%s' % (curSDKVersion, 
+                            osStr, platform.python_version()) 
         
         
         # Get installation info. If we detect a new install, post an 
@@ -69,14 +70,15 @@ class _Analytics(object):
             cachedVersion = open(os.path.join(settingsDir, "sdk_version")).read()
         except:
             cachedVersion = None
-        if not cachedVersion or cachedVersion != curVersion:
+        if not cachedVersion or cachedVersion != curSDKVersion:
             with open(os.path.join(settingsDir, "sdk_version"), 'w') as fd:
-                fd.write(curVersion)
+                fd.write(curSDKVersion)
             if cachedVersion is None:
                 action = 'firstTime'
             else:
                 action = 'upgrade'
-            self.postEvent(category='install', action=action, label=curVersion)
+            self.postEvent(category='install', action=action, 
+                           label=curSDKVersion)
 
         
         
@@ -144,6 +146,9 @@ def cmdFailEvt(cmdName, reason):
     _Analytics.get().postEvent(category='pebbleCmd', action=cmdName, 
                label='fail: %s' % (reason))
     
+def cmdMissingPythonDependency(text):
+    _Analytics.get().postEvent(category='pythonDependency', action='import', 
+               label='missing import: %s' % (text))
 
 
 ####################################################################

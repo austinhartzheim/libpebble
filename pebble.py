@@ -4,12 +4,18 @@ import argparse
 import logging
 import sys
 
-import pebble as libpebble
 import pebble.analytics as analytics
-from pebble.PblProjectCreator   import PblProjectCreator, InvalidProjectException, OutdatedProjectException
-from pebble.PblProjectConverter import PblProjectConverter
-from pebble.PblBuildCommand     import PblBuildCommand, PblCleanCommand
-from pebble.LibPebblesCommand   import *
+
+# Catch any missing python dependencies so we can send an event to analytics
+try:
+    import pebble as libpebble
+    from pebble.PblProjectCreator   import PblProjectCreator, InvalidProjectException, OutdatedProjectException
+    from pebble.PblProjectConverter import PblProjectConverter
+    from pebble.PblBuildCommand     import PblBuildCommand, PblCleanCommand
+    from pebble.LibPebblesCommand   import *
+except Exception as e:
+    analytics.cmdMissingPythonDependency(str(e))
+    raise
 
 class PbSDKShell:
     commands = []
