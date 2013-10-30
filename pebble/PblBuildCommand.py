@@ -1,7 +1,8 @@
 import sh, os, subprocess
 from PblCommand import PblCommand
 from PblProjectCreator import requires_project_dir
-from LibPebblesCommand import NoCompilerException, BuildErrorException
+from LibPebblesCommand import (NoCompilerException, BuildErrorException,
+                               AppTooBigException)
 
 class PblWafCommand(PblCommand):
     """ Helper class for build commands that execute waf """
@@ -15,23 +16,30 @@ class PblWafCommand(PblCommand):
     def run(self, args):
         os.environ['PATH'] = "{}:{}".format(os.path.join(self.sdk_path(args), 
                                 "arm-cs-tools", "bin"), os.environ['PATH'])
-        retval = subprocess.call(self.waf_path(args) + " " + self.waf_cmds, 
-                                 shell=True)
+        
+        cmdLine = self.waf_path(args) + " " + self.waf_cmds
+        retval = subprocess.call(cmdLine, shell=True)
         
         # If an error occurred, do some sleuthing to determine a cause. This 
-        # allows the caller to post more useful information to analytics. 
-        # Note that we tried capturing stdout and stderr using Popen(), but 
-        # then you lose the nice color coding produced when the command outputs
+        # allows the caller to post more useful information to analytics.
+        # We normally don't capture stdout and stderr using Poepn() because 
+        # you lose the nice color coding produced when the command outputs
         # to a terminal directly. 
+        #
+        # But, if an error occurs, let's run it again capturing the output
+        #  so we can determine the cause
+          
         if (retval):
-            try:
-                logOutput = open(os.path.join("build", "config.log")).read()
-            except:
-                logOutput = ""
-            
+            pobj = subprocess.Popen(cmdLine.split(), stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
+            (stdout, stderr) = pobj.communicate()
+                 
             # Look for common problems
-            if "Could not determine the compiler version" in logOutput:
+            if "Could not determine the compiler version" in stderr:
                 raise NoCompilerException
+            
+            elif "region `APP' overflowed" in stderr:
+                raise AppTooBigException
             
             else:
                 raise BuildErrorException

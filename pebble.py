@@ -116,6 +116,11 @@ class PbSDKShell:
             logging.error("A compilation error occurred")
             return 1
         
+        except AppTooBigException as e:
+            analytics.cmdFailEvt(args.command, 'application too big')
+            logging.error("The built application is too big")
+            return 1
+        
         except Exception as e:
             analytics.cmdFailEvt(args.command, 'unhandled exception: %s' %
                                  str(e))

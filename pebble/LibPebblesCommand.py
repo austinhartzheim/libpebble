@@ -21,6 +21,10 @@ class BuildErrorException(Exception):
     """ Returned by PblBuildCommand if there was a compile or link error """
     pass
 
+class AppTooBigException(Exception):
+    """ Returned by PblBuildCommand if the app is too big"""
+    pass
+
 
 class LibPebbleCommand(PblCommand):
 
