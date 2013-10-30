@@ -55,7 +55,6 @@ class PbSDKShell:
 
         logging.basicConfig(format='[%(levelname)-8s] %(message)s', 
                             level = log_level)
-        logging.info("test log message")
 
         return self.run_action(args.command, args)
 
