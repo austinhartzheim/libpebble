@@ -5,22 +5,56 @@ from urllib import urlencode
 
 import datetime
 import time
+import logging
 
 
-TRACKING_ID = 'UA-30638158-7'
-ENDPOINT = 'https://www.google-analytics.com/collect'
+DEBUG = True
+
 
 ####################################################################
-def postEvent(category, action, label, value=None):
+class Analytics(object):
+    # This is the tracking ID assigned to Pebble for the "Pebble SDK Tool"
+    #  web site (pebble.getpebble.com) 
+    trackingId = 'UA-30638158-7'
+    
+    # This is the URL of the Google analytics server
+    endpoint = 'https://www.google-analytics.com/collect'
+    
+    _userAgent = None
+    
+    @classmethod
+    def userAgent(cls):
+        if cls._userAgent is None:
+            version = '1.0'   # TODO: fill this in
+            os = 'Macintosh; Intel Mac OS X 10_9'   # TODO: fill this in
+            cls._userAgent = 'Pebble SDK/%s (%s)' % (version, os) 
+        return cls._userAgent
+    
+    @classmethod
+    def clientId(cls):
+        return None
+        #return '35009a79-1a05-49d7-b876-2b884d0f825b'
+    
+    
+
+####################################################################
+def _postEvent(category, action, label, value=None):
     """ Send an event to the analytics collection server. 
     
+    Parameters:
+    ----------------------------------------------------------------
+    category: The event category
+    action: The event action
+    label: The event label
+    value: The optional event value (integer)
     """
+    
     data = {}
     data['v'] = 1
-    data['tid'] = TRACKING_ID
+    data['tid'] = Analytics.trackingId
     
     #TODO: generate this from host information
-    data['cid'] = '35009a79-1a05-49d7-b876-2b884d0f825b'
+    data['cid'] = Analytics.clientId()
     
     # Generate an event
     data['t'] = 'event'
@@ -35,19 +69,31 @@ def postEvent(category, action, label, value=None):
         if isinstance(value, basestring):
             data[key] = value.encode('utf-8')
             
-    request = Request(ENDPOINT,
-        data=urlencode(data),
-        headers = {
-            'User-Agent': 'Pebble SDK Analytics (Python)'
-        })
+    headers = {
+            'User-Agent': Analytics.userAgent()
+            } 
+    request = Request(Analytics.endpoint,
+                      data=urlencode(data),
+                      headers = headers)
     urlopen(request)
     
+    # Debugging output?
+    logging.debug("[Analytics] header: %s, data: %s" % (headers, data))
+    
+    
+####################################################################
+def cmdSuccessEvt(cmdName):
+    _postEvent(category='pebbleCmd', action=cmdName, label='success')
+
+def cmdFailEvt(cmdName, reason):
+    _postEvent(category='pebbleCmd', action=cmdName, 
+               label='fail: %s' % (reason))
     
 
 
+####################################################################
 if __name__ == '__main__':
-  
-    postEvent('newCategory', 'newAction', 'newLabel')
+    _postEvent('newCategory', 'newAction', 'newLabel')
     
 
 

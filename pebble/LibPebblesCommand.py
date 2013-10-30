@@ -13,6 +13,15 @@ PEBBLE_PHONE_ENVVAR='PEBBLE_PHONE'
 class ConfigurationException(Exception):
     pass
 
+class NoCompilerException(Exception):
+    """ Returned by PblBuildCommand if we couldn't find the ARM tools """
+    pass
+
+class BuildErrorException(Exception):
+    """ Returned by PblBuildCommand if there was a compile or link error """
+    pass
+
+
 class LibPebbleCommand(PblCommand):
 
     def configure_subparser(self, parser):
