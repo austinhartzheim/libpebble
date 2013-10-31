@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+
 from urllib2 import urlopen, Request
 from urllib import urlencode
 import datetime
@@ -80,7 +81,20 @@ class _Analytics(object):
                 action = 'upgrade'
             self.postEvent(category='install', action=action, 
                            label=curSDKVersion)
+            
+        # Should we track analytics?
+        sdkPath = os.path.normpath(os.path.join(os.path.dirname(__file__), 
+                                                '..', '..'))
+        dntFile = os.path.join(sdkPath, "NO_TRACKING")
+        self.doNotTrack = os.path.exists(dntFile)
 
+        # Don't track if internet connection is down
+        if not self.doNotTrack:
+            try:
+                urlopen(self.endpoint, timeout=1)
+            except:
+                self.doNotTrack = True
+            
         
         
     ####################################################################
@@ -104,6 +118,9 @@ class _Analytics(object):
         label: The event label
         value: The optional event value (integer)
         """
+        
+        if self.doNotTrack:
+            return
     
         data = {}
         data['v'] = 1
