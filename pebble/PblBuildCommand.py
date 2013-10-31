@@ -1,6 +1,7 @@
 
 import logging
 import sh, os, subprocess
+import json
 
 import PblAnalytics
 from PblCommand import PblCommand
@@ -16,27 +17,93 @@ class PblWafCommand(PblCommand):
     def waf_path(self, args):
         return os.path.join(os.path.join(self.sdk_path(args), 'Pebble'), 'waf')
     
-    def _getMemoryUsage(self, args):
-        """ Return the memory usage for the current app. 
+    
+    def _sendMemoryUsage(self, args, appInfo):
+        """ Send app memory usage to analytics 
         
-        retval: (textSize, dataSize, bssSize)
+        Parameters:
+        --------------------------------------------------------------------
+        args: the args passed to the run() method
+        appInfo: the applications appInfo
         """
-        cmdArgs = [os.path.join(self.sdk_path(args), "arm-cs-tools", "bin",
-                "arm-none-eabi-size"), os.path.join("build", "pebble-app.elf")]
-        pobj = subprocess.Popen(cmdArgs, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
-        (stdout, stderr) = pobj.communicate()
-        retval = pobj.returncode
+        try:
+            cmdArgs = [os.path.join(self.sdk_path(args), "arm-cs-tools", "bin",
+                    "arm-none-eabi-size"), os.path.join("build", "pebble-app.elf")]
+            pobj = subprocess.Popen(cmdArgs, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
+            (stdout, stderr) = pobj.communicate()
+            retval = pobj.returncode
+    
+            if retval == 0:
+                (textSize, dataSize, bssSize) = [int(x) for x in \
+                                         stdout.splitlines()[1].split()[:3]]
+                sizeDict = {'text': textSize, 'data': dataSize, 'bss': bssSize}
+                PblAnalytics.appSizeEvt(uuid=appInfo["uuid"], 
+                                        segSizes = sizeDict)
+            else:
+                logging.error("command line %s failed. stdout: %s, stderr: %s" %
+                              cmdArgs, stdout, stderr)
+        except Exception as e:
+            logging.error("Exception occurred collecting memory usage: %s" %
+                          str(e))
 
-        if retval == 0:
-            (tSize, dSize, bSize) = [int(x) for x in \
-                                     stdout.splitlines()[1].split()[:3]]
-        else:
-            logging.error("command line %s failed. stdout: %s, stderr: %s" %
-                          cmdArgs, stdout, stderr)
-            (tSize, dSize, bSize) = (None, None, None)
+
+    def _sendResourceUsage(self, args, appInfo):
+        """ Send app resource usage up to analytics 
+        
+        Parameters:
+        --------------------------------------------------------------------
+        args: the args passed to the run() method
+        appInfo: the applications appInfo
+        """
+        
+        try:
             
-        return (tSize, dSize, bSize)
+            # Collect the number and total size of each class of resource:
+            resCounts = {"raw": 0, "image": 0, "font": 0}
+            resSizes = {"raw": 0, "image": 0, "font": 0}
+            
+            for resDict in appInfo["resources"]["media"]:
+                if resDict["type"] in ["png", "png-trans"]:
+                    type = "image"
+                elif resDict["type"] in ["font"]: 
+                    type = "font"
+                elif resDict["type"] in ["raw"]:
+                    type = "raw"
+                else:
+                    raise RuntimeError("Unsupported resource type %s" % 
+                                    (resDict["type"]))
+
+                # Look for the generated blob in the build/resource directory.
+                # As far as we can tell, the generated blob always starts with
+                # the original filename and adds an extension to it, or (for
+                # fonts), a name and extension. 
+                (dirName, fileName) = os.path.split(resDict["file"])
+                dirToSearch = os.path.join("build", "resources", dirName)
+                found = False
+                for name in os.listdir(dirToSearch):
+                    if name.startswith(fileName):
+                        size = os.path.getsize(os.path.join(dirToSearch, name))
+                        found = True
+                        break
+                if not found:
+                    raise RuntimeError("Could not find generated resource "
+                                "corresponding to %s." % (resDict["file"]))
+                    
+                resCounts[type] += 1
+                resSizes[type] += size
+                
+            # Send the stats now
+            PblAnalytics.resSizesEvt(uuid=appInfo["uuid"],
+                                     resCounts = resCounts,
+                                     resSizes = resSizes)
+            
+            
+             
+        except Exception as e:
+            logging.error("Exception occurred collecting resource usage: %s" %
+                          str(e))
+            
         
 
     @requires_project_dir
@@ -72,11 +139,12 @@ class PblWafCommand(PblCommand):
                 raise BuildErrorException
             
         else:
-            # No error, get the size of the app so we can send it to analytics
-            (textSize, dataSize, bssSize) = self._getMemoryUsage(args)
-            if textSize is not None:
-                PblAnalytics.appSizeEvt(textSize=textSize, dataSize=dataSize,
-                                     bssSize = bssSize)
+            # No error building. Send up app memoyr usage and resource usage
+            #  up to analytics
+            # Read in the appinfo.json to get the list of resources
+            appInfo = json.load(open("appinfo.json"))
+            self._sendMemoryUsage(args, appInfo)
+            self._sendResourceUsage(args, appInfo)
             
         return 0
 

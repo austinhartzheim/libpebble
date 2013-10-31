@@ -8,6 +8,7 @@ import logging
 import os
 import platform
 import uuid
+import pprint
 
 DEBUG = True
 
@@ -118,6 +119,8 @@ class _Analytics(object):
         data['el'] = label
         if value:
             data['ev'] = value
+        else:
+            data['ev'] = 0
             
         # Convert all strings to utf-8
         for key,value in data.items():
@@ -133,8 +136,14 @@ class _Analytics(object):
         urlopen(request)
         
         # Debugging output?
-        logging.debug("[Analytics] header: %s, data: %s" % (headers, data))
-        
+        logging.debug("[Analytics] header: %s, tid: %s, cid: %s"  
+                      "\ncategory: %s"  
+                      "\naction: %s"    
+                      "\nlabel: %s"     
+                      "\nvalue: %s" % 
+                      (headers, data['tid'], data['cid'], 
+                       data['ec'], data['ea'], data['el'], data['ev']))
+                      
     
 ####################################################################
 # Our public functions for posting events to analytics
@@ -148,6 +157,7 @@ def cmdSuccessEvt(cmdName):
     _Analytics.get().postEvent(category='pebbleCmd', action=cmdName, 
                               label='success')
 
+
 def cmdFailEvt(cmdName, reason):
     """ Sent when a pebble.py command fails  during execution 
     
@@ -160,6 +170,7 @@ def cmdFailEvt(cmdName, reason):
     _Analytics.get().postEvent(category='pebbleCmd', action=cmdName, 
                label='fail: %s' % (reason))
     
+
 def missingPythonDependencyEvt(text):
     """ Sent when pebble.py fails to launch because of a missing python
         dependency. 
@@ -171,17 +182,47 @@ def missingPythonDependencyEvt(text):
     _Analytics.get().postEvent(category='pythonDependency', action='import', 
                label='missing import: %s' % (text))
 
-def appSizeEvt(textSize, dataSize, bssSize):
-    """ Sent after a successful build of a pebble app 
+
+def appSizeEvt(uuid, segSizes):
+    """ Sent after a successful build of a pebble app to record the app size
     
     Parameters:
     --------------------------------------------------------
-    textSize: size of text section
-    dataSize: size of data section
-    bssSize: size of bss section
+    uuid: application's uuid
+    segSizes: a dict containing the size of each segment
+                    i.e. {"text": 490, "bss": 200, "data": 100}    
     """
-    _Analytics.get().postEvent(category='appSize', action='build', 
-               label=None, value = textSize + dataSize + bssSize)
+    totalSize = sum(segSizes.values())
+    _Analytics.get().postEvent(category='appSize', action='totalSize', 
+               label=uuid, value = totalSize)
+
+
+def resSizesEvt(uuid, resCounts, resSizes):
+    """ Sent after a successful build of a pebble app to record the sizes of
+    the resources
+    
+    Parameters:
+    --------------------------------------------------------
+    uuid: application's uuid
+    resCounts: a dict containing the number of resources of each type
+                    i.e. {"image": 4, "font": 2, "raw": 1}
+    resSizes: a dict containing the size of resources of each type
+                    i.e. {"image": 490, "font": 200, "raw": 100}    
+    """
+    totalSize = sum(resSizes.values())
+    totalCount = sum(resCounts.values())
+    _Analytics.get().postEvent(category='resources', action='totalSize', 
+               label=uuid, value = totalSize)
+    _Analytics.get().postEvent(category='resources', action='totalCount', 
+               label=uuid, value = totalCount)
+    
+    for key in resSizes.keys():
+        _Analytics.get().postEvent(category='resources', 
+                action='%sSize' % (key), label=uuid, value = resSizes[key])
+        _Analytics.get().postEvent(category='resources', 
+                action='%sCount' % (key), label=uuid, value = resCounts[key])
+        
+
 
 
 ####################################################################
