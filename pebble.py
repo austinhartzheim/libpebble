@@ -4,17 +4,19 @@ import argparse
 import logging
 import sys
 
-import pebble.analytics as analytics
+import pebble.PblAnalytics as PblAnalytics
 
 # Catch any missing python dependencies so we can send an event to analytics
 try:
     import pebble as libpebble
-    from pebble.PblProjectCreator   import PblProjectCreator, InvalidProjectException, OutdatedProjectException
+    from pebble.PblProjectCreator   import (PblProjectCreator, 
+                                            InvalidProjectException, 
+                                            OutdatedProjectException)
     from pebble.PblProjectConverter import PblProjectConverter
     from pebble.PblBuildCommand     import PblBuildCommand, PblCleanCommand
     from pebble.LibPebblesCommand   import *
 except Exception as e:
-    analytics.cmdMissingPythonDependency(str(e))
+    PblAnalytics.missingPythonDependencyEvt(str(e))
     raise
 
 class PbSDKShell:
@@ -71,16 +73,16 @@ class PbSDKShell:
         try:
             retval = command.run(args)
             if retval:
-                analytics.cmdFailEvt(args.command, 'unknown error')
+                PblAnalytics.cmdFailEvt(args.command, 'unknown error')
             else:
                 cmdName = args.command
                 if cmdName == 'install' and args.logs is True:
                     cmdName = 'install --logs'
-                analytics.cmdSuccessEvt(cmdName)
+                PblAnalytics.cmdSuccessEvt(cmdName)
             return retval
                 
         except libpebble.PebbleError as e:
-            analytics.cmdFailEvt(args.command, 'pebble error')
+            PblAnalytics.cmdFailEvt(args.command, 'pebble error')
             if args.debug:
                 raise e
             else:
@@ -88,18 +90,18 @@ class PbSDKShell:
                 return 1
             
         except ConfigurationException as e:
-            analytics.cmdFailEvt(args.command, 'configuration error')
+            PblAnalytics.cmdFailEvt(args.command, 'configuration error')
             logging.error(e)
             return 1
         
         except InvalidProjectException as e:
-            analytics.cmdFailEvt(args.command, 'invalid project')
+            PblAnalytics.cmdFailEvt(args.command, 'invalid project')
             logging.error("This command must be run from a Pebble project "
                           "directory")
             return 1
         
         except OutdatedProjectException as e:
-            analytics.cmdFailEvt(args.command, 'outdated project')
+            PblAnalytics.cmdFailEvt(args.command, 'outdated project')
             logging.error("The Pebble project directory is using an outdated "
                           "version of the SDK!")
             logging.error("Try running `pebble convert-project` to update the "
@@ -107,22 +109,22 @@ class PbSDKShell:
             return 1
         
         except NoCompilerException as e:
-            analytics.cmdFailEvt(args.command, 'missing compiler/linker')
+            PblAnalytics.cmdFailEvt(args.command, 'missing compiler/linker')
             logging.error("The compiler/linker tools could not be found")
             return 1
         
         except BuildErrorException as e:
-            analytics.cmdFailEvt(args.command, 'compilation error')
+            PblAnalytics.cmdFailEvt(args.command, 'compilation error')
             logging.error("A compilation error occurred")
             return 1
         
         except AppTooBigException as e:
-            analytics.cmdFailEvt(args.command, 'application too big')
+            PblAnalytics.cmdFailEvt(args.command, 'application too big')
             logging.error("The built application is too big")
             return 1
         
         except Exception as e:
-            analytics.cmdFailEvt(args.command, 'unhandled exception: %s' %
+            PblAnalytics.cmdFailEvt(args.command, 'unhandled exception: %s' %
                                  str(e))
             logging.error(str(e))
             return 1

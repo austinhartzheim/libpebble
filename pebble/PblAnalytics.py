@@ -139,16 +139,49 @@ class _Analytics(object):
 ####################################################################
 # Our public functions for posting events to analytics
 def cmdSuccessEvt(cmdName):
+    """ Sent when a pebble.py command succeeds with no error 
+    
+    Parameters:
+    --------------------------------------------------------
+    cmdName: name of the pebble command that succeeded (build. install, etc.)
+    """
     _Analytics.get().postEvent(category='pebbleCmd', action=cmdName, 
                               label='success')
 
 def cmdFailEvt(cmdName, reason):
+    """ Sent when a pebble.py command fails  during execution 
+    
+    Parameters:
+    --------------------------------------------------------
+    cmdName: name of the pebble command that failed (build. install, etc.)
+    reason: description of error (missing compiler, compilation error, 
+                outdated project, app too big, configuration error, etc.)
+    """
     _Analytics.get().postEvent(category='pebbleCmd', action=cmdName, 
                label='fail: %s' % (reason))
     
-def cmdMissingPythonDependency(text):
+def missingPythonDependencyEvt(text):
+    """ Sent when pebble.py fails to launch because of a missing python
+        dependency. 
+    
+    Parameters:
+    --------------------------------------------------------
+    text: description of missing dependency
+    """
     _Analytics.get().postEvent(category='pythonDependency', action='import', 
                label='missing import: %s' % (text))
+
+def appSizeEvt(textSize, dataSize, bssSize):
+    """ Sent after a successful build of a pebble app 
+    
+    Parameters:
+    --------------------------------------------------------
+    textSize: size of text section
+    dataSize: size of data section
+    bssSize: size of bss section
+    """
+    _Analytics.get().postEvent(category='appSize', action='build', 
+               label=None, value = textSize + dataSize + bssSize)
 
 
 ####################################################################
