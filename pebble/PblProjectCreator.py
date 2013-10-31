@@ -86,7 +86,6 @@ def build(ctx):
 """
 
 FILE_DUMMY_MAIN = """#include <pebble.h>
-#include <pebble_fonts.h>
 
 static Window *window;
 static TextLayer *text_layer;
