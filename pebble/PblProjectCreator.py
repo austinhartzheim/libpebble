@@ -180,9 +180,9 @@ FILE_DUMMY_APPINFO = string.Template("""{
 FILE_DUMMY_JAVASCRIPT_SRC = """\
 Pebble.addEventListener("ready",
     function(e) {
-        console.log("Hello world!", "Sent from your javascript application.")
+        console.log("Hello world! - Sent from your javascript application.");
     }
-};
+);
 """
 
 class InvalidProjectException(Exception):
