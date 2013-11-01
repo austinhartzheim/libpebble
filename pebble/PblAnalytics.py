@@ -39,12 +39,10 @@ class _Analytics(object):
         
         self.trackingId = 'UA-30638158-7'
         self.endpoint = 'https://www.google-analytics.com/collect'
-        # TODO: Generate this
-        self.clientId = '35009a79-1a05-49d7-b876-2b884d0f825b'
         
         curSDKVersion = self._getVersion()
         osStr = platform.platform()
-        self.userAgent = 'Pebble SDK/%s (%s-python-%s' % (curSDKVersion, 
+        self.userAgent = 'Pebble SDK/%s (%s-python-%s)' % (curSDKVersion, 
                             osStr, platform.python_version()) 
         
         
@@ -116,6 +114,21 @@ class _Analytics(object):
     def postEvent(self, category, action, label, value=None):
         """ Send an event to the analytics collection server. 
         
+        We are being a little un-orthodox with how we use the fields in the
+        event and are hijacking some of the fields for alternature purposes:
+        
+        Campaign Name ('cn'): We are using this to represent the operating
+        system as returned by python.platform(). We tried putting this into the
+        user-agent string but it isn't picked up by the Google Analytics web 
+        UI for some reason - perhaps it's the wrong format for that purpose. 
+        
+        Campaign Source ('cs'): We are also copying the client id ('cid') to
+        this field. The 'cid' field is not accessible from the web UI but the
+        'cs' field is. 
+        
+        Campaign Keyword ('ck'): We are using this to store the python version. 
+        
+        
         Parameters:
         ----------------------------------------------------------------
         category: The event category
@@ -131,10 +144,9 @@ class _Analytics(object):
         data['cid'] = self.clientId
         
         # TODO: Set this to PEBBLE-INTERNAL or PEBBLE-AUTOMATED as appropriate
-        data['cn'] = 'developer name'
-        data['cs'] = 'developer source'
-        data['ck'] = 'developer keyword'
-        data['ci'] = 'developer id'
+        data['cn'] = platform.platform()
+        data['cs'] = self.clientId
+        data['ck'] = platform.python_version()
         
         # Generate an event
         data['t'] = 'event'
@@ -156,7 +168,7 @@ class _Analytics(object):
                 } 
         
         # We still build up the request but just don't send it if
-        #  doNotTrack is on. Building it up allows us to still send
+        #  doNotTrack is on. Building it up allows us to still generate
         #  debug logging messages to see the content we would have sent 
         if not self.doNotTrack:
             request = Request(self.endpoint,
