@@ -67,6 +67,24 @@ class _Analytics(object):
 
         self.clientId = clientId
             
+        # Should we track analytics?
+        sdkPath = os.path.normpath(os.path.join(os.path.dirname(__file__), 
+                                                '..', '..'))
+        dntFile = os.path.join(sdkPath, "NO_TRACKING")
+        self.doNotTrack = os.path.exists(dntFile)
+
+        # Don't track if internet connection is down
+        if not self.doNotTrack:
+            try:
+                urlopen(self.endpoint, timeout=0.1)
+            except:
+                self.doNotTrack = True
+                logging.debug("Analytics collection disabled due to lack of"
+                              "internet connectivity")
+            
+        if self.doNotTrack:
+            return
+        
         # Detect if this is a new install and send an event if so
         try:
             cachedVersion = open(os.path.join(settingsDir, "sdk_version")).read()
@@ -81,19 +99,6 @@ class _Analytics(object):
                 action = 'upgrade'
             self.postEvent(category='install', action=action, 
                            label=curSDKVersion)
-            
-        # Should we track analytics?
-        sdkPath = os.path.normpath(os.path.join(os.path.dirname(__file__), 
-                                                '..', '..'))
-        dntFile = os.path.join(sdkPath, "NO_TRACKING")
-        self.doNotTrack = os.path.exists(dntFile)
-
-        # Don't track if internet connection is down
-        if not self.doNotTrack:
-            try:
-                urlopen(self.endpoint, timeout=1)
-            except:
-                self.doNotTrack = True
             
         
         
@@ -118,16 +123,18 @@ class _Analytics(object):
         label: The event label
         value: The optional event value (integer)
         """
-        
-        if self.doNotTrack:
-            return
+
     
         data = {}
         data['v'] = 1
         data['tid'] = self.trackingId
-        
-        #TODO: generate this from host information
         data['cid'] = self.clientId
+        
+        # TODO: Set this to PEBBLE-INTERNAL or PEBBLE-AUTOMATED as appropriate
+        data['cn'] = 'developer name'
+        data['cs'] = 'developer source'
+        data['ck'] = 'developer keyword'
+        data['ci'] = 'developer id'
         
         # Generate an event
         data['t'] = 'event'
@@ -147,18 +154,31 @@ class _Analytics(object):
         headers = {
                 'User-Agent': self.userAgent
                 } 
-        request = Request(self.endpoint,
+        
+        # We still build up the request but just don't send it if
+        #  doNotTrack is on. Building it up allows us to still send
+        #  debug logging messages to see the content we would have sent 
+        if not self.doNotTrack:
+            request = Request(self.endpoint,
                           data=urlencode(data),
                           headers = headers)
-        urlopen(request)
+        
+            try:
+                urlopen(request, timeout=0.1)
+            except Exception as e:
+                logging.debug("Exception occurred sending analytics: %s" %
+                              str(e))
         
         # Debugging output?
-        logging.debug("[Analytics] header: %s, tid: %s, cid: %s"  
+        dumpDict = dict(data)
+        for key in ['ec', 'ea', 'el', 'ev']:
+            dumpDict.pop(key, None)
+        logging.debug("[Analytics] header: %s, data: %s"  
                       "\ncategory: %s"  
                       "\naction: %s"    
                       "\nlabel: %s"     
                       "\nvalue: %s" % 
-                      (headers, data['tid'], data['cid'], 
+                      (headers, str(dumpDict), 
                        data['ec'], data['ea'], data['el'], data['ev']))
                       
     
