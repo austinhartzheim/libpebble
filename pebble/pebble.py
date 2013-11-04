@@ -502,8 +502,9 @@ class Pebble(object):
           pass
         if self._ws_status_client._success:
           log.info("Installation successful")
-        else:
-          log.error("Failed to install %s" % repr(pbw_path))
+          return True
+        log.error("Failed to install %s" % repr(pbw_path))
+        return False
 
     def install_app_pebble_protocol(self, pbw_path, launch_on_install=True):
 
