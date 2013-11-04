@@ -10,8 +10,25 @@ import os
 import platform
 import uuid
 import pprint
+import subprocess
 
 DEBUG = True
+
+####################################################################
+def _runningInVM():
+    """ Return true if we are running in a VM """
+
+    inVM = False    
+    try:
+        drvName = "/proc/scsi/scsi"
+        if os.path.exists(drvName):
+            contents = open(drvName).read()
+            if "VBOX" in contents or "VMware" in contents:
+                return True
+    except:
+        pass
+        
+    return False
 
 
 ####################################################################
@@ -40,10 +57,12 @@ class _Analytics(object):
         self.trackingId = 'UA-30638158-7'
         self.endpoint = 'https://www.google-analytics.com/collect'
         
-        curSDKVersion = self._getVersion()
-        osStr = platform.platform()
+        curSDKVersion = self._getSDKVersion()
+        self.osStr = platform.platform()
+        if _runningInVM():
+            self.osStr += " (VM)"
         self.userAgent = 'Pebble SDK/%s (%s-python-%s)' % (curSDKVersion, 
-                            osStr, platform.python_version()) 
+                            self.osStr, platform.python_version()) 
         
         
         # Get installation info. If we detect a new install, post an 
@@ -101,7 +120,7 @@ class _Analytics(object):
         
         
     ####################################################################
-    def _getVersion(self):
+    def _getSDKVersion(self):
         """ Get the SDK version """
         try:
             from VersionGenerated import SDK_VERSION
@@ -144,7 +163,7 @@ class _Analytics(object):
         data['cid'] = self.clientId
         
         # TODO: Set this to PEBBLE-INTERNAL or PEBBLE-AUTOMATED as appropriate
-        data['cn'] = platform.platform()
+        data['cn'] = self.osStr
         data['cs'] = self.clientId
         data['ck'] = platform.python_version()
         
@@ -169,8 +188,10 @@ class _Analytics(object):
         
         # We still build up the request but just don't send it if
         #  doNotTrack is on. Building it up allows us to still generate
-        #  debug logging messages to see the content we would have sent 
-        if not self.doNotTrack:
+        #  debug logging messages to see the content we would have sent
+        if self.doNotTrack:
+            logging.debug("Not sending analytics - tracking disabled") 
+        else:
             request = Request(self.endpoint,
                           data=urlencode(data),
                           headers = headers)
@@ -178,8 +199,13 @@ class _Analytics(object):
             try:
                 urlopen(request, timeout=0.1)
             except Exception as e:
+                # Turn off tracking so we don't incur a delay on subsequent
+                #  events in this same session. 
+                self.doNotTrack = True
                 logging.debug("Exception occurred sending analytics: %s" %
                               str(e))
+                logging.debug("Disabling analytics due to intermittent "
+                              "connectivity")
         
         # Debugging output?
         dumpDict = dict(data)
