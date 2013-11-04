@@ -86,7 +86,6 @@ def build(ctx):
 """
 
 FILE_DUMMY_MAIN = """#include <pebble.h>
-#include <pebble_fonts.h>
 
 static Window *window;
 static TextLayer *text_layer;
@@ -103,10 +102,10 @@ static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
   text_layer_set_text(text_layer, "Down");
 }
 
-static void click_config_provider(ClickConfig **config, void *context) {
-  config[BUTTON_ID_SELECT]->click.handler = select_click_handler;
-  config[BUTTON_ID_UP]->click.handler = up_click_handler;
-  config[BUTTON_ID_DOWN]->click.handler = down_click_handler;
+static void click_config_provider(void *context) {
+  window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
+  window_single_click_subscribe(BUTTON_ID_UP, up_click_handler);
+  window_single_click_subscribe(BUTTON_ID_DOWN, down_click_handler);
 }
 
 static void window_load(Window *window) {
@@ -179,7 +178,11 @@ FILE_DUMMY_APPINFO = string.Template("""{
 """)
 
 FILE_DUMMY_JAVASCRIPT_SRC = """\
-Pebble.showSimpleNotificationOnPebble("Hello world!", "Sent from your javascript application.")
+Pebble.addEventListener("ready",
+    function(e) {
+        console.log("Hello world!", "Sent from your javascript application.")
+    }
+};
 """
 
 class InvalidProjectException(Exception):
