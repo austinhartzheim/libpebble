@@ -38,6 +38,7 @@ class PblProjectCreator(PblCommand):
         # Add appinfo.json file
         appinfo_dummy = DICT_DUMMY_APPINFO.copy()
         appinfo_dummy['uuid'] = str(uuid.uuid4())
+        appinfo_dummy['project_name'] = project_name
         with open(os.path.join(project_root, "appinfo.json"), "w") as f:
             f.write(FILE_DUMMY_APPINFO.substitute(**appinfo_dummy))
 
@@ -147,10 +148,9 @@ int main(void) {
 }
 """
 
+# @ROBERT TODO: how I make subst here?
 DICT_DUMMY_APPINFO = {
-    'short_name': 'Template App',
-    'long_name': 'Pebble Template App',
-    'company_name': 'Your Company',
+    'company_name': 'MakeAwesomeHappen',
     'version_code': 1,
     'version_label': '1.0.0',
     'is_watchface': 'false',
@@ -162,8 +162,8 @@ DICT_DUMMY_APPINFO = {
 
 FILE_DUMMY_APPINFO = string.Template("""{
   "uuid": "${uuid}",
-  "shortName": "${short_name}",
-  "longName": "${long_name}",
+  "shortName": "${project_name}",
+  "longName": "${project_name}",
   "companyName": "${company_name}",
   "versionCode": ${version_code},
   "versionLabel": "${version_label}",
