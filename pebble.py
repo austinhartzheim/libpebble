@@ -16,6 +16,8 @@ try:
     from pebble.PblBuildCommand     import PblBuildCommand, PblCleanCommand
     from pebble.LibPebblesCommand   import *
 except Exception as e:
+    logging.basicConfig(format='[%(levelname)-8s] %(message)s', 
+                    level = logging.DEBUG)
     PblAnalytics.missingPythonDependencyEvt(str(e))
     raise
 
@@ -109,7 +111,7 @@ class PbSDKShell:
             return 1
         
         except NoCompilerException as e:
-            PblAnalytics.cmdFailEvt(args.command, 'missing compiler/linker')
+            PblAnalytics.missingToolsEvt()
             logging.error("The compiler/linker tools could not be found")
             return 1
         

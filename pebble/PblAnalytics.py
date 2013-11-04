@@ -194,6 +194,7 @@ class _Analytics(object):
                        data['ec'], data['ea'], data['el'], data['ev']))
                       
     
+
 ####################################################################
 # Our public functions for posting events to analytics
 def cmdSuccessEvt(cmdName):
@@ -205,6 +206,31 @@ def cmdSuccessEvt(cmdName):
     """
     _Analytics.get().postEvent(category='pebbleCmd', action=cmdName, 
                               label='success')
+
+
+def missingToolsEvt():
+    """ Sent when we detect that the ARM tools have not been installed 
+    
+    Parameters:
+    --------------------------------------------------------
+    cmdName: name of the pebble command that failed (build. install, etc.)
+    reason: description of error (missing compiler, compilation error, 
+                outdated project, app too big, configuration error, etc.)
+    """
+    _Analytics.get().postEvent(category='install', action='tools', 
+               label='fail: The compiler/linker tools could not be found')
+    
+
+def missingPythonDependencyEvt(text):
+    """ Sent when pebble.py fails to launch because of a missing python
+        dependency. 
+    
+    Parameters:
+    --------------------------------------------------------
+    text: description of missing dependency
+    """
+    _Analytics.get().postEvent(category='install', action='import', 
+               label='fail: missing import: %s' % (text))
 
 
 def cmdFailEvt(cmdName, reason):
@@ -220,19 +246,7 @@ def cmdFailEvt(cmdName, reason):
                label='fail: %s' % (reason))
     
 
-def missingPythonDependencyEvt(text):
-    """ Sent when pebble.py fails to launch because of a missing python
-        dependency. 
-    
-    Parameters:
-    --------------------------------------------------------
-    text: description of missing dependency
-    """
-    _Analytics.get().postEvent(category='pythonDependency', action='import', 
-               label='missing import: %s' % (text))
-
-
-def appSizeEvt(uuid, segSizes):
+def codeSizeEvt(uuid, segSizes):
     """ Sent after a successful build of a pebble app to record the app size
     
     Parameters:
@@ -242,8 +256,34 @@ def appSizeEvt(uuid, segSizes):
                     i.e. {"text": 490, "bss": 200, "data": 100}    
     """
     totalSize = sum(segSizes.values())
-    _Analytics.get().postEvent(category='appSize', action='totalSize', 
+    _Analytics.get().postEvent(category='appCode', action='totalSize', 
                label=uuid, value = totalSize)
+
+
+def codeLineCountEvt(uuid, lineCount):
+    """ Sent after a successful build of a pebble app to record the number of
+    lines of source code in the app
+    
+    Parameters:
+    --------------------------------------------------------
+    uuid: application's uuid
+    lineCount: number of lines of source code
+    """
+    _Analytics.get().postEvent(category='appCode', action='lineCount', 
+               label=uuid, value = lineCount)
+
+
+def codeHasJavaScriptEvt(uuid, hasJS):
+    """ Sent after a successful build of a pebble app to record whether or not
+    this app has javascript code in it
+    
+    Parameters:
+    --------------------------------------------------------
+    uuid: application's uuid
+    hasJS: True if this app has JavaScript in it
+    """
+    _Analytics.get().postEvent(category='appCode', action='hasJavaScript', 
+               label=uuid, value = 1 if hasJS else 0)
 
 
 def resSizesEvt(uuid, resCounts, resSizes):
@@ -260,15 +300,15 @@ def resSizesEvt(uuid, resCounts, resSizes):
     """
     totalSize = sum(resSizes.values())
     totalCount = sum(resCounts.values())
-    _Analytics.get().postEvent(category='resources', action='totalSize', 
+    _Analytics.get().postEvent(category='appResources', action='totalSize', 
                label=uuid, value = totalSize)
-    _Analytics.get().postEvent(category='resources', action='totalCount', 
+    _Analytics.get().postEvent(category='appResources', action='totalCount', 
                label=uuid, value = totalCount)
     
     for key in resSizes.keys():
-        _Analytics.get().postEvent(category='resources', 
+        _Analytics.get().postEvent(category='appResources', 
                 action='%sSize' % (key), label=uuid, value = resSizes[key])
-        _Analytics.get().postEvent(category='resources', 
+        _Analytics.get().postEvent(category='appResources', 
                 action='%sCount' % (key), label=uuid, value = resCounts[key])
         
 
