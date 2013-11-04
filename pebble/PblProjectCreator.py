@@ -148,7 +148,6 @@ int main(void) {
 }
 """
 
-# @ROBERT TODO: how I make subst here?
 DICT_DUMMY_APPINFO = {
     'company_name': 'MakeAwesomeHappen',
     'version_code': 1,
