@@ -513,6 +513,8 @@ class Pebble(object):
 
     def get_phone_os_version(self):
         self._ws_client = WSClient()
+        # The first byte is reserved for future use as a protocol version ID
+        #  and must be 0 for now. 
         data = pack("!b", 0)
         self._ser.write(data, ws_cmd=WebSocketPebble.WS_CMD_PHONE_INFO)
         self._ws_client.listen()
