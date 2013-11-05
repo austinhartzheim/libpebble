@@ -501,20 +501,15 @@ class Pebble(object):
         self._ser.write(data, ws_cmd=WebSocketPebble.WS_CMD_APP_INSTALL)
         self._ws_client.listen()
         while not self._ws_client._received and not self._ws_client._error:
-          pass
+            pass
         if self._ws_client._topic == 'status' \
                 and self._ws_client._response == 0:
-          log.info("Installation successful")
-<<<<<<< HEAD
-        else:
-          log.debug("WS Operation failed with response %s" % 
+            log.info("Installation successful")
+            return True
+        log.debug("WS Operation failed with response %s" % 
                                         self._ws_client._response)
-          log.error("Failed to install %s" % repr(pbw_path))
-=======
-          return True
         log.error("Failed to install %s" % repr(pbw_path))
         return False
->>>>>>> origin/dev-v2.x
 
 
     def get_phone_os_version(self):
