@@ -94,8 +94,8 @@ class PblInstallCommand(LibPebbleCommand):
         success = self.pebble.install_app_ws(args.pbw_path)
 
         # Send the phone OS version to analytics
-        osVersStr = self.pebble.get_phone_os_version()
-        PblAnalytics.phoneOSVersionEvt(osVersStr = osVersStr)
+        phoneInfoStr = self.pebble.get_phone_info()
+        PblAnalytics.phoneInfoEvt(phoneInfoStr = phoneInfoStr)
 
         if success and args.logs:
             self.tail()

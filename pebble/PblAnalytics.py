@@ -337,17 +337,26 @@ def resSizesEvt(uuid, resCounts, resSizes):
         _Analytics.get().postEvent(category='appResources', 
                 action='%sCount' % (key), label=uuid, value = resCounts[key])
         
-def phoneOSVersionEvt(osVersStr):
+def phoneInfoEvt(phoneInfoStr):
     """ Sent after a successful install of a pebble app to record the OS
     running on the phone
     
     Parameters:
     --------------------------------------------------------
-    uuid: application's uuid
-    hasJS: True if this app has JavaScript in it
+    phoneInfoStr: Phone info string as returned from pebble.get_phone_info()
+                   This is a comma separated string containing OS name, 
+                   version, model. For example: "Android,4.3,Nexus 4"
     """
-    _Analytics.get().postEvent(category='phone', action='version', 
-               label=osVersStr, value=0)
+    items = phoneInfoStr.split(',')
+    
+    _Analytics.get().postEvent(category='phone', action='os', 
+               label=items[0], value=0)
+    if len(items) >= 2:
+        _Analytics.get().postEvent(category='phone', action='osVersion', 
+                   label=items[1], value=0)
+    if len(items) >= 3:
+        _Analytics.get().postEvent(category='phone', action='model', 
+                   label=items[2], value=0)
 
 
 

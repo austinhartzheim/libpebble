@@ -512,7 +512,7 @@ class Pebble(object):
         return False
 
 
-    def get_phone_os_version(self):
+    def get_phone_info(self):
         self._ws_client = WSClient()
         # The first byte is reserved for future use as a protocol version ID
         #  and must be 0 for now. 
