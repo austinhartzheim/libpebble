@@ -2,6 +2,7 @@
 import logging
 import sh, os, subprocess
 import json
+import StringIO
 
 import PblAnalytics
 from PblCommand import PblCommand
@@ -22,7 +23,7 @@ class PblWafCommand(PblCommand):
     
     
     ###########################################################################
-    def _sendMemoryUsage(self, args, appInfo):
+    def _send_memory_usage(self, args, appInfo):
         """ Send app memory usage to analytics 
         
         Parameters:
@@ -30,32 +31,30 @@ class PblWafCommand(PblCommand):
         args: the args passed to the run() method
         appInfo: the applications appInfo
         """
-        cmdArgs = [os.path.join(self.sdk_path(args), "arm-cs-tools", "bin",
-                "arm-none-eabi-size"), os.path.join("build", "pebble-app.elf")]
-        pobj = subprocess.Popen(cmdArgs, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
-        (stdout, stderr) = pobj.communicate()
-        retval = pobj.returncode
-
-        if retval == 0:
+        cmd = os.path.join(self.sdk_path(args), "arm-cs-tools", "bin",
+                "arm-none-eabi-size")
+        args = [os.path.join("build", "pebble-app.elf")]
+        try:
+            output = sh.Command(cmd)(*args)
             (textSize, dataSize, bssSize) = [int(x) for x in \
-                                     stdout.splitlines()[1].split()[:3]]
+                                     output.stdout.splitlines()[1].split()[:3]]
             sizeDict = {'text': textSize, 'data': dataSize, 'bss': bssSize}
-            PblAnalytics.codeSizeEvt(uuid=appInfo["uuid"], 
+            PblAnalytics.code_size_evt(uuid=appInfo["uuid"], 
                                     segSizes = sizeDict)
-        else:
-            logging.error("command line %s failed. stdout: %s, stderr: %s" %
-                          cmdArgs, stdout, stderr)
+        except sh.ErrorReturnCode as e:
+            logging.error("command %s %s failed. stdout: %s, stderr: %s" %
+                          (cmd, args, e.stdout, e.stderr))
 
 
     ###########################################################################
-    def _countLines(self, path):
+    def _count_lines(self, path, exts):
         """ Count number of lines of source code in the given path. This will
         recurse into subdirectories as well. 
         
         Parameters:
         --------------------------------------------------------------------
         path: directory name to search
+        exts: list of extensions to include in the search, i.e. ['.c', '.h']
         """
         
         srcLines = 0
@@ -64,16 +63,17 @@ class PblWafCommand(PblCommand):
             if name.startswith('.'):
                 continue
             if os.path.isdir(os.path.join(path, name)):
-                srcLines += self._countLines(os.path.join(path, name))
+                if not os.path.islink(os.path.join(path, name)):
+                    srcLines += self._count_lines(os.path.join(path, name), exts)
                 continue
-            if  name.endswith('.c') or name.endswith('.h') \
-                    or name.endswith('.js'): 
+            ext = os.path.splitext(name)[1]
+            if ext in exts:
                 srcLines += sum(1 for line in open(os.path.join(path, name)))
         return srcLines
     
 
     ###########################################################################
-    def _sendLineCounts(self, args, appInfo):
+    def _send_line_counts(self, args, appInfo):
         """ Send app line counts up to analytics 
         
         Parameters:
@@ -82,16 +82,19 @@ class PblWafCommand(PblCommand):
         appInfo: the applications appInfo
         """
         
-        srcLines = 0
+        c_line_count = 0
+        js_line_count = 0
         if os.path.exists('src'):
-            srcLines += self._countLines('src')
+            c_line_count += self._count_lines('src', ['.h', '.c'])
+            js_line_count += self._count_lines('src', ['.js'])
 
-        PblAnalytics.codeLineCountEvt(uuid=appInfo["uuid"], 
-                                lineCount = srcLines)
+        PblAnalytics.code_line_count_evt(uuid=appInfo["uuid"], 
+                                c_line_count = c_line_count,
+                                js_line_count = js_line_count)
 
 
     ###########################################################################
-    def _sendResourceUsage(self, args, appInfo):
+    def _send_resource_usage(self, args, appInfo):
         """ Send app resource usage up to analytics 
         
         Parameters:
@@ -135,7 +138,7 @@ class PblWafCommand(PblCommand):
             resSizes[type] += size
             
         # Send the stats now
-        PblAnalytics.resSizesEvt(uuid=appInfo["uuid"],
+        PblAnalytics.res_sizes_evt(uuid=appInfo["uuid"],
                                  resCounts = resCounts,
                                  resSizes = resSizes)
                 
@@ -159,10 +162,13 @@ class PblWafCommand(PblCommand):
         #  so we can determine the cause
           
         if (retval):
-            pobj = subprocess.Popen(cmdLine.split(), stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE)
-            (stdout, stderr) = pobj.communicate()
-                 
+            cmdArgs = cmdLine.split()
+            try:
+                output = sh.Command(cmdArgs[0])(*cmdArgs[1:])
+                stderr = output.stderr
+            except sh.ErrorReturnCode as e:
+                stderr = e.stderr                
+
             # Look for common problems
             if "Could not determine the compiler version" in stderr:
                 raise NoCompilerException
@@ -179,11 +185,11 @@ class PblWafCommand(PblCommand):
             # Read in the appinfo.json to get the list of resources
             try:
                 appInfo = json.load(open("appinfo.json"))
-                self._sendMemoryUsage(args, appInfo)
-                self._sendResourceUsage(args, appInfo)
-                self._sendLineCounts(args, appInfo)
+                self._send_memory_usage(args, appInfo)
+                self._send_resource_usage(args, appInfo)
+                self._send_line_counts(args, appInfo)
                 hasJS = os.path.exists(os.path.join('src', 'js'))
-                PblAnalytics.codeHasJavaScriptEvt(uuid=appInfo["uuid"],
+                PblAnalytics.code_has_java_script_evt(uuid=appInfo["uuid"],
                                          hasJS=hasJS)
             except Exception as e:
                 logging.error("Exception occurred collecting app analytics: "

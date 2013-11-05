@@ -12,17 +12,15 @@ import uuid
 import pprint
 import subprocess
 
-DEBUG = True
 
 ####################################################################
-def _runningInVM():
+def _running_in_vm():
     """ Return true if we are running in a VM """
 
-    inVM = False    
     try:
-        drvName = "/proc/scsi/scsi"
-        if os.path.exists(drvName):
-            contents = open(drvName).read()
+        drv_name = "/proc/scsi/scsi"
+        if os.path.exists(drv_name):
+            contents = open(drv_name).read()
             if "VBOX" in contents or "VMware" in contents:
                 return True
     except:
@@ -54,15 +52,15 @@ class _Analytics(object):
         if this is the first time running after an install, etc. 
         """
         
-        self.trackingId = 'UA-30638158-7'
+        self.tracking_id = 'UA-30638158-7'
         self.endpoint = 'https://www.google-analytics.com/collect'
         
-        curSDKVersion = self._getSDKVersion()
-        self.osStr = platform.platform()
-        if _runningInVM():
-            self.osStr += " (VM)"
-        self.userAgent = 'Pebble SDK/%s (%s-python-%s)' % (curSDKVersion, 
-                            self.osStr, platform.python_version()) 
+        cur_sdk_version = self._get_sdk_version()
+        self.os_str = platform.platform()
+        if _running_in_vm():
+            self.os_str += " (VM)"
+        self.user_agent = 'Pebble SDK/%s (%s-python-%s)' % (cur_sdk_version, 
+                            self.os_str, platform.python_version()) 
         
         
         # Get installation info. If we detect a new install, post an 
@@ -77,50 +75,50 @@ class _Analytics(object):
             clientId = open(os.path.join(settingsDir, "client_id")).read()
         except:
             clientId = None
-        if not clientId:
+        if clientId is None:
             clientId = str(uuid.uuid4())
             with open(os.path.join(settingsDir, "client_id"), 'w') as fd:
                 fd.write(clientId)
 
-        self.clientId = clientId
+        self.client_id = clientId
             
         # Should we track analytics?
         sdkPath = os.path.normpath(os.path.join(os.path.dirname(__file__), 
                                                 '..', '..'))
         dntFile = os.path.join(sdkPath, "NO_TRACKING")
-        self.doNotTrack = os.path.exists(dntFile)
+        self.do_not_track = os.path.exists(dntFile)
 
         # Don't track if internet connection is down
-        if not self.doNotTrack:
+        if not self.do_not_track:
             try:
                 urlopen(self.endpoint, timeout=0.1)
             except:
-                self.doNotTrack = True
+                self.do_not_track = True
                 logging.debug("Analytics collection disabled due to lack of"
                               "internet connectivity")
             
-        if self.doNotTrack:
+        if self.do_not_track:
             return
         
         # Detect if this is a new install and send an event if so
         try:
-            cachedVersion = open(os.path.join(settingsDir, "sdk_version")).read()
+            cached_version = open(os.path.join(settingsDir, "sdk_version")).read()
         except:
-            cachedVersion = None
-        if not cachedVersion or cachedVersion != curSDKVersion:
+            cached_version = None
+        if not cached_version or cached_version != cur_sdk_version:
             with open(os.path.join(settingsDir, "sdk_version"), 'w') as fd:
-                fd.write(curSDKVersion)
-            if cachedVersion is None:
+                fd.write(cur_sdk_version)
+            if cached_version is None:
                 action = 'firstTime'
             else:
                 action = 'upgrade'
-            self.postEvent(category='install', action=action, 
-                           label=curSDKVersion)
+            self.post_event(category='install', action=action, 
+                           label=cur_sdk_version)
             
         
         
     ####################################################################
-    def _getSDKVersion(self):
+    def _get_sdk_version(self):
         """ Get the SDK version """
         try:
             from VersionGenerated import SDK_VERSION
@@ -130,7 +128,7 @@ class _Analytics(object):
         
         
     ####################################################################
-    def postEvent(self, category, action, label, value=None):
+    def post_event(self, category, action, label, value=None):
         """ Send an event to the analytics collection server. 
         
         We are being a little un-orthodox with how we use the fields in the
@@ -159,12 +157,12 @@ class _Analytics(object):
     
         data = {}
         data['v'] = 1
-        data['tid'] = self.trackingId
-        data['cid'] = self.clientId
+        data['tid'] = self.tracking_id
+        data['cid'] = self.client_id
         
         # TODO: Set this to PEBBLE-INTERNAL or PEBBLE-AUTOMATED as appropriate
-        data['cn'] = self.osStr
-        data['cs'] = self.clientId
+        data['cn'] = self.os_str
+        data['cs'] = self.client_id
         data['ck'] = platform.python_version()
         
         # Generate an event
@@ -183,13 +181,13 @@ class _Analytics(object):
                 data[key] = value.encode('utf-8')
                 
         headers = {
-                'User-Agent': self.userAgent
+                'User-Agent': self.user_agent
                 } 
         
         # We still build up the request but just don't send it if
         #  doNotTrack is on. Building it up allows us to still generate
         #  debug logging messages to see the content we would have sent
-        if self.doNotTrack:
+        if self.do_not_track:
             logging.debug("Not sending analytics - tracking disabled") 
         else:
             request = Request(self.endpoint,
@@ -201,7 +199,7 @@ class _Analytics(object):
             except Exception as e:
                 # Turn off tracking so we don't incur a delay on subsequent
                 #  events in this same session. 
-                self.doNotTrack = True
+                self.do_not_track = True
                 logging.debug("Exception occurred sending analytics: %s" %
                               str(e))
                 logging.debug("Disabling analytics due to intermittent "
@@ -223,18 +221,18 @@ class _Analytics(object):
 
 ####################################################################
 # Our public functions for posting events to analytics
-def cmdSuccessEvt(cmdName):
+def cmd_success_evt(cmdName):
     """ Sent when a pebble.py command succeeds with no error 
     
     Parameters:
     --------------------------------------------------------
     cmdName: name of the pebble command that succeeded (build. install, etc.)
     """
-    _Analytics.get().postEvent(category='pebbleCmd', action=cmdName, 
+    _Analytics.get().post_event(category='pebbleCmd', action=cmdName, 
                               label='success')
 
 
-def missingToolsEvt():
+def missing_tools_evt():
     """ Sent when we detect that the ARM tools have not been installed 
     
     Parameters:
@@ -243,11 +241,11 @@ def missingToolsEvt():
     reason: description of error (missing compiler, compilation error, 
                 outdated project, app too big, configuration error, etc.)
     """
-    _Analytics.get().postEvent(category='install', action='tools', 
+    _Analytics.get().post_event(category='install', action='tools', 
                label='fail: The compiler/linker tools could not be found')
     
 
-def missingPythonDependencyEvt(text):
+def missing_python_dependency_evt(text):
     """ Sent when pebble.py fails to launch because of a missing python
         dependency. 
     
@@ -255,11 +253,11 @@ def missingPythonDependencyEvt(text):
     --------------------------------------------------------
     text: description of missing dependency
     """
-    _Analytics.get().postEvent(category='install', action='import', 
+    _Analytics.get().post_event(category='install', action='import', 
                label='fail: missing import: %s' % (text))
 
 
-def cmdFailEvt(cmdName, reason):
+def cmd_fail_evt(cmdName, reason):
     """ Sent when a pebble.py command fails  during execution 
     
     Parameters:
@@ -268,11 +266,11 @@ def cmdFailEvt(cmdName, reason):
     reason: description of error (missing compiler, compilation error, 
                 outdated project, app too big, configuration error, etc.)
     """
-    _Analytics.get().postEvent(category='pebbleCmd', action=cmdName, 
+    _Analytics.get().post_event(category='pebbleCmd', action=cmdName, 
                label='fail: %s' % (reason))
     
 
-def codeSizeEvt(uuid, segSizes):
+def code_size_evt(uuid, segSizes):
     """ Sent after a successful build of a pebble app to record the app size
     
     Parameters:
@@ -282,24 +280,27 @@ def codeSizeEvt(uuid, segSizes):
                     i.e. {"text": 490, "bss": 200, "data": 100}    
     """
     totalSize = sum(segSizes.values())
-    _Analytics.get().postEvent(category='appCode', action='totalSize', 
+    _Analytics.get().post_event(category='appCode', action='totalSize', 
                label=uuid, value = totalSize)
 
 
-def codeLineCountEvt(uuid, lineCount):
+def code_line_count_evt(uuid, c_line_count, js_line_count):
     """ Sent after a successful build of a pebble app to record the number of
     lines of source code in the app
     
     Parameters:
     --------------------------------------------------------
     uuid: application's uuid
-    lineCount: number of lines of source code
+    c_line_count: number of lines of C source code
+    js_line_count: number of lines of javascript source code
     """
-    _Analytics.get().postEvent(category='appCode', action='lineCount', 
-               label=uuid, value = lineCount)
+    _Analytics.get().post_event(category='appCode', action='cLineCount', 
+               label=uuid, value = c_line_count)
+    _Analytics.get().post_event(category='appCode', action='jsLineCount', 
+               label=uuid, value = js_line_count)
 
 
-def codeHasJavaScriptEvt(uuid, hasJS):
+def code_has_java_script_evt(uuid, hasJS):
     """ Sent after a successful build of a pebble app to record whether or not
     this app has javascript code in it
     
@@ -308,11 +309,11 @@ def codeHasJavaScriptEvt(uuid, hasJS):
     uuid: application's uuid
     hasJS: True if this app has JavaScript in it
     """
-    _Analytics.get().postEvent(category='appCode', action='hasJavaScript', 
+    _Analytics.get().post_event(category='appCode', action='hasJavaScript', 
                label=uuid, value = 1 if hasJS else 0)
 
 
-def resSizesEvt(uuid, resCounts, resSizes):
+def res_sizes_evt(uuid, resCounts, resSizes):
     """ Sent after a successful build of a pebble app to record the sizes of
     the resources
     
@@ -326,18 +327,18 @@ def resSizesEvt(uuid, resCounts, resSizes):
     """
     totalSize = sum(resSizes.values())
     totalCount = sum(resCounts.values())
-    _Analytics.get().postEvent(category='appResources', action='totalSize', 
+    _Analytics.get().post_event(category='appResources', action='totalSize', 
                label=uuid, value = totalSize)
-    _Analytics.get().postEvent(category='appResources', action='totalCount', 
+    _Analytics.get().post_event(category='appResources', action='totalCount', 
                label=uuid, value = totalCount)
     
     for key in resSizes.keys():
-        _Analytics.get().postEvent(category='appResources', 
+        _Analytics.get().post_event(category='appResources', 
                 action='%sSize' % (key), label=uuid, value = resSizes[key])
-        _Analytics.get().postEvent(category='appResources', 
+        _Analytics.get().post_event(category='appResources', 
                 action='%sCount' % (key), label=uuid, value = resCounts[key])
         
-def phoneInfoEvt(phoneInfoStr):
+def phone_info_evt(phoneInfoStr):
     """ Sent after a successful install of a pebble app to record the OS
     running on the phone
     
@@ -349,13 +350,13 @@ def phoneInfoEvt(phoneInfoStr):
     """
     items = phoneInfoStr.split(',')
     
-    _Analytics.get().postEvent(category='phone', action='os', 
+    _Analytics.get().post_event(category='phone', action='os', 
                label=items[0], value=0)
     if len(items) >= 2:
-        _Analytics.get().postEvent(category='phone', action='osVersion', 
+        _Analytics.get().post_event(category='phone', action='osVersion', 
                    label=items[1], value=0)
     if len(items) >= 3:
-        _Analytics.get().postEvent(category='phone', action='model', 
+        _Analytics.get().post_event(category='phone', action='model', 
                    label=items[2], value=0)
 
 
@@ -364,7 +365,7 @@ def phoneInfoEvt(phoneInfoStr):
 
 ####################################################################
 if __name__ == '__main__':
-    _Analytics.get().postEvent('newCategory', 'newAction', 'newLabel')
+    _Analytics.get().post_event('newCategory', 'newAction', 'newLabel')
     
 
 

@@ -18,7 +18,7 @@ try:
 except Exception as e:
     logging.basicConfig(format='[%(levelname)-8s] %(message)s', 
                     level = logging.DEBUG)
-    PblAnalytics.missingPythonDependencyEvt(str(e))
+    PblAnalytics.missing_python_dependencyEvt(str(e))
     raise
 
 class PbSDKShell:
@@ -75,16 +75,16 @@ class PbSDKShell:
         try:
             retval = command.run(args)
             if retval:
-                PblAnalytics.cmdFailEvt(args.command, 'unknown error')
+                PblAnalytics.cmd_fail_evt(args.command, 'unknown error')
             else:
                 cmdName = args.command
                 if cmdName == 'install' and args.logs is True:
                     cmdName = 'install --logs'
-                PblAnalytics.cmdSuccessEvt(cmdName)
+                PblAnalytics.cmd_success_evt(cmdName)
             return retval
                 
         except libpebble.PebbleError as e:
-            PblAnalytics.cmdFailEvt(args.command, 'pebble error')
+            PblAnalytics.cmd_fail_evt(args.command, 'pebble error')
             if args.debug:
                 raise e
             else:
@@ -92,18 +92,18 @@ class PbSDKShell:
                 return 1
             
         except ConfigurationException as e:
-            PblAnalytics.cmdFailEvt(args.command, 'configuration error')
+            PblAnalytics.cmd_fail_evt(args.command, 'configuration error')
             logging.error(e)
             return 1
         
         except InvalidProjectException as e:
-            PblAnalytics.cmdFailEvt(args.command, 'invalid project')
+            PblAnalytics.cmd_fail_evt(args.command, 'invalid project')
             logging.error("This command must be run from a Pebble project "
                           "directory")
             return 1
         
         except OutdatedProjectException as e:
-            PblAnalytics.cmdFailEvt(args.command, 'outdated project')
+            PblAnalytics.cmd_fail_evt(args.command, 'outdated project')
             logging.error("The Pebble project directory is using an outdated "
                           "version of the SDK!")
             logging.error("Try running `pebble convert-project` to update the "
@@ -111,22 +111,22 @@ class PbSDKShell:
             return 1
         
         except NoCompilerException as e:
-            PblAnalytics.missingToolsEvt()
+            PblAnalytics.missing_tools_evt()
             logging.error("The compiler/linker tools could not be found")
             return 1
         
         except BuildErrorException as e:
-            PblAnalytics.cmdFailEvt(args.command, 'compilation error')
+            PblAnalytics.cmd_fail_evt(args.command, 'compilation error')
             logging.error("A compilation error occurred")
             return 1
         
         except AppTooBigException as e:
-            PblAnalytics.cmdFailEvt(args.command, 'application too big')
+            PblAnalytics.cmd_fail_evt(args.command, 'application too big')
             logging.error("The built application is too big")
             return 1
         
         except Exception as e:
-            PblAnalytics.cmdFailEvt(args.command, 'unhandled exception: %s' %
+            PblAnalytics.cmd_fail_evt(args.command, 'unhandled exception: %s' %
                                  str(e))
             logging.error(str(e))
             return 1
