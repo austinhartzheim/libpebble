@@ -91,13 +91,13 @@ class PblInstallCommand(LibPebbleCommand):
             logging.error("Could not find pbw <{}> for install.".format(args.pbw_path))
             return 1
 
-        self.pebble.install_app_ws(args.pbw_path)
+        success = self.pebble.install_app_ws(args.pbw_path)
 
         # Send the phone OS version to analytics
         osVersStr = self.pebble.get_phone_os_version()
         PblAnalytics.phoneOSVersionEvt(osVersStr = osVersStr)
 
-        if args.logs:
+        if success and args.logs:
             self.tail()
 
 class PblListCommand(LibPebbleCommand):

@@ -282,7 +282,7 @@ class Pebble(object):
         self._connection_type = 'websocket'
 
         WebSocketPebble.enableTrace(False)
-        self._ser = WebSocketPebble.create_connection(host, port)
+        self._ser = WebSocketPebble.create_connection(host, port, timeout=5)
         self.init_reader()
 
     def _exit_signal_handler(self, signum, frame):
@@ -505,10 +505,16 @@ class Pebble(object):
         if self._ws_client._topic == 'status' \
                 and self._ws_client._response == 0:
           log.info("Installation successful")
+<<<<<<< HEAD
         else:
           log.debug("WS Operation failed with response %s" % 
                                         self._ws_client._response)
           log.error("Failed to install %s" % repr(pbw_path))
+=======
+          return True
+        log.error("Failed to install %s" % repr(pbw_path))
+        return False
+>>>>>>> origin/dev-v2.x
 
 
     def get_phone_os_version(self):
