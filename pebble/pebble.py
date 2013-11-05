@@ -315,7 +315,7 @@ class Pebble(object):
                 if endpoint in self._internal_endpoint_handlers:
                     resp = self._internal_endpoint_handlers[endpoint](endpoint, resp)
 
-                if endpoint in self._endpoint_handlers and resp:
+                if endpoint in self._endpoint_handlers and resp is not None:
                     self._endpoint_handlers[endpoint](endpoint, resp)
         except Exception, e:
             print str(e)
