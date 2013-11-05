@@ -337,6 +337,19 @@ def resSizesEvt(uuid, resCounts, resSizes):
         _Analytics.get().postEvent(category='appResources', 
                 action='%sCount' % (key), label=uuid, value = resCounts[key])
         
+def phoneOSVersionEvt(osVersStr):
+    """ Sent after a successful install of a pebble app to record the OS
+    running on the phone
+    
+    Parameters:
+    --------------------------------------------------------
+    uuid: application's uuid
+    hasJS: True if this app has JavaScript in it
+    """
+    _Analytics.get().postEvent(category='phone', action='version', 
+               label=osVersStr, value=0)
+
+
 
 
 

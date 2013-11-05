@@ -7,6 +7,7 @@ import time
 import pebble as libpebble
 
 from PblCommand import PblCommand
+import PblAnalytics
 
 PEBBLE_PHONE_ENVVAR='PEBBLE_PHONE'
 
@@ -91,6 +92,10 @@ class PblInstallCommand(LibPebbleCommand):
             return 1
 
         self.pebble.install_app_ws(args.pbw_path)
+
+        # Send the phone OS version to analytics
+        osVersStr = self.pebble.get_phone_os_version()
+        PblAnalytics.phoneOSVersionEvt(osVersStr = osVersStr)
 
         if args.logs:
             self.tail()
