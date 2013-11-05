@@ -28,9 +28,11 @@ def convert_c_uuid(c_uuid):
 
     c_uuid = c_uuid.lower()
     if re.match(C_UUID_PATTERN, c_uuid):
-        return UUID_FORMAT.format(*re.findall(C_UUID_BYTE_PATTERN, c_uuid))
-    else:
-        return c_uuid
+        c_uuid = UUID_FORMAT.format(*re.findall(C_UUID_BYTE_PATTERN, c_uuid))
+    if int(c_uuid[0:8], 16) > (0xffffffff/2):
+        _bytes = 0xffffffff - int(c_uuid[0:8], 16)
+        c_uuid = ''.join(["%08x" % _bytes, c_uuid[8:]])
+    return c_uuid
 
 def extract_c_macros_from_code(c_code, macros={}):
 

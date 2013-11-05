@@ -37,7 +37,12 @@ class PblProjectCreator(PblCommand):
 
         # Add appinfo.json file
         appinfo_dummy = DICT_DUMMY_APPINFO.copy()
-        appinfo_dummy['uuid'] = str(uuid.uuid4())
+        _uuid = str(uuid.uuid4())
+        if int(_uuid.split('-')[0], 16) > (0xffffffff/2):
+            # Only take uuids from the bottom half of the uuid space
+            _bytes = 0xffffffff - int(_uuid[0:8], 16)
+            _uuid = ''.join(["%08x" % _bytes, _uuid[8:]])
+        appinfo_dummy['uuid'] = _uuid
         appinfo_dummy['project_name'] = project_name
         with open(os.path.join(project_root, "appinfo.json"), "w") as f:
             f.write(FILE_DUMMY_APPINFO.substitute(**appinfo_dummy))
