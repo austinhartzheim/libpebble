@@ -31,11 +31,9 @@ class PblWafCommand(PblCommand):
         args: the args passed to the run() method
         appInfo: the applications appInfo
         """
-        cmd = os.path.join(self.sdk_path(args), "arm-cs-tools", "bin",
-                "arm-none-eabi-size")
         args = [os.path.join("build", "pebble-app.elf")]
         try:
-            output = sh.Command(cmd)(*args)
+            output = sh.arm_none_eabi_size(*args)
             (textSize, dataSize, bssSize) = [int(x) for x in \
                                      output.stdout.splitlines()[1].split()[:3]]
             sizeDict = {'text': textSize, 'data': dataSize, 'bss': bssSize}
