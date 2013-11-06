@@ -39,8 +39,9 @@ class LibPebbleCommand(PblCommand):
         self.pebble = libpebble.Pebble()
         self.pebble.connect_via_websocket(args.phone)
 
-    def tail(self, interactive=False):
-        self.pebble.app_log_enable()
+    def tail(self, interactive=False, skip_enable_app_log=False):
+        if not skip_enable_app_log:
+            self.pebble.app_log_enable()
         if interactive:
             logging.info('Entering interactive mode ... Ctrl-D to interrupt.')
             def start_repl(pebble):
@@ -91,6 +92,8 @@ class PblInstallCommand(LibPebbleCommand):
             logging.error("Could not find pbw <{}> for install.".format(args.pbw_path))
             return 1
 
+        self.pebble.app_log_enable()
+
         success = self.pebble.install_app_ws(args.pbw_path)
 
         # Send the phone OS version to analytics
@@ -98,7 +101,7 @@ class PblInstallCommand(LibPebbleCommand):
         PblAnalytics.phone_info_evt(phoneInfoStr = phoneInfoStr)
 
         if success and args.logs:
-            self.tail()
+            self.tail(skip_enable_app_log=True)
 
 class PblListCommand(LibPebbleCommand):
     name = 'list'
