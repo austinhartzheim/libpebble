@@ -15,6 +15,7 @@ WS_CMD_PHONE_APP_LOG = 0x02
 WS_CMD_SERVER_LOG = 0x03
 WS_CMD_APP_INSTALL = 0x04
 WS_CMD_STATUS = 0x5
+WS_CMD_PHONE_INFO = 0x06
 
 class WebSocketPebble(WebSocket):
 
@@ -59,6 +60,19 @@ class WebSocketPebble(WebSocket):
                 if self.debug_protocol:
                     log.debug("LightBlue process has shutdown (queue read)")
                 return (None, None, '')
+                
+        NOTE: The return value of this method was modified from 3 tuples to
+        4 tuples in order to support multiple possible WS_CMD id's besides
+        just WS_CMD_WATCH_TO_PHONE and WS_CMD_STATUS. Now, the first item in
+        the tuple (source) identifies which WS_CMD we received. The other
+        transports (LightBlue, etc.), if/when they are re-instantiated into
+        active use will have to be updated to return this new 4 item tuple. 
+                
+        retval:   (source, topic, response, data)
+            source can be either 'ws' or 'watch'
+            if source is 'watch', then topic is the endpoint identifier
+            if source is 'ws', then topic is either 'status' or 'phoneInfo'
+            
         """
         opcode, data = self.recv_data()
         ws_cmd = unpack('!b',data[0])
@@ -72,13 +86,17 @@ class WebSocketPebble(WebSocket):
             logging.debug("Watch ==> Phone: %s" % data[1:].encode("hex"))
             size, endpoint = unpack("!HH", data[1:5])
             resp = data[5:]
-            return (endpoint, resp, data[1:5])
+            return ('watch', endpoint, resp, data[1:5])
         if ws_cmd[0]==WS_CMD_STATUS:
             logging.debug("Status: %s" % repr(data[1:]))
             status = unpack("I", data[1:5])[0]
-            return (None, status, data[1:5])
+            return ('ws', 'status', status, data[1:5])
+        if ws_cmd[0]==WS_CMD_PHONE_INFO:
+            logging.debug("Phone info: %s" % repr(data[1:]))
+            response = data[1:]
+            return ('ws', 'phoneInfo', response, data)
         else:
-            return (None, None, data)
+            return (None, None, None, data)
 
 
 

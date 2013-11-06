@@ -7,11 +7,25 @@ import time
 import pebble as libpebble
 
 from PblCommand import PblCommand
+import PblAnalytics
 
 PEBBLE_PHONE_ENVVAR='PEBBLE_PHONE'
 
 class ConfigurationException(Exception):
     pass
+
+class NoCompilerException(Exception):
+    """ Returned by PblBuildCommand if we couldn't find the ARM tools """
+    pass
+
+class BuildErrorException(Exception):
+    """ Returned by PblBuildCommand if there was a compile or link error """
+    pass
+
+class AppTooBigException(Exception):
+    """ Returned by PblBuildCommand if the app is too big"""
+    pass
+
 
 class LibPebbleCommand(PblCommand):
 
@@ -78,6 +92,10 @@ class PblInstallCommand(LibPebbleCommand):
             return 1
 
         success = self.pebble.install_app_ws(args.pbw_path)
+
+        # Send the phone OS version to analytics
+        phoneInfoStr = self.pebble.get_phone_info()
+        PblAnalytics.phone_info_evt(phoneInfoStr = phoneInfoStr)
 
         if success and args.logs:
             self.tail()

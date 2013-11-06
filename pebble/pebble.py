@@ -228,7 +228,7 @@ class Pebble(object):
         self._ser = None
         self._read_thread = None
         self._alive = True
-        self._ws_status_client = WSStatusClient()
+        self._ws_client = None
         self._endpoint_handlers = {}
         self._internal_endpoint_handlers = {
                 self.endpoints["TIME"]: self._get_time_response,
@@ -300,15 +300,16 @@ class Pebble(object):
     def _reader(self):
         try:
             while self._alive:
-                endpoint, resp = self._recv_message() #reading message if socket is closed causes exceptions
+                source, endpoint, resp = self._recv_message() 
+                #reading message if socket is closed causes exceptions
 
-                if resp is None:
+                if resp is None or source is None:
                     # ignore message
                     continue
 
-                if endpoint is None:
-                    # phone status message
-                    self._ws_status_client.handle_status(resp)
+                if source == 'ws':
+                    # phone -> sdk message
+                    self._ws_client.handle_response(endpoint, resp)
                     continue
 
                 #log.info("message for endpoint " + str(endpoint) + " resp : " + str(resp))
@@ -346,17 +347,17 @@ class Pebble(object):
     def _recv_message(self):
         if self._connection_type != 'serial':
             try:
-                endpoint, resp, data = self._ser.read()
+                source, endpoint, resp, data = self._ser.read()
                 if resp is None:
-                    return None, None
+                    return None, None, None
             except TypeError:
                 # the lightblue process has likely shutdown and cannot be read from
                 self.alive = False
-                return None, None
+                return None, None, None
         else:
             data = self._ser.read(4)
             if len(data) == 0:
-                return (None, None)
+                return (None, None, None)
             elif len(data) < 4:
                 raise PebbleError(self.id, "Malformed response with length "+str(len(data)))
             size, endpoint = unpack("!HH", data)
@@ -365,7 +366,7 @@ class Pebble(object):
             log.debug("Got message for endpoint %s of length %d" % (endpoint, len(resp)))
             log.debug('<<< ' + (data + resp).encode('hex'))
 
-        return (endpoint, resp)
+        return (source, endpoint, resp)
 
     def register_endpoint(self, endpoint_name, func):
         if endpoint_name not in self.endpoints:
@@ -494,17 +495,36 @@ class Pebble(object):
 
 
     def install_app_ws(self, pbw_path):
+        self._ws_client = WSClient()
         f = open(pbw_path, 'r')
         data = f.read()
         self._ser.write(data, ws_cmd=WebSocketPebble.WS_CMD_APP_INSTALL)
-        self._ws_status_client.listen()
-        while not self._ws_status_client._received and not self._ws_status_client._error:
-          pass
-        if self._ws_status_client._success:
-          log.info("Installation successful")
-          return True
+        self._ws_client.listen()
+        while not self._ws_client._received and not self._ws_client._error:
+            pass
+        if self._ws_client._topic == 'status' \
+                and self._ws_client._response == 0:
+            log.info("Installation successful")
+            return True
+        log.debug("WS Operation failed with response %s" % 
+                                        self._ws_client._response)
         log.error("Failed to install %s" % repr(pbw_path))
         return False
+
+
+    def get_phone_info(self):
+        self._ws_client = WSClient()
+        # The first byte is reserved for future use as a protocol version ID
+        #  and must be 0 for now. 
+        data = pack("!b", 0)
+        self._ser.write(data, ws_cmd=WebSocketPebble.WS_CMD_PHONE_INFO)
+        self._ws_client.listen()
+        while not self._ws_client._received and not self._ws_client._error:
+          pass
+        if self._ws_client._topic == 'phoneInfo':
+          return self._ws_client._response
+        else:
+          log.error("Unexpected response %s" % self._ws_client._topic)
 
     def install_app_pebble_protocol(self, pbw_path, launch_on_install=True):
 
@@ -1060,24 +1080,19 @@ class AppMessage(object):
         ])
         return ''.join(app_message.values())
 
-class WSStatusClient(object):
+
+class WSClient(object):
     states = {
       "IDLE": 0,
       "LISTENING": 1,
     }
 
-    status_types = {
-      "NONE": -1,
-      "SUCCESS": 0,
-      "INSTALL_FAILED": 1,
-    }
-
     def __init__(self):
       self._state = self.states["IDLE"]
-      self._status = self.status_types["NONE"]
+      self._response = None
+      self._topic = None
       self._received = False
       self._error = False
-      self._success = False
       self._timer = threading.Timer(30.0, self.timeout)
 
     def timeout(self):
@@ -1092,21 +1107,18 @@ class WSStatusClient(object):
       self._state = self.states["LISTENING"]
       self._received = False
       self._error = False
-      self._success = False
       self._timer.start()
 
-    def handle_status(self, status):
+    def handle_response(self, topic, response):
       if self._state != self.states["LISTENING"]:
         log.debug("Unexpected status message")
         self._error = True
 
       self._timer.cancel()
-      self._status = status;
-      if status == self.status_types["SUCCESS"]:
-        self._success = True
-      else :
-          log.debug("WS Operation failed with status %d" % status)
+      self._topic = topic
+      self._response = response;
       self._received = True
+
 
 class PutBytesClient(object):
     states = {
