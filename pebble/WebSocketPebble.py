@@ -84,7 +84,7 @@ class WebSocketPebble(WebSocket):
 
 ######################################
 
-def create_connection(host, port=9000, timeout=None, **options):
+def create_connection(host, port=9000, timeout=None, connect_timeout=None, **options):
     """
     connect to ws://host:port and return websocket object.
 
@@ -110,8 +110,9 @@ def create_connection(host, port=9000, timeout=None, **options):
     try:
         sockopt = options.get("sockopt", ())
         websock = WebSocketPebble(sockopt=sockopt)
-        websock.settimeout(timeout != None and timeout or default_timeout)
+        websock.settimeout(connect_timeout != None and connect_timeout or default_timeout)
         websock.connect(url, **options)
+        websock.settimeout(timeout != None and timeout or default_timeout)
     except socket.timeout as e:
         logging.error("Could not connect to phone at {}:{}. Connection timed out".format(host, port))
         os._exit(-1)
