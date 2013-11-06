@@ -3,12 +3,45 @@ import logging
 import sh, os, subprocess
 import json
 import StringIO
+import traceback
+import sys
 
 import PblAnalytics
 from PblCommand import PblCommand
 from PblProjectCreator import requires_project_dir
 from LibPebblesCommand import (NoCompilerException, BuildErrorException,
                                AppTooBigException)
+
+
+
+########################################################################
+def create_sh_cmd_obj(cmdPath):
+    """ Create a sh.Command() instance and check for error condition of
+    the executable not in the path. 
+    
+    If the argument to sh.Command can not be found in the path, then 
+    executing it raises a very obscure exception:
+        'TypeError: sequence item 0: expected string, NoneType found'
+        
+    This method raise a more description exception. 
+    
+    NOTE: If you use the sh.<cmdname>(cmdargs) syntax for calling
+    a command instead of sh.Command(<cmdname>), the sh module returns a 
+    more descriptive sh.CommandNotFound exception. But, if the cmdname 
+    includes a directory path in it, you must use this sh.Command()
+    syntax.  
+    """
+    
+    cmdObj = sh.Command(cmdPath)
+    
+    # By checking the _path member of the cmdObj, we can do a pre-flight to 
+    # detect this situation and raise a more friendly error message
+    if cmdObj._path is None:
+        raise RuntimeError("The executable %s could not be "
+                           "found. " % (cmdPath))
+    
+    return cmdObj
+    
 
 ###############################################################################
 ###############################################################################
@@ -31,9 +64,11 @@ class PblWafCommand(PblCommand):
         args: the args passed to the run() method
         appInfo: the applications appInfo
         """
-        args = [os.path.join("build", "pebble-app.elf")]
+        
+        cmdName = 'arm_none_eabi_size'
+        cmdArgs = [os.path.join("build", "pebble-app.elf")]
         try:
-            output = sh.arm_none_eabi_size(*args)
+            output = sh.arm_none_eabi_size(*cmdArgs)
             (textSize, dataSize, bssSize) = [int(x) for x in \
                                      output.stdout.splitlines()[1].split()[:3]]
             sizeDict = {'text': textSize, 'data': dataSize, 'bss': bssSize}
@@ -41,7 +76,10 @@ class PblWafCommand(PblCommand):
                                     segSizes = sizeDict)
         except sh.ErrorReturnCode as e:
             logging.error("command %s %s failed. stdout: %s, stderr: %s" %
-                          (cmd, args, e.stdout, e.stderr))
+                          (cmdName, ' '.join(cmdArgs), e.stdout, e.stderr))
+        except sh.CommandNotFound as e:
+            logging.error("The command %s could not be found. Could not "
+                          "collect memory usage analytics." % (e.message))
 
 
     ###########################################################################
@@ -162,11 +200,12 @@ class PblWafCommand(PblCommand):
         if (retval):
             cmdArgs = cmdLine.split()
             try:
-                output = sh.Command(cmdArgs[0])(*cmdArgs[1:])
+                cmdObj = create_sh_cmd_obj(cmdArgs[0])
+                output = cmdObj(*cmdArgs[1:])
                 stderr = output.stderr
             except sh.ErrorReturnCode as e:
-                stderr = e.stderr                
-
+                stderr = e.stderr        
+                 
             # Look for common problems
             if "Could not determine the compiler version" in stderr:
                 raise NoCompilerException
@@ -192,6 +231,7 @@ class PblWafCommand(PblCommand):
             except Exception as e:
                 logging.error("Exception occurred collecting app analytics: "
                               "%s" % str(e))
+                logging.debug(traceback.format_exc())
             
         return 0
 
