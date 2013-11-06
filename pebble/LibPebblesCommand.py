@@ -152,7 +152,11 @@ class PblListUuidCommand(LibPebbleCommand):
     def run(self, args):
         LibPebbleCommand.run(self, args)
 
-        for uuid in self.pebble.list_apps_by_uuid():
+        uuids = self.pebble.list_apps_by_uuid()
+        if len(uuids) is 0:
+            logging.info("No apps installed.")
+
+        for uuid in uuids:
             uuid_hex = uuid.translate(None, '-')
             description = self.pebble.describe_app_by_uuid(uuid_hex)
             if not description:
