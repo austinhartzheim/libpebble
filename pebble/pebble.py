@@ -21,6 +21,7 @@ import WebSocketPebble
 
 from collections import OrderedDict
 from struct import pack, unpack
+from PIL import Image
 
 DEFAULT_PEBBLE_ID = None #Triggers autodetection on unix-like systems
 DEFAULT_WEBSOCKET_PORT = 9000
@@ -137,22 +138,43 @@ class PebbleBundle(object):
 
         return self.get_manifest()['resources']
 
+class EndpointSyncMulti():
+    timeout = 60
+    num_recieved = 0
+    data = ''
+    def __init__(self, pebble, endpoint, num_required):
+        self.num_required = num_required
+        self.marker = threading.Event()
+        pebble.register_endpoint(endpoint, self.callback)
+
+    def callback(self, endpoint, response):
+        self.data += response
+        self.num_recieved += 1
+        if self.num_recieved >= self.num_required:
+          self.marker.set()
+
+    def get_data(self):
+        try:
+            self.marker.wait(timeout=self.timeout)
+            return self.data
+        except:
+            raise PebbleError(None, "Timed out... Is the Pebble phone app connected?")
 
 class EndpointSync():
     timeout = 10
 
     def __init__(self, pebble, endpoint):
-        pebble.register_endpoint(endpoint, self.callback)
         self.marker = threading.Event()
+        pebble.register_endpoint(endpoint, self.callback)
 
-    def callback(self, *args):
-        self.data = args
+    def callback(self, endpoint, response):
+        self.data = response
         self.marker.set()
 
     def get_data(self):
         try:
             self.marker.wait(timeout=self.timeout)
-            return self.data[1]
+            return self.data
         except:
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected?")
 
@@ -189,7 +211,8 @@ class Pebble(object):
             "NOTIFICATION": 3000,
             "RESOURCE": 4000,
             "APP_MANAGER": 6000,
-            "PUTBYTES": 48879
+            "PUTBYTES": 48879,
+            "SCREENSHOT": 7000,
     }
 
     log_levels = {
@@ -241,7 +264,8 @@ class Pebble(object):
                 self.endpoints["LOGS"]: self._log_response,
                 self.endpoints["PING"]: self._ping_response,
                 self.endpoints["APP_LOGS"]: self._app_log_response,
-                self.endpoints["APP_MANAGER"]: self._appbank_status_response
+                self.endpoints["APP_MANAGER"]: self._appbank_status_response,
+                self.endpoints["SCREENSHOT"]: self._screenshot_response,
         }
 
     def init_reader(self):
@@ -397,6 +421,11 @@ class Pebble(object):
 
         parts = [artist[:30], album[:30], track[:30]]
         self._send_message("MUSIC_CONTROL", self._pack_message_data(16, parts))
+
+    def screenshot(self):
+        self._send_message("SCREENSHOT", "\x00")
+        raw_data = EndpointSyncMulti(self, "SCREENSHOT", 6).get_data()
+        return Image.frombuffer('1', (144, 168), raw_data, "raw", "1;R", 0, 1)
 
     def get_versions(self, async = False):
 
@@ -809,6 +838,10 @@ class Pebble(object):
     def _add_app(self, index):
         data = pack("!bI", 3, index)
         self._send_message("APP_MANAGER", data)
+
+    def _screenshot_response(self, endpoint, data):
+        print "Got a piece of the framebuffer (%d bytes)" % len(data)
+        return data[1:]
 
     def _ping_response(self, endpoint, data):
         restype, retcookie = unpack("!bL", data)

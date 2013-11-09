@@ -185,6 +185,16 @@ class PblListUuidCommand(LibPebbleCommand):
 
             print '%s - %s' % (description["name"], uuid)
 
+class PblScreenshotCommand(LibPebbleCommand):
+    name = 'screenshot'
+    help = 'take a screenshot of the pebble'
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+        image = self.pebble.screenshot()
+        name = time.strftime("pebble-screenshot-%Y%m%d-%H%M%S.png")
+        image.save(name, "PNG")
+        logging.info("Screenshot saved to %s" % name)
 
 class PblLogsCommand(LibPebbleCommand):
     name = 'logs'
