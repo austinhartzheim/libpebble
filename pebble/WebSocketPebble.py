@@ -71,7 +71,8 @@ class WebSocketPebble(WebSocket):
         retval:   (source, topic, response, data)
             source can be either 'ws' or 'watch'
             if source is 'watch', then topic is the endpoint identifier
-            if source is 'ws', then topic is either 'status' or 'phoneInfo'
+            if source is 'ws', then topic is either 'status','phoneInfo',
+                    or 'log'
             
         """
         opcode, data = self.recv_data()
@@ -80,6 +81,7 @@ class WebSocketPebble(WebSocket):
             logging.debug("Server: %s" % repr(data[1:]))
         if ws_cmd[0]==WS_CMD_PHONE_APP_LOG:
             logging.debug("Log: %s" % repr(data[1:]))
+            return ('ws', 'log', data[1:], data)
         if ws_cmd[0]==WS_CMD_PHONE_TO_WATCH:
             logging.debug("Phone ==> Watch: %s" % data[1:].encode("hex"))
         if ws_cmd[0]==WS_CMD_WATCH_TO_PHONE:
