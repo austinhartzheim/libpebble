@@ -145,21 +145,23 @@ class ScreenshotSync():
     SCREENSHOT_MALFORMED_COMMAND = 1
     SCREENSHOT_OOM_ERROR = 2
 
-    def __init__(self, pebble, endpoint):
+    def __init__(self, pebble, endpoint, progress_callback):
         self.marker = threading.Event()
         self.data = ''
         self.have_read_header = False
         self.length_recieved = 0
-        pebble.register_endpoint(endpoint, self.callback)
+        self.progress_callback = progress_callback
+        pebble.register_endpoint(endpoint, self.message_callback)
 
-    def callback(self, endpoint, data):
+    # Recieved a reply message from the watch. We expect several of these...
+    def message_callback(self, endpoint, data):
         if not self.have_read_header:
             data = self.read_header(data)
             self.have_read_header = True
 
         self.data += data
         self.length_recieved += len(data) * 8 # in bits
-        print "\rDownloading screenshot... %.2f%% done" % (self.length_recieved*100.0/self.total_length)
+        self.progress_callback(self.length_recieved*100.0/self.total_length)
         if self.length_recieved >= self.total_length:
             self.marker.set()
 
@@ -242,8 +244,8 @@ class Pebble(object):
             "NOTIFICATION": 3000,
             "RESOURCE": 4000,
             "APP_MANAGER": 6000,
-            "PUTBYTES": 48879,
             "SCREENSHOT": 7000,
+            "PUTBYTES": 48879,
     }
 
     log_levels = {
@@ -453,9 +455,9 @@ class Pebble(object):
         parts = [artist[:30], album[:30], track[:30]]
         self._send_message("MUSIC_CONTROL", self._pack_message_data(16, parts))
 
-    def screenshot(self):
+    def screenshot(self, progress_callback):
         self._send_message("SCREENSHOT", "\x00")
-        raw_data = ScreenshotSync(self, "SCREENSHOT").get_data()
+        raw_data = ScreenshotSync(self, "SCREENSHOT", progress_callback).get_data()
         return Image.frombuffer('1', (144, 168), raw_data, "raw", "1;R", 0, 1)
 
     def get_versions(self, async = False):
