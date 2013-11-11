@@ -112,7 +112,10 @@ class PbSDKShell:
         
         except NoCompilerException as e:
             PblAnalytics.missing_tools_evt()
-            logging.error("The compiler/linker tools could not be found")
+            logging.error("The compiler/linker tools could not be found. "
+                          "Insure that the arm-cs-tools directory is present "
+                          "in the Pebble SDK directory (%s)" % 
+                          PblCommand().sdk_path(args))
             return 1
         
         except BuildErrorException as e:
