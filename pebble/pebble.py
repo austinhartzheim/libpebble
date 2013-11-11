@@ -142,7 +142,7 @@ class ScreenshotSync():
     timeout = 60
     data = ''
     have_read_header = False
-    image_header = struct.Struct("!III")
+    image_header = struct.Struct("!BIII")
     length_recieved = 0
     def __init__(self, pebble, endpoint):
         self.marker = threading.Event()
@@ -154,11 +154,18 @@ class ScreenshotSync():
             header_len = self.image_header.size
             header = data[:header_len]
             data = data[header_len:]
-            self.version, self.width, self.height = self.image_header.unpack(header)
+            self.response_code, self.version, self.width, self.height = \
+                self.image_header.unpack(header)
+
+            if self.response_code != 0:
+                raise PebbleError(None, "Pebble responded with nonzero response "
+                    "code %d, signaling an error on the watch side." %
+                    self.response_code)
+
             if self.version != 1:
-                raise PebbleError(None, "Recieved unrecognized image format from"
-                    "watch. Maybe your libpebble is out of sync with your"
-                    "firmware version?")
+                raise PebbleError(None, "Recieved unrecognized image format %d "
+                    "from watch. Maybe your libpebble is out of sync with your "
+                    "firmware version?" % self.version)
 
             self.total_length = self.width * self.height
             self.have_read_header = True
