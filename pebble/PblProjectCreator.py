@@ -189,10 +189,13 @@ Pebble.addEventListener("ready",
 );
 """
 
-class InvalidProjectException(Exception):
+class PebbleProjectException(Exception):
     pass
 
-class OutdatedProjectException(Exception):
+class InvalidProjectException(PebbleProjectException):
+    pass
+
+class OutdatedProjectException(PebbleProjectException):
     pass
 
 def check_project_directory():

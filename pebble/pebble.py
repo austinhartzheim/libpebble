@@ -61,6 +61,8 @@ class PebbleBundle(object):
         self.app_metadata_struct = struct.Struct(''.join(self.STRUCT_DEFINITION))
         self.app_metadata_length_bytes = self.app_metadata_struct.size
 
+        self.print_pbl_logs = False
+
     def get_manifest(self):
         if (self.manifest):
             return self.manifest
@@ -524,7 +526,8 @@ class Pebble(object):
         if self._ws_client._topic == 'phoneInfo':
           return self._ws_client._response
         else:
-          log.error("Unexpected response %s" % self._ws_client._topic)
+          log.error('get_phone_info: Unexpected response to "%s"' % self._ws_client._topic)
+          return 'Unknown'
 
     def install_app_pebble_protocol(self, pbw_path, launch_on_install=True):
 
@@ -806,6 +809,9 @@ class Pebble(object):
         self._alive = False
         self._ser.close()
 
+    def set_print_pbl_logs(self, value):
+        self.print_pbl_logs = value
+
     def _add_app(self, index):
         data = pack("!bI", 3, index)
         self._send_message("APP_MANAGER", data)
@@ -838,9 +844,60 @@ class Pebble(object):
             log.warn("Unable to decode log message (length %d is less than 8)" % len(data))
             return
 
-        timestamp, str_level, filename, linenumber, message = self._parse_log_response(data)
+        if self.print_pbl_logs:
+            timestamp, str_level, filename, linenumber, message = self._parse_log_response(data)
 
-        log.info("{} {} {} {} {}".format(timestamp, str_level, filename, linenumber, message))
+            log.info("{} {} {} {} {}".format(timestamp, str_level, filename, linenumber, message))
+
+    def _print_crash_message(self, crashed_uuid, crashed_pc, crashed_lr):
+        # Read the current projects UUID from it's appinfo.json. If we can't do this or the uuid doesn't match
+        # the uuid of the crashed app we don't print anything.
+        from PblProjectCreator import check_project_directory, PebbleProjectException
+        try:
+            check_project_directory()
+        except PebbleProjectException:
+            # We're not in the project directory
+            return
+
+        with open('appinfo.json', 'r') as f:
+            try:
+                app_info = json.load(f)
+                app_uuid = uuid.UUID(app_info['uuid'])
+            except ValueError as e:
+                log.warn("Could not look up debugging symbols.")
+                log.warn("Failed parsing appinfo.json")
+                log.warn(str(e))
+                return
+
+        if (app_uuid != crashed_uuid):
+            # Someone other than us crashed, just bail
+            return
+
+
+        if not os.path.exists(APP_ELF_PATH):
+            log.warn("Could not look up debugging symbols.")
+            log.warn("Could not find ELF file: %s" % APP_ELF_PATH)
+            log.warn("Please try rebuilding your project")
+            return
+
+
+        def print_register(register_name, addr_str):
+            if (addr_str[0] == '?') or (int(addr_str, 16) > 0x20000):
+                # We log '???' when the reigster isn't available
+
+                # The firmware translates app crash addresses to be relative to the start of the firmware
+                # image. We filter out addresses that are higher than 128k since we know those higher addresses
+                # are most likely from the firmware itself and not the app
+
+                result = '???'
+            else:
+                result = sh.arm_none_eabi_addr2line(addr_str, exe=APP_ELF_PATH).strip()
+
+            log.warn("%24s %10s %s", register_name + ':', addr_str, result)
+
+        print_register("Program Counter (PC)", crashed_pc)
+        print_register("Link Register (LR)", crashed_lr)
+
 
     def _app_log_response(self, endpoint, data):
         if (len(data) < 8):
@@ -852,17 +909,14 @@ class Pebble(object):
 
         log.info("{} {}:{} {}".format(str_level, filename, linenumber, message))
 
-        m = re.search('App fault! PC: (0x[0-9A-Fa-f]+) LR: (0x[0-9A-Fa-f]+)', message)
+        # See if the log message we printed matches the message we print when we crash. If so, try to provide
+        # some additional information by looking up the filename and linenumber for the symbol we crasehd at.
+        m = re.search('App fault! ({[0-9a-fA-F\-]+}) PC: (\S+) LR: (\S+)', message)
         if m:
-            pc = m.group(1)
-            lr = m.group(2)
-            log.warn('Your app crashed... :\'(')
+            crashed_uuid_str = m.group(1)
+            crashed_uuid = uuid.UUID(crashed_uuid_str)
 
-            if os.path.exists(APP_ELF_PATH):
-                log.info('Looking up the code line(s) that caused the crash:')
-                log.info(sh.arm_none_eabi_addr2line('--exe=' + APP_ELF_PATH, pc, lr))
-            else:
-                log.warn("Tried to look up where you app crashed, but cannot find '%s'." % APP_ELF_PATH)
+            self._print_crash_message(crashed_uuid, m.group(2), m.group(3))
 
     def _appbank_status_response(self, endpoint, data):
         def unpack_uuid(data):
