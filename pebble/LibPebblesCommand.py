@@ -199,8 +199,20 @@ class PblScreenshotCommand(LibPebbleCommand):
         image = self.pebble.screenshot(progress_callback)
         name = time.strftime("pebble-screenshot_%Y-%m-%d_%H-%M-%S.png")
         image.save(name, "PNG")
-
         logging.info("Screenshot saved to %s" % name)
+
+        # Open up the image in the user's default image viewer. For some
+        # reason, this doesn't seem to open it up in their webbrowser,
+        # unlike how it might appear. See
+        # http://stackoverflow.com/questions/7715501/pil-image-show-doesnt-work-on-windows-7
+        try:
+            import webbrowser
+            webbrowser.open(name)
+        except:
+            logging.info("Note: Failed to open image, you'll have to open it "
+                         "manually if you want to see what it looks like ("
+                         "it has still been saved, however).")
+
 
 class PblLogsCommand(LibPebbleCommand):
     name = 'logs'
