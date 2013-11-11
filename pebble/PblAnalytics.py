@@ -178,7 +178,11 @@ class _Analytics(object):
         # Convert all strings to utf-8
         for key,value in data.items():
             if isinstance(value, basestring):
-                data[key] = unicode(value, errors='replace').encode('utf-8')
+                if isinstance(value, unicode):
+                    data[key] = value.encode('utf-8')
+                else:
+                    data[key] = unicode(value, errors='replace').encode('utf-8')
+
                 
         headers = {
                 'User-Agent': self.user_agent
