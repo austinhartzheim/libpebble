@@ -31,12 +31,15 @@ class LibPebbleCommand(PblCommand):
 
     def configure_subparser(self, parser):
         PblCommand.configure_subparser(self, parser)
-        parser.add_argument('--phone', type=str, default=os.getenv(PEBBLE_PHONE_ENVVAR), help='The IP address or hostname of your phone - Can also be provided through PEBBLE_PHONE environment variable.')
+        parser.add_argument('--phone', type=str, default=os.getenv(PEBBLE_PHONE_ENVVAR),
+                help='The IP address or hostname of your phone - Can also be provided through PEBBLE_PHONE environment variable.')
+        parser.add_argument('--verbose', type=bool, default=False, help='Prints received system logs in addition to APP_LOG')
 
     def run(self, args):
         if not args.phone:
             raise ConfigurationException("Argument --phone is required (Or set a PEBBLE_PHONE environment variable)")
         self.pebble = libpebble.Pebble()
+        self.pebble.set_print_pbl_logs(args.verbose)
         self.pebble.connect_via_websocket(args.phone)
 
     def tail(self, interactive=False, skip_enable_app_log=False):
