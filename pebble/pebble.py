@@ -300,7 +300,7 @@ class Pebble(object):
     def _reader(self):
         try:
             while self._alive:
-                source, endpoint, resp = self._recv_message() 
+                source, endpoint, resp = self._recv_message()
                 #reading message if socket is closed causes exceptions
 
                 if resp is None or source is None:
@@ -308,8 +308,11 @@ class Pebble(object):
                     continue
 
                 if source == 'ws':
-                    # phone -> sdk message
-                    self._ws_client.handle_response(endpoint, resp)
+                    if endpoint in ['status', 'phoneInfo']:
+                        # phone -> sdk message
+                        self._ws_client.handle_response(endpoint, resp)
+                    elif endpoint == 'log':
+                        log.info(resp)
                     continue
 
                 #log.info("message for endpoint " + str(endpoint) + " resp : " + str(resp))

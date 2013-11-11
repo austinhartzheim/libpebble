@@ -18,7 +18,7 @@ try:
 except Exception as e:
     logging.basicConfig(format='[%(levelname)-8s] %(message)s', 
                     level = logging.DEBUG)
-    PblAnalytics.missing_python_dependencyEvt(str(e))
+    PblAnalytics.missing_python_dependency_evt(str(e))
     raise
 
 class PbSDKShell:
