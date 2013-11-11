@@ -181,7 +181,7 @@ class _Analytics(object):
                 if isinstance(value, unicode):
                     data[key] = value.encode('utf-8')
                 else:
-                    data[key] = unicode(value,errors='replace').encode('utf-8')
+                    data[key] = unicode(value, errors='replace').encode('utf-8')
 
                 
         headers = {
