@@ -192,7 +192,7 @@ class PblScreenshotCommand(LibPebbleCommand):
     def run(self, args):
         LibPebbleCommand.run(self, args)
         image = self.pebble.screenshot()
-        name = time.strftime("pebble-screenshot-%Y-%m-%d-(%H-%M-%S).png")
+        name = time.strftime("pebble-screenshot_%Y-%m-%d_%H-%M-%S.png")
         image.save(name, "PNG")
         logging.info("Screenshot saved to %s" % name)
 

@@ -163,7 +163,7 @@ class ScreenshotSync():
         if self.length_recieved >= self.total_length:
             self.marker.set()
 
-    def read_heder(self, data):
+    def read_header(self, data):
         image_header = struct.Struct("!BIII")
         header_len = image_header.size
         header = data[:header_len]
@@ -171,7 +171,7 @@ class ScreenshotSync():
         response_code, version, self.width, self.height = \
           image_header.unpack(header)
 
-        if response_code is not SCREENSHOT_OK:
+        if response_code is not ScreenshotSync.SCREENSHOT_OK:
             raise PebbleError(None, "Pebble responded with nonzero response "
                 "code %d, signaling an error on the watch side." %
                 self.response_code)
