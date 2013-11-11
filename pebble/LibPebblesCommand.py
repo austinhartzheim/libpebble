@@ -193,8 +193,8 @@ class PblScreenshotCommand(LibPebbleCommand):
         LibPebbleCommand.run(self, args)
 
         logging.info("Taking screenshot...")
-        def progress_callback(percent):
-            logging.info("%.2f%% done..." % percent)
+        def progress_callback(amount):
+            logging.info("%.2f%% done..." % (amount*100.0))
 
         image = self.pebble.screenshot(progress_callback)
         name = time.strftime("pebble-screenshot_%Y-%m-%d_%H-%M-%S.png")

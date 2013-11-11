@@ -18,7 +18,6 @@ import re
 import uuid
 import zipfile
 import WebSocketPebble
-import sys
 
 from collections import OrderedDict
 from struct import pack, unpack
@@ -161,17 +160,17 @@ class ScreenshotSync():
 
         self.data += data
         self.length_recieved += len(data) * 8 # in bits
-        self.progress_callback(self.length_recieved*100.0/self.total_length)
+        self.progress_callback(float(self.length_recieved)/self.total_length)
         if self.length_recieved >= self.total_length:
             self.marker.set()
 
     def read_header(self, data):
         image_header = struct.Struct("!BIII")
         header_len = image_header.size
-        header = data[:header_len]
+        header_data = data[:header_len]
         data = data[header_len:]
         response_code, version, self.width, self.height = \
-          image_header.unpack(header)
+          image_header.unpack(header_data)
 
         if response_code is not ScreenshotSync.SCREENSHOT_OK:
             raise PebbleError(None, "Pebble responded with nonzero response "
