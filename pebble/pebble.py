@@ -18,6 +18,7 @@ import re
 import uuid
 import zipfile
 import WebSocketPebble
+import sys
 
 from collections import OrderedDict
 from struct import pack, unpack
@@ -140,42 +141,48 @@ class PebbleBundle(object):
 
 class ScreenshotSync():
     timeout = 60
-    data = ''
-    have_read_header = False
-    image_header = struct.Struct("!BIII")
-    length_recieved = 0
+    SCREENSHOT_OK = 0
+    SCREENSHOT_MALFORMED_COMMAND = 1
+    SCREENSHOT_OOM_ERROR = 2
+
     def __init__(self, pebble, endpoint):
         self.marker = threading.Event()
+        self.data = ''
+        self.have_read_header = False
+        self.length_recieved = 0
         pebble.register_endpoint(endpoint, self.callback)
 
     def callback(self, endpoint, data):
-        print "Got a piece of the framebuffer (%d bytes)" % len(data)
         if not self.have_read_header:
-            header_len = self.image_header.size
-            header = data[:header_len]
-            data = data[header_len:]
-            self.response_code, self.version, self.width, self.height = \
-                self.image_header.unpack(header)
-
-            if self.response_code != 0:
-                raise PebbleError(None, "Pebble responded with nonzero response "
-                    "code %d, signaling an error on the watch side." %
-                    self.response_code)
-
-            if self.version != 1:
-                raise PebbleError(None, "Recieved unrecognized image format %d "
-                    "from watch. Maybe your libpebble is out of sync with your "
-                    "firmware version?" % self.version)
-
-            self.total_length = self.width * self.height
+            data = self.read_header(data)
             self.have_read_header = True
-
 
         self.data += data
         self.length_recieved += len(data) * 8 # in bits
-        print self.total_length, self.width, self.height, self.length_recieved
+        print "\rDownloading screenshot... %.2f%% done" % (self.length_recieved*100.0/self.total_length)
         if self.length_recieved >= self.total_length:
             self.marker.set()
+
+    def read_heder(self, data):
+        image_header = struct.Struct("!BIII")
+        header_len = image_header.size
+        header = data[:header_len]
+        data = data[header_len:]
+        response_code, version, self.width, self.height = \
+          image_header.unpack(header)
+
+        if response_code is not SCREENSHOT_OK:
+            raise PebbleError(None, "Pebble responded with nonzero response "
+                "code %d, signaling an error on the watch side." %
+                self.response_code)
+
+        if version is not 1:
+            raise PebbleError(None, "Recieved unrecognized image format "
+                "version %d from watch. Maybe your libpebble is out of "
+                "sync with your firmware version?" % self.version)
+
+        self.total_length = self.width * self.height
+        return data
 
     def get_data(self):
         try:
