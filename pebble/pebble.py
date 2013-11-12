@@ -188,7 +188,8 @@ class ScreenshotSync():
     def get_data(self):
         try:
             self.marker.wait(timeout=self.timeout)
-            return self.data
+            return Image.frombuffer('1', (self.width, self.height), \
+                self.data, "raw", "1;R", 0, 1)
         except:
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected?")
 
@@ -456,8 +457,7 @@ class Pebble(object):
 
     def screenshot(self, progress_callback):
         self._send_message("SCREENSHOT", "\x00")
-        raw_data = ScreenshotSync(self, "SCREENSHOT", progress_callback).get_data()
-        return Image.frombuffer('1', (144, 168), raw_data, "raw", "1;R", 0, 1)
+        return ScreenshotSync(self, "SCREENSHOT", progress_callback).get_data()
 
     def get_versions(self, async = False):
 
