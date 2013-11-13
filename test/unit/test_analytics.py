@@ -1,24 +1,25 @@
-import random
-import unittest
-import sys
-import os
+import contextlib
 import imp
-from mock import patch, MagicMock
+import os
+import random
+import re
+import shutil
+import sys
+import tempfile
+import unittest
 import urllib2
 import urlparse
-import re
-import tempfile
-import shutil
-import contextlib
+
 import argparse
+from mock import patch, MagicMock
+import pebble.PblAnalytics
 
 
 # Allow us to run even if not at the root libpebble directory.
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, root_dir) 
-import pebble.PblAnalytics
 
-# Our command line arguments are stored here
+# Our command line arguments are stored here by the main logic 
 g_cmd_args = None
 
 @contextlib.contextmanager
@@ -56,9 +57,12 @@ class TestAnalytics(unittest.TestCase):
         # Create a temp directory to use
         self.tmp_dir = tempfile.mkdtemp()
         
-        # Get command line arguments
+        # Get command line options
         global g_cmd_args
-        self.args = g_cmd_args
+        if g_cmd_args is not None:
+            self._debug = g_cmd_args.debug
+        else:
+            self._debug = False
         
     
     @classmethod
@@ -180,7 +184,7 @@ class TestAnalytics(unittest.TestCase):
         working_dir = self.use_project('good_app')
         
         with temp_chdir(working_dir):
-            if self.args.debug:
+            if self._debug:
                 sys.argv = ['pebble', '--debug', 'clean' ]
             else:
                 sys.argv = ['pebble', 'clean' ]
@@ -198,16 +202,15 @@ class TestAnalytics(unittest.TestCase):
         working_dir = self.use_project('good_app')
         
         with temp_chdir(working_dir):
-            if self.args.debug:
+            if self._debug:
                 sys.argv = ['pebble', '--debug', 'build' ]
             else:
                 sys.argv = ['pebble', 'build' ]
             retval = self.p_sh.main()
 
-        # Verify that we sent the correct eventst
+        # Verify that we sent the correct events
         self.assert_cmd_success_evt_present(mock_urlopen, 'build')
         
-
 
     def ZZZ1test_invalid_project(self):
         """ Test that we get the correct analytics produced when we run
@@ -220,14 +223,10 @@ class TestAnalytics(unittest.TestCase):
             print my_mock
 
 
-
+#############################################################################
 def _getTestList():
   """ Get the list of tests that can be run from this module"""
-
-  suiteNames = [
-                'TestAnalytics', 
-               ]
-        
+  suiteNames = ['TestAnalytics']
   testNames = []
   for suite in suiteNames:
     for f in dir(eval(suite)):
@@ -237,8 +236,6 @@ def _getTestList():
   return testNames
 
 
-
-#############################################################################
 if __name__ == '__main__':
     usage_string = "%(prog)s [options] [-- unittestoptions] " \
                 "[suitename.testname | suitename]"
