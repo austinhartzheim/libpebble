@@ -18,6 +18,8 @@ root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, root_dir) 
 import pebble.PblAnalytics
 
+# Our command line arguments are stored here
+g_cmd_args = None
 
 @contextlib.contextmanager
 def temp_chdir(path):
@@ -53,6 +55,10 @@ class TestAnalytics(unittest.TestCase):
         
         # Create a temp directory to use
         self.tmp_dir = tempfile.mkdtemp()
+        
+        # Get command line arguments
+        global g_cmd_args
+        self.args = g_cmd_args
         
     
     @classmethod
@@ -174,7 +180,10 @@ class TestAnalytics(unittest.TestCase):
         working_dir = self.use_project('good_app')
         
         with temp_chdir(working_dir):
-            sys.argv = ['pebble', '--debug', 'clean' ]
+            if self.args.debug:
+                sys.argv = ['pebble', '--debug', 'clean' ]
+            else:
+                sys.argv = ['pebble', 'clean' ]
             retval = self.p_sh.main()
 
         # Verify that we sent a success event
@@ -189,10 +198,13 @@ class TestAnalytics(unittest.TestCase):
         working_dir = self.use_project('good_app')
         
         with temp_chdir(working_dir):
-            sys.argv = ['pebble', '--debug', 'build' ]
+            if self.args.debug:
+                sys.argv = ['pebble', '--debug', 'build' ]
+            else:
+                sys.argv = ['pebble', 'build' ]
             retval = self.p_sh.main()
 
-        # Verify that we sent a success event
+        # Verify that we sent the correct eventst
         self.assert_cmd_success_evt_present(mock_urlopen, 'build')
         
 
@@ -248,11 +260,12 @@ Available suitename.testnames: """
     parser = argparse.ArgumentParser(description = help_string,
                     formatter_class=argparse.RawTextHelpFormatter,
                     usage=usage_string)
-    parser.add_argument('ut_args', metavar='arg', type=str, nargs='+', 
+    parser.add_argument('ut_args', metavar='arg', type=str, nargs='*', 
                         help=' arguments for unittest module')
     parser.add_argument('-d', '--debug', action='store_true', 
                         help=' run with debug output on')
     
     args = parser.parse_args()
+    g_cmd_args = args
 
     unittest.main(argv=['unittest'] + args.ut_args)
