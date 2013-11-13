@@ -159,7 +159,7 @@ class TestAnalytics(unittest.TestCase):
         """ Test for success event with the 'clean' command """
         
         # Copy the desired project to temp location
-        working_dir = self.use_project('good_app')
+        working_dir = self.use_project('good_c_app')
         
         with temp_chdir(working_dir):
             if self._debug:
@@ -174,11 +174,11 @@ class TestAnalytics(unittest.TestCase):
         
 
     @patch('pebble.PblAnalytics.urlopen')
-    def test_build_success(self, mock_urlopen):
-        """ Test for success event with the 'build' command """
+    def test_build_success_c_app(self, mock_urlopen):
+        """ Test that we send the correct events after building a C app """
         
         # Copy the desired project to temp location
-        working_dir = self.use_project('good_app')
+        working_dir = self.use_project('good_c_app')
         uuid = '19aac3eb-870b-47fb-a708-0810edc4322e'
         
         with temp_chdir(working_dir):
@@ -221,15 +221,56 @@ class TestAnalytics(unittest.TestCase):
 
 
 
-    def ZZZ1test_invalid_project(self):
-        """ Test that we get the correct analytics produced when we run
-        a pebble command in an invalid project directory """
+    @patch('pebble.PblAnalytics.urlopen')
+    def test_build_success_js_app(self, mock_urlopen):
+        """ Test that we send the correct events after building a JS app """
         
-        sys.argv = ['pebble', '--debug', 'clean' ]
-        with patch('pebble.PblAnalytics.urlopen') as my_mock:
+        # Copy the desired project to temp location
+        working_dir = self.use_project('good_js_app')
+        uuid = '74460383-8a0f-4bb6-971f-8937c2ed4441'
+        
+        with temp_chdir(working_dir):
+            if self._debug:
+                sys.argv = ['pebble', '--debug', 'build' ]
+            else:
+                sys.argv = ['pebble', 'build' ]
             retval = self.p_sh.main()
-            import pdb; pdb.set_trace()
-            print my_mock
+
+        # Verify that we sent the correct events
+        self.assert_evt(mock_urlopen,
+            {'ec': 'pebbleCmd', 'ea': 'build', 'el': 'success'})
+        
+        self.assert_evt(mock_urlopen,
+            {'ec': 'appCode', 'ea': 'totalSize', 'el': uuid, 'ev': '15..'})
+
+        self.assert_evt(mock_urlopen,
+            {'ec': 'appResources', 'ea': 'totalSize', 'el': uuid, 'ev': '38..'})
+
+        self.assert_evt(mock_urlopen,
+            {'ec': 'appResources', 'ea': 'totalCount', 'el': uuid, 'ev': '4'})
+
+        sizes = {'raw': '0', 'image': '3888', 'font': '0'}
+        counts = {'raw': '0', 'image': '4', 'font': '0'}
+        for name in ['raw', 'image', 'font']:
+            self.assert_evt(mock_urlopen,
+                {'ec': 'appResources', 'ea': '%sSize' % (name), 'el': uuid, 
+                 'ev': sizes[name]})
+    
+            self.assert_evt(mock_urlopen,
+                {'ec': 'appResources', 'ea': '%sCount' % (name), 'el': uuid, 
+                 'ev': counts[name]})
+
+        self.assert_evt(mock_urlopen,
+            {'ec': 'appCode', 'ea': 'cLineCount', 'el': uuid, 'ev': '136'})
+
+        self.assert_evt(mock_urlopen,
+            {'ec': 'appCode', 'ea': 'jsLineCount', 'el': uuid, 'ev': '107'})
+
+        self.assert_evt(mock_urlopen,
+            {'ec': 'appCode', 'ea': 'hasJavaScript', 'el': uuid, 'ev': '1'})
+
+
+
 
 
 #############################################################################
