@@ -21,6 +21,7 @@ import WebSocketPebble
 
 from collections import OrderedDict
 from struct import pack, unpack
+from PIL import Image
 
 DEFAULT_PEBBLE_ID = None #Triggers autodetection on unix-like systems
 DEFAULT_WEBSOCKET_PORT = 9000
@@ -139,22 +140,76 @@ class PebbleBundle(object):
 
         return self.get_manifest()['resources']
 
+class ScreenshotSync():
+    timeout = 60
+    SCREENSHOT_OK = 0
+    SCREENSHOT_MALFORMED_COMMAND = 1
+    SCREENSHOT_OOM_ERROR = 2
+
+    def __init__(self, pebble, endpoint, progress_callback):
+        self.marker = threading.Event()
+        self.data = ''
+        self.have_read_header = False
+        self.length_received = 0
+        self.progress_callback = progress_callback
+        pebble.register_endpoint(endpoint, self.message_callback)
+
+    # Received a reply message from the watch. We expect several of these...
+    def message_callback(self, endpoint, data):
+        if not self.have_read_header:
+            data = self.read_header(data)
+            self.have_read_header = True
+
+        self.data += data
+        self.length_received += len(data) * 8 # in bits
+        self.progress_callback(float(self.length_received)/self.total_length)
+        if self.length_received >= self.total_length:
+            self.marker.set()
+
+    def read_header(self, data):
+        image_header = struct.Struct("!BIII")
+        header_len = image_header.size
+        header_data = data[:header_len]
+        data = data[header_len:]
+        response_code, version, self.width, self.height = \
+          image_header.unpack(header_data)
+
+        if response_code is not ScreenshotSync.SCREENSHOT_OK:
+            raise PebbleError(None, "Pebble responded with nonzero response "
+                "code %d, signaling an error on the watch side." %
+                response_code)
+
+        if version is not 1:
+            raise PebbleError(None, "Received unrecognized image format "
+                "version %d from watch. Maybe your libpebble is out of "
+                "sync with your firmware version?" % version)
+
+        self.total_length = self.width * self.height
+        return data
+
+    def get_data(self):
+        try:
+            self.marker.wait(timeout=self.timeout)
+            return Image.frombuffer('1', (self.width, self.height), \
+                self.data, "raw", "1;R", 0, 1)
+        except:
+            raise PebbleError(None, "Timed out... Is the Pebble phone app connected?")
 
 class EndpointSync():
     timeout = 10
 
     def __init__(self, pebble, endpoint):
-        pebble.register_endpoint(endpoint, self.callback)
         self.marker = threading.Event()
+        pebble.register_endpoint(endpoint, self.callback)
 
-    def callback(self, *args):
-        self.data = args
+    def callback(self, endpoint, response):
+        self.data = response
         self.marker.set()
 
     def get_data(self):
         try:
             self.marker.wait(timeout=self.timeout)
-            return self.data[1]
+            return self.data
         except:
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected?")
 
@@ -191,7 +246,8 @@ class Pebble(object):
             "NOTIFICATION": 3000,
             "RESOURCE": 4000,
             "APP_MANAGER": 6000,
-            "PUTBYTES": 48879
+            "SCREENSHOT": 8000,
+            "PUTBYTES": 48879,
     }
 
     log_levels = {
@@ -243,7 +299,8 @@ class Pebble(object):
                 self.endpoints["LOGS"]: self._log_response,
                 self.endpoints["PING"]: self._ping_response,
                 self.endpoints["APP_LOGS"]: self._app_log_response,
-                self.endpoints["APP_MANAGER"]: self._appbank_status_response
+                self.endpoints["APP_MANAGER"]: self._appbank_status_response,
+                self.endpoints["SCREENSHOT"]: self._screenshot_response,
         }
 
     def init_reader(self):
@@ -402,6 +459,10 @@ class Pebble(object):
 
         parts = [artist[:30], album[:30], track[:30]]
         self._send_message("MUSIC_CONTROL", self._pack_message_data(16, parts))
+
+    def screenshot(self, progress_callback):
+        self._send_message("SCREENSHOT", "\x00")
+        return ScreenshotSync(self, "SCREENSHOT", progress_callback).get_data()
 
     def get_versions(self, async = False):
 
@@ -818,6 +879,9 @@ class Pebble(object):
     def _add_app(self, index):
         data = pack("!bI", 3, index)
         self._send_message("APP_MANAGER", data)
+
+    def _screenshot_response(self, endpoint, data):
+        return data
 
     def _ping_response(self, endpoint, data):
         restype, retcookie = unpack("!bL", data)
