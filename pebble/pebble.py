@@ -175,12 +175,12 @@ class ScreenshotSync():
         if response_code is not ScreenshotSync.SCREENSHOT_OK:
             raise PebbleError(None, "Pebble responded with nonzero response "
                 "code %d, signaling an error on the watch side." %
-                self.response_code)
+                response_code)
 
         if version is not 1:
             raise PebbleError(None, "Recieved unrecognized image format "
                 "version %d from watch. Maybe your libpebble is out of "
-                "sync with your firmware version?" % self.version)
+                "sync with your firmware version?" % version)
 
         self.total_length = self.width * self.height
         return data
@@ -244,7 +244,7 @@ class Pebble(object):
             "NOTIFICATION": 3000,
             "RESOURCE": 4000,
             "APP_MANAGER": 6000,
-            "SCREENSHOT": 7000,
+            "SCREENSHOT": 8000,
             "PUTBYTES": 48879,
     }
 
