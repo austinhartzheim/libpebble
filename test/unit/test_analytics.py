@@ -9,15 +9,14 @@ import tempfile
 import unittest
 import urllib2
 import urlparse
-
 import argparse
 from mock import patch, MagicMock
-import pebble.PblAnalytics
 
 
 # Allow us to run even if not at the root libpebble directory.
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, root_dir) 
+import pebble.PblAnalytics
 
 # Our command line arguments are stored here by the main logic 
 g_cmd_args = None
@@ -122,45 +121,23 @@ class TestAnalytics(unittest.TestCase):
                   return (header, data)
 
         return (None, None)
+    
+    def assert_evt(self, mock_urlopen, items_filter):
+        """ Walk through all the calls to our mock urlopen() and look for one 
+        that satisfies items_filter, which is a dict with the key/value pairs we
+        need to satisfy. The values are regular expressions.
         
-
-    def assert_cmd_fail_evt_present(self, mock_urlopen, cmd_name, reason):
-        """ Walk through all the calls to urlopen() and insure that a 
-        'command fail' event was sent out with the given reason 
-        
-        Parameters:
-        -------------------------------------------------------------------
-        mock_urlopen: the mock urlopen instance
-        cmd_name: the command that should have failed
-        reason: the reason text
-        """
-        
-        (header, data) = self.find_evt(mock_urlopen,
-            {'ec': '^pebbleCmd$', 'ea': '^%s$' % (cmd_name), 
-             'el': '^fail: %s' % (reason)})
-
-        self.assertTrue(data is not None, "Didn't send expected '%s' event "
-                "with %s command" % (reason, cmd_name))
-
-
-    def assert_cmd_success_evt_present(self, mock_urlopen, cmd_name):
-        """ Walk through all the calls to urlopen() and insure that a 
-        'command success' event was sent out. 
+        If not found, raise an assertion
         
         Parameters:
         -------------------------------------------------------------------
         mock_urlopen: the mock urlopen instance
-        cmd_name: the command that should have failed
+        items_filter: dict with desired key/value pairs
         """
+        (header, data) = self.find_evt(mock_urlopen, items_filter)
+        self.assertTrue(header is not None, "Did not find expected event "
+                        "matching constraints: %s" % (str(items_filter)))
         
-        (header, data) = self.find_evt(mock_urlopen,
-            {'ec': '^pebbleCmd$', 'ea': '^%s$' % (cmd_name)})
-         
-
-        self.assertTrue(data is not None, "Didn't send expected success event "
-                "with %s command" % (cmd_name))
-
-
 
     @patch('pebble.PblAnalytics.urlopen')
     def test_invalid_project(self, mock_urlopen):
@@ -172,8 +149,9 @@ class TestAnalytics(unittest.TestCase):
         retval = self.p_sh.main()
 
         # Verify that we sent an invalid project event
-        self.assert_cmd_fail_evt_present(mock_urlopen, 'clean',
-                        'invalid project')
+        self.assert_evt(mock_urlopen,
+            {'ec': 'pebbleCmd', 'ea': 'clean', 
+             'el': 'fail: invalid project'})
 
 
     @patch('pebble.PblAnalytics.urlopen')
@@ -191,7 +169,8 @@ class TestAnalytics(unittest.TestCase):
             retval = self.p_sh.main()
 
         # Verify that we sent a success event
-        self.assert_cmd_success_evt_present(mock_urlopen, 'clean')
+        self.assert_evt(mock_urlopen,
+            {'ec': 'pebbleCmd', 'ea': 'clean', 'el': 'success'})
         
 
     @patch('pebble.PblAnalytics.urlopen')
@@ -200,6 +179,7 @@ class TestAnalytics(unittest.TestCase):
         
         # Copy the desired project to temp location
         working_dir = self.use_project('good_app')
+        uuid = '19aac3eb-870b-47fb-a708-0810edc4322e'
         
         with temp_chdir(working_dir):
             if self._debug:
@@ -209,8 +189,37 @@ class TestAnalytics(unittest.TestCase):
             retval = self.p_sh.main()
 
         # Verify that we sent the correct events
-        self.assert_cmd_success_evt_present(mock_urlopen, 'build')
+        self.assert_evt(mock_urlopen,
+            {'ec': 'pebbleCmd', 'ea': 'build', 'el': 'success'})
         
+        self.assert_evt(mock_urlopen,
+            {'ec': 'appCode', 'ea': 'totalSize', 'el': uuid, 'ev': '8.*'})
+
+        self.assert_evt(mock_urlopen,
+            {'ec': 'appResources', 'ea': 'totalSize', 'el': uuid, 'ev': '0'})
+
+        self.assert_evt(mock_urlopen,
+            {'ec': 'appResources', 'ea': 'totalCount', 'el': uuid, 'ev': '0'})
+
+        for name in ['raw', 'image', 'font']:
+            self.assert_evt(mock_urlopen,
+                {'ec': 'appResources', 'ea': '%sSize' % (name), 'el': uuid, 
+                 'ev': '0'})
+    
+            self.assert_evt(mock_urlopen,
+                {'ec': 'appResources', 'ea': '%sCount' % (name), 'el': uuid, 
+                 'ev': '0'})
+
+        self.assert_evt(mock_urlopen,
+            {'ec': 'appCode', 'ea': 'cLineCount', 'el': uuid, 'ev': '60'})
+
+        self.assert_evt(mock_urlopen,
+            {'ec': 'appCode', 'ea': 'jsLineCount', 'el': uuid, 'ev': '0'})
+
+        self.assert_evt(mock_urlopen,
+            {'ec': 'appCode', 'ea': 'hasJavaScript', 'el': uuid, 'ev': '0'})
+
+
 
     def ZZZ1test_invalid_project(self):
         """ Test that we get the correct analytics produced when we run
