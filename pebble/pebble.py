@@ -148,20 +148,20 @@ class ScreenshotSync():
         self.marker = threading.Event()
         self.data = ''
         self.have_read_header = False
-        self.length_recieved = 0
+        self.length_received = 0
         self.progress_callback = progress_callback
         pebble.register_endpoint(endpoint, self.message_callback)
 
-    # Recieved a reply message from the watch. We expect several of these...
+    # Received a reply message from the watch. We expect several of these...
     def message_callback(self, endpoint, data):
         if not self.have_read_header:
             data = self.read_header(data)
             self.have_read_header = True
 
         self.data += data
-        self.length_recieved += len(data) * 8 # in bits
-        self.progress_callback(float(self.length_recieved)/self.total_length)
-        if self.length_recieved >= self.total_length:
+        self.length_received += len(data) * 8 # in bits
+        self.progress_callback(float(self.length_received)/self.total_length)
+        if self.length_received >= self.total_length:
             self.marker.set()
 
     def read_header(self, data):
@@ -178,7 +178,7 @@ class ScreenshotSync():
                 response_code)
 
         if version is not 1:
-            raise PebbleError(None, "Recieved unrecognized image format "
+            raise PebbleError(None, "Received unrecognized image format "
                 "version %d from watch. Maybe your libpebble is out of "
                 "sync with your firmware version?" % version)
 
