@@ -10,6 +10,7 @@ import unittest
 import urllib2
 import urlparse
 import argparse
+import pprint
 from mock import patch, MagicMock
 
 
@@ -112,6 +113,8 @@ class TestAnalytics(unittest.TestCase):
             if isinstance(req, urllib2.Request):
               header = req.headers
               data = urlparse.parse_qs(req.get_data())
+              if self._debug:
+                  print "Parsing event: %s" % (pprint.pformat(data))
               matches = True
               for (key, value) in items_filter.items():
                 if not re.match(value, data[key][0]):
@@ -121,6 +124,7 @@ class TestAnalytics(unittest.TestCase):
                   return (header, data)
 
         return (None, None)
+    
     
     def assert_evt(self, mock_urlopen, items_filter):
         """ Walk through all the calls to our mock urlopen() and look for one 
@@ -145,9 +149,12 @@ class TestAnalytics(unittest.TestCase):
         a pebble command in an invalid project directory. 
         """
 
-        sys.argv = ['pebble', '--debug', 'clean' ]
+        if self._debug:
+            sys.argv = ['pebble', '--debug', 'clean' ]
+        else:
+            sys.argv = ['pebble', 'clean' ]
         retval = self.p_sh.main()
-
+        
         # Verify that we sent an invalid project event
         self.assert_evt(mock_urlopen,
             {'ec': 'pebbleCmd', 'ea': 'clean', 
@@ -270,6 +277,105 @@ class TestAnalytics(unittest.TestCase):
             {'ec': 'appCode', 'ea': 'hasJavaScript', 'el': uuid, 'ev': '1'})
 
 
+
+    def test_new_install(self):
+        """ Test that we get the correct analytics produced when we run \
+        a pebble command in an invalid project directory. 
+        """
+
+        # Temporarily remove the .pebble directory
+        home_dir = os.path.expanduser("~")
+        settings_dir = os.path.join(home_dir, ".pebble")
+        save_settings_dir = settings_dir + ".bck"
+        if os.path.exists(settings_dir):
+            if os.path.exists(save_settings_dir):
+                shutil.rmtree(save_settings_dir)
+            os.rename(settings_dir, save_settings_dir)
+        else:
+            save_settings_dir = None
+        
+
+        # Force a re-instantiation of the Analytics object
+        from pebble.PblAnalytics import _Analytics
+        _Analytics._instance = None
+
+        if self._debug:
+            sys.argv = ['pebble', '--debug', 'clean' ]
+        else:
+            sys.argv = ['pebble', 'clean' ]
+            
+        with patch('pebble.PblAnalytics.urlopen') as mock_urlopen:
+            self.p_sh.main()
+    
+            # Verify that we got an install event
+            self.assert_evt(mock_urlopen,
+                {'ec': 'install', 'ea': 'firstTime'})
+
+        
+        # Verify that a client id file and SDK version file got generated
+        try:
+            clientId = open(os.path.join(settings_dir, "client_id")).read()
+        except:
+            clientId = None
+        self.assertTrue(clientId is not None)
+        
+        try:
+            sdk_version = open(os.path.join(settings_dir, "sdk_version")).read()
+        except:
+            sdk_version = None
+        self.assertTrue(sdk_version is not None)
+        
+        
+        # Modify the SDK version, we should get an upgrade event and
+        #  verify that the right client id got used
+        with open(os.path.join(settings_dir, "sdk_version"), 'w') as fd:
+            fd.write("foo")
+        from pebble.PblAnalytics import _Analytics
+        _Analytics._instance = None
+        with patch('pebble.PblAnalytics.urlopen') as mock_urlopen:
+            self.p_sh.main()
+            self.assert_evt(mock_urlopen,
+                {'ec': 'install', 'ea': 'upgrade', 'cid': clientId})
+
+
+        # Verify that the client_id file can have something like 'PEBBLE_INTERNAL'
+        # in it
+        with open(os.path.join(settings_dir, "client_id"), 'w') as fd:
+            fd.write("PEBBLE_INTERNAL")
+        from pebble.PblAnalytics import _Analytics
+        _Analytics._instance = None
+        with patch('pebble.PblAnalytics.urlopen') as mock_urlopen:
+            self.p_sh.main()
+            self.assert_evt(mock_urlopen,
+                {'ec': 'pebbleCmd', 'ea': 'clean', 'cid': 'PEBBLE_INTERNAL'})
+            
+
+        # Restore original .pebble dir            
+        if save_settings_dir is not None:
+            shutil.rmtree(settings_dir)
+            os.rename(save_settings_dir, settings_dir)
+        
+
+    def XXXstest_new_install(self):
+        """ Test that we get the correct analytics produced when we run \
+        a pebble command in an invalid project directory. 
+        """
+
+        # Force a re-instantiation of the Analytics object
+        from pebble.PblAnalytics import _Analytics
+        _Analytics._instance = None
+        with patch('pebble.PblAnalytics.urlopen') as mock_urlopen:
+            
+            if self._debug:
+                sys.argv = ['pebble', '--debug', 'clean' ]
+            else:
+                sys.argv = ['pebble', 'clean' ]
+            self.p_sh.main()
+            
+            # Verify that we sent an invalid project event
+            self.assert_evt(mock_urlopen,
+                {'ec': 'pebbleCmd', 'ea': 'clean', 
+                 'el': 'fail: invalid project'})
 
 
 

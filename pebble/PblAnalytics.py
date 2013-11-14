@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 
 
-from urllib2 import urlopen, Request
-from urllib import urlencode
 import datetime
-import time
 import logging
 import os
 import platform
-import uuid
 import pprint
 import subprocess
+import time
+from urllib import urlencode
+from urllib2 import urlopen, Request
+import uuid
 
 
 ####################################################################
