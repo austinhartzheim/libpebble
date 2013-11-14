@@ -42,6 +42,14 @@ class _Analytics(object):
         if cls._instance is None:
             cls._instance = _Analytics()
         return cls._instance
+    
+    @classmethod
+    def reload(cls):
+        """ Used by test code to test NO_TRACKING functionality """
+        if cls._instance is not None:
+            del cls._instance
+        cls._instance = None
+        return cls.get()
 
 
     ####################################################################

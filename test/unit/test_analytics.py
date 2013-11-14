@@ -16,9 +16,10 @@ from mock import patch, MagicMock
 
 
 # Allow us to run even if not at the root libpebble directory.
-root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, 
+                                        os.pardir))
 sys.path.insert(0, root_dir) 
-#import pebble.PblAnalytics
+import pebble.PblAnalytics
 
 # Our command line arguments are stored here by the main logic 
 g_cmd_args = None
@@ -59,18 +60,25 @@ class TestAnalytics(unittest.TestCase):
         # Create a temp directory to use
         self.tmp_dir = tempfile.mkdtemp()
         
-        # Get command line options
+        # Process command line options
         global g_cmd_args
         if g_cmd_args is not None:
             self.debug = g_cmd_args.debug
         else:
             self.debug = False
             
-        # The pebble command arguments
+        # Setup the pebble command arguments
         self.pebble_cmd_line = ['pebble']
         if self.debug:
             self.pebble_cmd_line += ['--debug']
         
+        # Delete the NO_TRACKING file if it exists
+        self.no_tracking_file_path = os.path.normpath(os.path.join(root_dir, 
+                            os.pardir, 'NO_TRACKING'))
+        self.has_no_tracking_file = os.path.exists(self.no_tracking_file_path)
+        if self.has_no_tracking_file:
+            os.remove(self.no_tracking_file_path)
+
     
     @classmethod
     def tearDownClass(self):
@@ -78,6 +86,11 @@ class TestAnalytics(unittest.TestCase):
         
         # Remove our temp directory
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
+        
+        # Restore tracking file?
+        if self.has_no_tracking_file:
+            with open(self.no_tracking_file_path, 'w') as fd:
+                fd.write(" ")
         
 
     def use_project(self, project_name):
@@ -146,7 +159,7 @@ class TestAnalytics(unittest.TestCase):
         items_filter: dict with desired key/value pairs
         """
         (header, data) = self.find_evt(mock_urlopen, items_filter)
-        self.assertTrue(header is not None, "Did not find expected event "
+        self.assertIsNotNone(header, "Did not find expected event "
                         "matching constraints: %s" % (str(items_filter)))
         
 
@@ -277,6 +290,41 @@ class TestAnalytics(unittest.TestCase):
         
 
     @patch('pebble.PblAnalytics.urlopen')
+    def test_no_tracking_support(self, mock_urlopen):
+        """ Test that we don't generate any events if we detect a 
+        NO_TRACKING file"""
+
+        # Create a NO_TRACKING file and catch exceptions so that we
+        #  are sure to delete it aftewards        
+        try:
+            with open(self.no_tracking_file_path, 'w') as fd:
+                fd.write(" ")
+            
+            # Force a reload of the analytics instance
+            pebble.PblAnalytics._Analytics.reload()
+            
+            # Copy the desired project to temp location
+            working_dir = self.use_project('good_c_app')
+                        
+            with temp_chdir(working_dir):
+                sys.argv = self.pebble_cmd_line + ['clean' ]
+                retval = self.p_sh.main()
+                
+            call_count = mock_urlopen.call_count
+            
+        finally:
+            pass
+            # Undo tracking file
+            os.remove(self.no_tracking_file_path)
+            pebble.PblAnalytics._Analytics.reload()
+    
+            
+        # Verify that no events were sent out
+        self.assertEqual(call_count, 0, "Expected no URL "
+            "requests with tracking off but got %d" % call_count)
+
+
+    @patch('pebble.PblAnalytics.urlopen')
     def test_build_success_c_app(self, mock_urlopen):
         """ Test that we send the correct events after building a C app """
         
@@ -403,13 +451,13 @@ class TestAnalytics(unittest.TestCase):
             clientId = open(os.path.join(settings_dir, "client_id")).read()
         except:
             clientId = None
-        self.assertTrue(clientId is not None)
+        self.assertIsNotNone(clientId)
         
         try:
             sdk_version = open(os.path.join(settings_dir, "sdk_version")).read()
         except:
             sdk_version = None
-        self.assertTrue(sdk_version is not None)
+        self.assertIsNotNone(sdk_version)
         
         
         # Modify the SDK version, we should get an upgrade event and
@@ -447,7 +495,7 @@ class TestAnalytics(unittest.TestCase):
         """ Test for success event with the 'clean' command """
         
         # Rename the tools directory so that it can't be found
-        tools_dir = os.path.join(root_dir, '..', 'arm-cs-tools')
+        tools_dir = os.path.join(root_dir, os.pardir, 'arm-cs-tools')
         save_tools_dir = tools_dir + ".bck"
         if os.path.exists(tools_dir):            
             os.rename(tools_dir, save_tools_dir)
