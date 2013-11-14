@@ -49,7 +49,7 @@ class PbSDKShell:
             from pebble.VersionGenerated import SDK_VERSION
             return SDK_VERSION
         except:
-            return "'Development'"
+            return "Development"
         
 
     def main(self):

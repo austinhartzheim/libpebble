@@ -12,6 +12,7 @@ import urlparse
 import argparse
 import pprint
 import sh
+import platform
 from mock import patch, MagicMock
 
 
@@ -52,6 +53,7 @@ class TestAnalytics(unittest.TestCase):
                                        os.path.join(root_dir, 'pebble.py'))
         from pebble_shell import PbSDKShell
         self.p_sh = PbSDKShell()
+        self.sdk_version = self.p_sh._get_version()
         
         # What directory is our data in?
         self.data_dir = os.path.join(os.path.dirname(__file__), 
@@ -79,6 +81,24 @@ class TestAnalytics(unittest.TestCase):
         if self.has_no_tracking_file:
             os.remove(self.no_tracking_file_path)
 
+        # pre-cache path to pebble settings dir
+        home_dir = os.path.expanduser("~")
+        self.settings_dir = os.path.join(home_dir, ".pebble")
+
+        # Create the set of common fields we expect to see in every event
+        analytics = pebble.PblAnalytics._Analytics.get()
+        client_id = open(os.path.join(self.settings_dir, 
+                                 "client_id")).read()
+        self.common_evt_fields = {
+            'v': '1',
+            'tid': analytics.tracking_id,
+            'cid': client_id,
+            'cn': re.escape(platform.platform()),
+            'ck': re.escape(platform.python_version()),
+            'cs': client_id,
+        }
+        
+            
     
     @classmethod
     def tearDownClass(self):
@@ -146,7 +166,7 @@ class TestAnalytics(unittest.TestCase):
         return (None, None)
     
     
-    def assert_evt(self, mock_urlopen, items_filter):
+    def assert_evt(self, mock_urlopen, items_filter, include_common=True):
         """ Walk through all the calls to our mock urlopen() and look for one 
         that satisfies items_filter, which is a dict with the key/value pairs we
         need to satisfy. The values are regular expressions.
@@ -158,9 +178,19 @@ class TestAnalytics(unittest.TestCase):
         mock_urlopen: the mock urlopen instance
         items_filter: dict with desired key/value pairs
         """
+        if include_common:
+            for (key, value) in self.common_evt_fields.items():
+                if key in items_filter:
+                    continue
+                items_filter[key] = value
+ 
         (header, data) = self.find_evt(mock_urlopen, items_filter)
         self.assertIsNotNone(header, "Did not find expected event "
                         "matching constraints: %s" % (str(items_filter)))
+        
+        # Check the header contents
+        self.assertTrue(header['User-agent'].startswith('Pebble SDK/%s' % 
+                                                        (self.sdk_version)))
         
 
     @patch('pebble.PblAnalytics.urlopen')
@@ -301,7 +331,7 @@ class TestAnalytics(unittest.TestCase):
                 fd.write(" ")
             
             # Force a reload of the analytics instance
-            pebble.PblAnalytics._Analytics.reload()
+            pebble.PblAnalytics._Analytics.unload()
             
             # Copy the desired project to temp location
             working_dir = self.use_project('good_c_app')
@@ -316,7 +346,7 @@ class TestAnalytics(unittest.TestCase):
             pass
             # Undo tracking file
             os.remove(self.no_tracking_file_path)
-            pebble.PblAnalytics._Analytics.reload()
+            pebble.PblAnalytics._Analytics.unload()
     
             
         # Verify that no events were sent out
@@ -422,72 +452,61 @@ class TestAnalytics(unittest.TestCase):
         """
 
         # Temporarily remove the .pebble directory
-        home_dir = os.path.expanduser("~")
-        settings_dir = os.path.join(home_dir, ".pebble")
-        save_settings_dir = settings_dir + ".bck"
-        if os.path.exists(settings_dir):
+        save_settings_dir = self.settings_dir + ".bck"
+        if os.path.exists(self.settings_dir):
             if os.path.exists(save_settings_dir):
                 shutil.rmtree(save_settings_dir)
-            os.rename(settings_dir, save_settings_dir)
+            os.rename(self.settings_dir, save_settings_dir)
         else:
             save_settings_dir = None
         
 
         # Force a re-instantiation of the Analytics object
-        from pebble.PblAnalytics import _Analytics
-        _Analytics._instance = None
-
+        pebble.PblAnalytics._Analytics.unload()
         sys.argv = self.pebble_cmd_line + ['clean' ]
         with patch('pebble.PblAnalytics.urlopen') as mock_urlopen:
             self.p_sh.main()
     
+            # Verify that a client id file and SDK version file got generated
+            client_id = open(os.path.join(self.settings_dir, 
+                                         "client_id")).read()            
+            sdk_version = open(os.path.join(self.settings_dir, 
+                                            "sdk_version")).read()
+
             # Verify that we got an install event
             self.assert_evt(mock_urlopen,
-                {'ec': 'install', 'ea': 'firstTime'})
+                {'ec': 'install', 'ea': 'firstTime', 'cid': client_id,
+                 'cs': client_id})
 
-        
-        # Verify that a client id file and SDK version file got generated
-        try:
-            clientId = open(os.path.join(settings_dir, "client_id")).read()
-        except:
-            clientId = None
-        self.assertIsNotNone(clientId)
-        
-        try:
-            sdk_version = open(os.path.join(settings_dir, "sdk_version")).read()
-        except:
-            sdk_version = None
-        self.assertIsNotNone(sdk_version)
-        
-        
+                
         # Modify the SDK version, we should get an upgrade event and
         #  verify that the right client id got used
-        with open(os.path.join(settings_dir, "sdk_version"), 'w') as fd:
+        with open(os.path.join(self.settings_dir, "sdk_version"), 'w') as fd:
             fd.write("foo")
-        from pebble.PblAnalytics import _Analytics
-        _Analytics._instance = None
+        pebble.PblAnalytics._Analytics.unload()
         with patch('pebble.PblAnalytics.urlopen') as mock_urlopen:
             self.p_sh.main()
             self.assert_evt(mock_urlopen,
-                {'ec': 'install', 'ea': 'upgrade', 'cid': clientId})
+                {'ec': 'install', 'ea': 'upgrade', 'cid': client_id,
+                 'cs': client_id})
 
 
         # Verify that the client_id file can have something like 'PEBBLE_INTERNAL'
         # in it
-        with open(os.path.join(settings_dir, "client_id"), 'w') as fd:
+        with open(os.path.join(self.settings_dir, "client_id"), 'w') as fd:
             fd.write("PEBBLE_INTERNAL")
-        from pebble.PblAnalytics import _Analytics
-        _Analytics._instance = None
+        pebble.PblAnalytics._Analytics.unload()
         with patch('pebble.PblAnalytics.urlopen') as mock_urlopen:
             self.p_sh.main()
             self.assert_evt(mock_urlopen,
-                {'ec': 'pebbleCmd', 'ea': 'clean', 'cid': 'PEBBLE_INTERNAL'})
+                {'ec': 'pebbleCmd', 'ea': 'clean', 'cid': 'PEBBLE_INTERNAL',
+                 'cs': 'PEBBLE_INTERNAL'})
             
 
         # Restore original .pebble dir            
         if save_settings_dir is not None:
-            shutil.rmtree(settings_dir)
-            os.rename(save_settings_dir, settings_dir)
+            shutil.rmtree(self.settings_dir)
+            os.rename(save_settings_dir, self.settings_dir)
         
 
     @patch('pebble.PblAnalytics.urlopen')

@@ -44,12 +44,11 @@ class _Analytics(object):
         return cls._instance
     
     @classmethod
-    def reload(cls):
-        """ Used by test code to test NO_TRACKING functionality """
+    def unload(cls):
+        """ Used by test code to force a re-instantiation  """
         if cls._instance is not None:
             del cls._instance
         cls._instance = None
-        return cls.get()
 
 
     ####################################################################
@@ -132,7 +131,7 @@ class _Analytics(object):
             from VersionGenerated import SDK_VERSION
             return SDK_VERSION
         except:
-            return "'Development'"
+            return "Development"
         
         
     ####################################################################
