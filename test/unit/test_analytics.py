@@ -557,7 +557,10 @@ class TestAnalytics(unittest.TestCase):
         working_dir = self.use_project('good_c_app')
         uuid = '19aac3eb-870b-47fb-a708-0810edc4322e'
         
-        with patch('pebble.LibPebblesCommand.libpebble') as mock_libpebble:
+        with contextlib.nested (
+             patch('pebble.LibPebblesCommand.libpebble'),
+             patch.object(pebble.LibPebblesCommand.LibPebbleCommand, 'tail')
+             ) as (mock_libpebble, mock_tail):
 
             attrs = {'get_phone_info.return_value': 
                      'FakeOS,FakeOSVersion,FakeModel'}
@@ -570,23 +573,29 @@ class TestAnalytics(unittest.TestCase):
                 sys.argv = self.pebble_cmd_line + ['install']
                 self.p_sh.main()
     
-            # Verify that we sent the correct events
-            self.assert_evt(mock_urlopen,
-                {'ec': 'pebbleCmd', 'ea': 'install', 'el': 'success'})
-        
-            self.assert_evt(mock_urlopen,
-                {'ec': 'phone', 'ea': 'os', 'el': 'FakeOS'})
-        
-            self.assert_evt(mock_urlopen,
-                {'ec': 'phone', 'ea': 'osVersion', 'el': 'FakeOSVersion'})
-        
-            self.assert_evt(mock_urlopen,
-                {'ec': 'phone', 'ea': 'model', 'el': 'FakeModel'})
-        
+                # Verify that we sent the correct events
+                self.assert_evt(mock_urlopen,
+                    {'ec': 'pebbleCmd', 'ea': 'install', 'el': 'success'})
+            
+                self.assert_evt(mock_urlopen,
+                    {'ec': 'phone', 'ea': 'os', 'el': 'FakeOS'})
+            
+                self.assert_evt(mock_urlopen,
+                    {'ec': 'phone', 'ea': 'osVersion', 'el': 'FakeOSVersion'})
+            
+                self.assert_evt(mock_urlopen,
+                    {'ec': 'phone', 'ea': 'model', 'el': 'FakeModel'})
 
-
-
-
+                # Verify that install --logs produces the right action
+                mock_urlopen.reset_mock()
+                sys.argv = self.pebble_cmd_line + ['install', '--logs']
+                self.p_sh.main()
+                self.assert_evt(mock_urlopen,
+                    {'ec': 'pebbleCmd', 'ea': re.escape('install --logs'), 
+                     'el': 'success'})
+            
+            
+        
 
 #############################################################################
 def _getTestList():
