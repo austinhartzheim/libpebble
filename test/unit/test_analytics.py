@@ -62,9 +62,14 @@ class TestAnalytics(unittest.TestCase):
         # Get command line options
         global g_cmd_args
         if g_cmd_args is not None:
-            self._debug = g_cmd_args.debug
+            self.debug = g_cmd_args.debug
         else:
-            self._debug = False
+            self.debug = False
+            
+        # The pebble command arguments
+        self.pebble_cmd_line = ['pebble']
+        if self.debug:
+            self.pebble_cmd_line += ['--debug']
         
     
     @classmethod
@@ -115,7 +120,7 @@ class TestAnalytics(unittest.TestCase):
             if isinstance(req, urllib2.Request):
               header = req.headers
               data = urlparse.parse_qs(req.get_data())
-              if self._debug:
+              if self.debug:
                   print "Parsing event: %s" % (pprint.pformat(data))
               matches = True
               for (key, value) in items_filter.items():
@@ -151,10 +156,7 @@ class TestAnalytics(unittest.TestCase):
         a pebble command in an invalid project directory. 
         """
 
-        if self._debug:
-            sys.argv = ['pebble', '--debug', 'clean' ]
-        else:
-            sys.argv = ['pebble', 'clean' ]
+        sys.argv = self.pebble_cmd_line + ['clean' ]
         retval = self.p_sh.main()
         
         # Verify that we sent an invalid project event
@@ -171,10 +173,7 @@ class TestAnalytics(unittest.TestCase):
         working_dir = self.use_project('good_c_app')
         
         with temp_chdir(working_dir):
-            if self._debug:
-                sys.argv = ['pebble', '--debug', 'clean' ]
-            else:
-                sys.argv = ['pebble', 'clean' ]
+            sys.argv = self.pebble_cmd_line + ['clean' ]
             retval = self.p_sh.main()
 
         # Verify that we sent a success event
@@ -191,10 +190,7 @@ class TestAnalytics(unittest.TestCase):
         uuid = '19aac3eb-870b-47fb-a708-0810edc4322e'
         
         with temp_chdir(working_dir):
-            if self._debug:
-                sys.argv = ['pebble', '--debug', 'build' ]
-            else:
-                sys.argv = ['pebble', 'build' ]
+            sys.argv = self.pebble_cmd_line + ['build']
             retval = self.p_sh.main()
 
         # Verify that we sent the correct events
@@ -239,10 +235,7 @@ class TestAnalytics(unittest.TestCase):
         uuid = '74460383-8a0f-4bb6-971f-8937c2ed4441'
         
         with temp_chdir(working_dir):
-            if self._debug:
-                sys.argv = ['pebble', '--debug', 'build' ]
-            else:
-                sys.argv = ['pebble', 'build' ]
+            sys.argv = self.pebble_cmd_line + ['build']
             retval = self.p_sh.main()
 
         # Verify that we sent the correct events
@@ -301,11 +294,7 @@ class TestAnalytics(unittest.TestCase):
         from pebble.PblAnalytics import _Analytics
         _Analytics._instance = None
 
-        if self._debug:
-            sys.argv = ['pebble', '--debug', 'clean' ]
-        else:
-            sys.argv = ['pebble', 'clean' ]
-            
+        sys.argv = self.pebble_cmd_line + ['clean' ]
         with patch('pebble.PblAnalytics.urlopen') as mock_urlopen:
             self.p_sh.main()
     
@@ -384,10 +373,7 @@ class TestAnalytics(unittest.TestCase):
         # Copy the desired project to temp location
         working_dir = self.use_project('good_c_app')
         with temp_chdir(working_dir):
-            if self._debug:
-                sys.argv = ['pebble', '--debug', 'build' ]
-            else:
-                sys.argv = ['pebble', 'build' ]
+            sys.argv = self.pebble_cmd_line + ['build']
             retval = self.p_sh.main()
 
         # Verify that we sent missing tools event
