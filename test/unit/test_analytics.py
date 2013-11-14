@@ -99,6 +99,12 @@ class TestAnalytics(unittest.TestCase):
         }
         
             
+    def _printTestHeader(self):
+        """ Print out what test we are running
+        """
+        print "\n###############################################################"
+        print "Running test: %s.%s..." % (self.__class__, self._testMethodName)
+
     
     @classmethod
     def tearDownClass(self):
@@ -198,6 +204,7 @@ class TestAnalytics(unittest.TestCase):
         """ Test that we get the correct analytics produced when we run \
         a pebble command  without necessary python packages installed
         """
+        self._printTestHeader()
         
         # Run at least once to load all modules in
         sys.argv = self.pebble_cmd_line + ['clean' ]
@@ -231,6 +238,7 @@ class TestAnalytics(unittest.TestCase):
         """ Test that we get the correct analytics produced when we run \
         a pebble command in an invalid project directory. 
         """
+        self._printTestHeader()
 
         sys.argv = self.pebble_cmd_line + ['clean' ]
         retval = self.p_sh.main()
@@ -246,6 +254,7 @@ class TestAnalytics(unittest.TestCase):
         """ Test that we get the correct analytics produced when we run \
         a pebble command in an outdated project directory. 
         """
+        self._printTestHeader()
 
         # Copy the desired project to temp location
         working_dir = self.use_project('outdated_project')
@@ -265,6 +274,7 @@ class TestAnalytics(unittest.TestCase):
         """ Test that we get the correct analytics produced when we run \
         a pebble command in an app which is too big 
         """
+        self._printTestHeader()
 
         # Copy the desired project to temp location
         working_dir = self.use_project('too_big')
@@ -284,6 +294,7 @@ class TestAnalytics(unittest.TestCase):
         """ Test that we get the correct analytics produced when we build \
         an app with a compilation error
         """
+        self._printTestHeader()
 
         # Copy the desired project to temp location
         working_dir = self.use_project('good_c_app')
@@ -306,6 +317,7 @@ class TestAnalytics(unittest.TestCase):
     @patch('pebble.PblAnalytics.urlopen')
     def test_clean_success(self, mock_urlopen):
         """ Test for success event with the 'clean' command """
+        self._printTestHeader()
         
         # Copy the desired project to temp location
         working_dir = self.use_project('good_c_app')
@@ -323,6 +335,7 @@ class TestAnalytics(unittest.TestCase):
     def test_no_tracking_support(self, mock_urlopen):
         """ Test that we don't generate any events if we detect a 
         NO_TRACKING file"""
+        self._printTestHeader()
 
         # Create a NO_TRACKING file and catch exceptions so that we
         #  are sure to delete it aftewards        
@@ -357,6 +370,7 @@ class TestAnalytics(unittest.TestCase):
     @patch('pebble.PblAnalytics.urlopen')
     def test_build_success_c_app(self, mock_urlopen):
         """ Test that we send the correct events after building a C app """
+        self._printTestHeader()
         
         # Copy the desired project to temp location
         working_dir = self.use_project('good_c_app')
@@ -402,6 +416,7 @@ class TestAnalytics(unittest.TestCase):
     @patch('pebble.PblAnalytics.urlopen')
     def test_build_success_js_app(self, mock_urlopen):
         """ Test that we send the correct events after building a JS app """
+        self._printTestHeader()
         
         # Copy the desired project to temp location
         working_dir = self.use_project('good_js_app')
@@ -450,6 +465,7 @@ class TestAnalytics(unittest.TestCase):
         """ Test that we get the correct analytics produced when we run \
         a pebble command in an invalid project directory. 
         """
+        self._printTestHeader()
 
         # Temporarily remove the .pebble directory
         save_settings_dir = self.settings_dir + ".bck"
@@ -512,6 +528,7 @@ class TestAnalytics(unittest.TestCase):
     @patch('pebble.PblAnalytics.urlopen')
     def test_missing_tools(self, mock_urlopen):
         """ Test for success event with the 'clean' command """
+        self._printTestHeader()
         
         # Rename the tools directory so that it can't be found
         tools_dir = os.path.join(root_dir, os.pardir, 'arm-cs-tools')
@@ -552,6 +569,7 @@ class TestAnalytics(unittest.TestCase):
     @patch('pebble.PblAnalytics.urlopen')
     def test_app_install(self, mock_urlopen):
         """ Test that we send the correct events after building a C app """
+        self._printTestHeader()
         
         # Copy the desired project to temp location
         working_dir = self.use_project('good_c_app')
