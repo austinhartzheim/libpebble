@@ -316,7 +316,7 @@ class TestAnalytics(unittest.TestCase):
 
     @patch('pebble.PblAnalytics.urlopen')
     def test_clean_success(self, mock_urlopen):
-        """ Test for success event with the 'clean' command """
+        """ Test for correct event sent in response to the 'clean' command """
         self._printTestHeader()
         
         # Copy the desired project to temp location
@@ -463,7 +463,7 @@ class TestAnalytics(unittest.TestCase):
 
     def test_new_sdk_install(self):
         """ Test that we get the correct analytics produced when we run \
-        a pebble command in an invalid project directory. 
+        a pebble command on a newly installed or recently upgraded SDK. 
         """
         self._printTestHeader()
 
@@ -527,7 +527,7 @@ class TestAnalytics(unittest.TestCase):
 
     @patch('pebble.PblAnalytics.urlopen')
     def test_missing_tools(self, mock_urlopen):
-        """ Test for success event with the 'clean' command """
+        """ Test that we send the right event when the ARM tools are missing"""
         self._printTestHeader()
         
         # Rename the tools directory so that it can't be found
@@ -568,7 +568,7 @@ class TestAnalytics(unittest.TestCase):
 
     @patch('pebble.PblAnalytics.urlopen')
     def test_app_install(self, mock_urlopen):
-        """ Test that we send the correct events after building a C app """
+        """ Test that we send the correct events when installing an app """
         self._printTestHeader()
         
         # Copy the desired project to temp location
