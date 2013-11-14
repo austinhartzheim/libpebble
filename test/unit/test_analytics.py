@@ -11,6 +11,7 @@ import urllib2
 import urlparse
 import argparse
 import pprint
+import sh
 from mock import patch, MagicMock
 
 
@@ -45,6 +46,7 @@ class TestAnalytics(unittest.TestCase):
     def setUpClass(self):
         """ Load in the main pebble shell module """
         global root_dir
+        self.root_dir = root_dir
         pebble_shell = imp.load_source('pebble_shell', 
                                        os.path.join(root_dir, 'pebble.py'))
         from pebble_shell import PbSDKShell
@@ -356,26 +358,48 @@ class TestAnalytics(unittest.TestCase):
             os.rename(save_settings_dir, settings_dir)
         
 
-    def XXXstest_new_install(self):
-        """ Test that we get the correct analytics produced when we run \
-        a pebble command in an invalid project directory. 
-        """
-
-        # Force a re-instantiation of the Analytics object
-        from pebble.PblAnalytics import _Analytics
-        _Analytics._instance = None
-        with patch('pebble.PblAnalytics.urlopen') as mock_urlopen:
+    @patch('pebble.PblAnalytics.urlopen')
+    def test_missing_tools(self, mock_urlopen):
+        """ Test for success event with the 'clean' command """
+        
+        # Rename the tools directory so that it can't be found
+        tools_dir = os.path.join(root_dir, '..', 'arm-cs-tools')
+        save_tools_dir = tools_dir + ".bck"
+        if os.path.exists(tools_dir):            
+            os.rename(tools_dir, save_tools_dir)
+        else:
+            save_tools_dir = None
             
+        # If we can still find it, remove it from the path
+        save_os_environ = os.environ['PATH']
+        paths = save_os_environ.split(':')
+        while True: 
+            where = sh.which('arm-none-eabi-size')
+            if where is None:
+                break
+            dir = os.path.split(where)[0]
+            paths.remove(dir)
+            os.environ['PATH'] = ":".join(paths)
+            
+        # Copy the desired project to temp location
+        working_dir = self.use_project('good_c_app')
+        with temp_chdir(working_dir):
             if self._debug:
-                sys.argv = ['pebble', '--debug', 'clean' ]
+                sys.argv = ['pebble', '--debug', 'build' ]
             else:
-                sys.argv = ['pebble', 'clean' ]
-            self.p_sh.main()
-            
-            # Verify that we sent an invalid project event
-            self.assert_evt(mock_urlopen,
-                {'ec': 'pebbleCmd', 'ea': 'clean', 
-                 'el': 'fail: invalid project'})
+                sys.argv = ['pebble', 'build' ]
+            retval = self.p_sh.main()
+
+        # Verify that we sent missing tools event
+        self.assert_evt(mock_urlopen,
+            {'ec': 'install', 'ea': 'tools', 'el': 'fail: The compiler.*'})
+        
+        
+        # Restore environment
+        if save_tools_dir is not None:
+            os.rename(save_tools_dir, tools_dir)
+        os.environ['PATH'] = save_os_environ
+        
 
 
 
