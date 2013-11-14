@@ -446,7 +446,7 @@ class TestAnalytics(unittest.TestCase):
 
 
 
-    def test_new_install(self):
+    def test_new_sdk_install(self):
         """ Test that we get the correct analytics produced when we run \
         a pebble command in an invalid project directory. 
         """
@@ -548,6 +548,43 @@ class TestAnalytics(unittest.TestCase):
             os.rename(save_tools_dir, tools_dir)
         os.environ['PATH'] = save_os_environ
         
+
+    @patch('pebble.PblAnalytics.urlopen')
+    def test_app_install(self, mock_urlopen):
+        """ Test that we send the correct events after building a C app """
+        
+        # Copy the desired project to temp location
+        working_dir = self.use_project('good_c_app')
+        uuid = '19aac3eb-870b-47fb-a708-0810edc4322e'
+        
+        with patch('pebble.LibPebblesCommand.libpebble') as mock_libpebble:
+
+            attrs = {'get_phone_info.return_value': 
+                     'FakeOS,FakeOSVersion,FakeModel'}
+            Pebble_mock = MagicMock(**attrs)
+            mock_libpebble.Pebble = MagicMock(return_value=Pebble_mock)
+            
+            with temp_chdir(working_dir):
+                sys.argv = self.pebble_cmd_line + ['build']
+                self.p_sh.main()
+                sys.argv = self.pebble_cmd_line + ['install']
+                self.p_sh.main()
+    
+            # Verify that we sent the correct events
+            self.assert_evt(mock_urlopen,
+                {'ec': 'pebbleCmd', 'ea': 'install', 'el': 'success'})
+        
+            self.assert_evt(mock_urlopen,
+                {'ec': 'phone', 'ea': 'os', 'el': 'FakeOS'})
+        
+            self.assert_evt(mock_urlopen,
+                {'ec': 'phone', 'ea': 'osVersion', 'el': 'FakeOSVersion'})
+        
+            self.assert_evt(mock_urlopen,
+                {'ec': 'phone', 'ea': 'model', 'el': 'FakeModel'})
+        
+
+
 
 
 
