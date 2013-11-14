@@ -18,7 +18,7 @@ from mock import patch, MagicMock
 # Allow us to run even if not at the root libpebble directory.
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, root_dir) 
-import pebble.PblAnalytics
+#import pebble.PblAnalytics
 
 # Our command line arguments are stored here by the main logic 
 g_cmd_args = None
@@ -166,6 +166,68 @@ class TestAnalytics(unittest.TestCase):
 
 
     @patch('pebble.PblAnalytics.urlopen')
+    def test_outdated_project(self, mock_urlopen):
+        """ Test that we get the correct analytics produced when we run \
+        a pebble command in an outdated project directory. 
+        """
+
+        # Copy the desired project to temp location
+        working_dir = self.use_project('outdated_project')
+        
+        with temp_chdir(working_dir):
+            sys.argv = self.pebble_cmd_line + ['build' ]
+            retval = self.p_sh.main()
+        
+        # Verify that we sent an invalid project event
+        self.assert_evt(mock_urlopen,
+            {'ec': 'pebbleCmd', 'ea': 'build', 
+             'el': 'fail: outdated project'})
+
+
+    @patch('pebble.PblAnalytics.urlopen')
+    def test_app_too_big(self, mock_urlopen):
+        """ Test that we get the correct analytics produced when we run \
+        a pebble command in an app which is too big 
+        """
+
+        # Copy the desired project to temp location
+        working_dir = self.use_project('too_big')
+        
+        with temp_chdir(working_dir):
+            sys.argv = self.pebble_cmd_line + ['build' ]
+            retval = self.p_sh.main()
+        
+        # Verify that we sent an invalid project event
+        self.assert_evt(mock_urlopen,
+            {'ec': 'pebbleCmd', 'ea': 'build', 
+             'el': 'fail: application too big'})
+
+
+    @patch('pebble.PblAnalytics.urlopen')
+    def test_compilation_error(self, mock_urlopen):
+        """ Test that we get the correct analytics produced when we build \
+        an app with a compilation error
+        """
+
+        # Copy the desired project to temp location
+        working_dir = self.use_project('good_c_app')
+        
+        # Introduce a compilation error
+        with open(os.path.join(working_dir, "src", "hello_world.c"), 'w') \
+                    as fd:
+            fd.write("foo")
+        
+        with temp_chdir(working_dir):
+            sys.argv = self.pebble_cmd_line + ['build' ]
+            retval = self.p_sh.main()
+        
+        # Verify that we sent an invalid project event
+        self.assert_evt(mock_urlopen,
+            {'ec': 'pebbleCmd', 'ea': 'build', 
+             'el': 'fail: compilation error'})
+
+
+    @patch('pebble.PblAnalytics.urlopen')
     def test_clean_success(self, mock_urlopen):
         """ Test for success event with the 'clean' command """
         
@@ -216,7 +278,7 @@ class TestAnalytics(unittest.TestCase):
                  'ev': '0'})
 
         self.assert_evt(mock_urlopen,
-            {'ec': 'appCode', 'ea': 'cLineCount', 'el': uuid, 'ev': '60'})
+            {'ec': 'appCode', 'ea': 'cLineCount', 'el': uuid, 'ev': '108'})
 
         self.assert_evt(mock_urlopen,
             {'ec': 'appCode', 'ea': 'jsLineCount', 'el': uuid, 'ev': '0'})
@@ -246,13 +308,13 @@ class TestAnalytics(unittest.TestCase):
             {'ec': 'appCode', 'ea': 'totalSize', 'el': uuid, 'ev': '15..'})
 
         self.assert_evt(mock_urlopen,
-            {'ec': 'appResources', 'ea': 'totalSize', 'el': uuid, 'ev': '38..'})
+            {'ec': 'appResources', 'ea': 'totalSize', 'el': uuid, 'ev': '16131'})
 
         self.assert_evt(mock_urlopen,
-            {'ec': 'appResources', 'ea': 'totalCount', 'el': uuid, 'ev': '4'})
+            {'ec': 'appResources', 'ea': 'totalCount', 'el': uuid, 'ev': '7'})
 
-        sizes = {'raw': '0', 'image': '3888', 'font': '0'}
-        counts = {'raw': '0', 'image': '4', 'font': '0'}
+        sizes = {'raw': '4961', 'image': '3888', 'font': '7282'}
+        counts = {'raw': '2', 'image': '4', 'font': '1'}
         for name in ['raw', 'image', 'font']:
             self.assert_evt(mock_urlopen,
                 {'ec': 'appResources', 'ea': '%sSize' % (name), 'el': uuid, 

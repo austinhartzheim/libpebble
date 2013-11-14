@@ -34,6 +34,21 @@
         "type": "png",
         "name": "IMAGE_SNOW",
         "file": "img/snow.png"
+      },      
+      {
+        "type": "font",
+        "name": "FONT_UNICONS_30",
+        "file": "fonts/unicons_30.ttf"
+      },
+      {
+        "type": "raw",
+        "name": "RAW_SNOW",
+        "file": "img/snow.png"
+      },      
+      {
+        "type": "raw",
+        "name": "RAW_CLOUD",
+        "file": "img/cloud.png"
       }
     ]
   }
