@@ -151,6 +151,39 @@ class TestAnalytics(unittest.TestCase):
         
 
     @patch('pebble.PblAnalytics.urlopen')
+    def test_missing_packages(self, mock_urlopen):
+        """ Test that we get the correct analytics produced when we run \
+        a pebble command  without necessary python packages installed
+        """
+        
+        # Run at least once to load all modules in
+        sys.argv = self.pebble_cmd_line + ['clean' ]
+        self.p_sh.main()
+
+        # Unload the websocket package and remove it from sys.modules and
+        #  clear out sys.path so we can't find it again. We have insured that
+        #  the pebble.py module tries to import websocket
+        sys.modules.pop('websocket')
+        old_path = sys.path
+        sys.path = []
+        
+        sys.argv = self.pebble_cmd_line + ['clean' ]
+        try:
+            new_shell_module = imp.load_source('new_shell_module', 
+                                       os.path.join(root_dir, 'pebble.py'))
+        except:
+            pass
+        
+        # Restore sys.path
+        sys.path = old_path
+        
+        # Verify that we sent a missing python dependency event
+        self.assert_evt(mock_urlopen,
+            {'ec': 'install', 'ea': 'import', 
+             'el': 'fail: missing import:.*'})
+
+
+    @patch('pebble.PblAnalytics.urlopen')
     def test_invalid_project(self, mock_urlopen):
         """ Test that we get the correct analytics produced when we run \
         a pebble command in an invalid project directory. 
