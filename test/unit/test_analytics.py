@@ -263,7 +263,7 @@ class TestAnalytics(unittest.TestCase):
             sys.argv = self.pebble_cmd_line + ['build' ]
             retval = self.p_sh.main()
         
-        # Verify that we sent an invalid project event
+        # Verify that we sent an outdated project event
         self.assert_evt(mock_urlopen,
             {'ec': 'pebbleCmd', 'ea': 'build', 
              'el': 'fail: outdated project'})
@@ -283,7 +283,7 @@ class TestAnalytics(unittest.TestCase):
             sys.argv = self.pebble_cmd_line + ['build' ]
             retval = self.p_sh.main()
         
-        # Verify that we sent an invalid project event
+        # Verify that we sent a app too big event
         self.assert_evt(mock_urlopen,
             {'ec': 'pebbleCmd', 'ea': 'build', 
              'el': 'fail: application too big'})
@@ -308,7 +308,7 @@ class TestAnalytics(unittest.TestCase):
             sys.argv = self.pebble_cmd_line + ['build' ]
             retval = self.p_sh.main()
         
-        # Verify that we sent an invalid project event
+        # Verify that we sent an compilation error event
         self.assert_evt(mock_urlopen,
             {'ec': 'pebbleCmd', 'ea': 'build', 
              'el': 'fail: compilation error'})
@@ -356,12 +356,10 @@ class TestAnalytics(unittest.TestCase):
             call_count = mock_urlopen.call_count
             
         finally:
-            pass
             # Undo tracking file
             os.remove(self.no_tracking_file_path)
             pebble.PblAnalytics._Analytics.unload()
-    
-            
+                
         # Verify that no events were sent out
         self.assertEqual(call_count, 0, "Expected no URL "
             "requests with tracking off but got %d" % call_count)
@@ -460,7 +458,6 @@ class TestAnalytics(unittest.TestCase):
             {'ec': 'appCode', 'ea': 'hasJavaScript', 'el': uuid, 'ev': '1'})
 
 
-
     def test_new_sdk_install(self):
         """ Test that we get the correct analytics produced when we run \
         a pebble command on a newly installed or recently upgraded SDK. 
@@ -476,7 +473,6 @@ class TestAnalytics(unittest.TestCase):
         else:
             save_settings_dir = None
         
-
         # Force a re-instantiation of the Analytics object
         pebble.PblAnalytics._Analytics.unload()
         sys.argv = self.pebble_cmd_line + ['clean' ]
@@ -493,8 +489,7 @@ class TestAnalytics(unittest.TestCase):
             self.assert_evt(mock_urlopen,
                 {'ec': 'install', 'ea': 'firstTime', 'cid': client_id,
                  'cs': client_id})
-
-                
+        
         # Modify the SDK version, we should get an upgrade event and
         #  verify that the right client id got used
         with open(os.path.join(self.settings_dir, "sdk_version"), 'w') as fd:
@@ -505,7 +500,6 @@ class TestAnalytics(unittest.TestCase):
             self.assert_evt(mock_urlopen,
                 {'ec': 'install', 'ea': 'upgrade', 'cid': client_id,
                  'cs': client_id})
-
 
         # Verify that the client_id file can have something like 'PEBBLE_INTERNAL'
         # in it
@@ -518,7 +512,6 @@ class TestAnalytics(unittest.TestCase):
                 {'ec': 'pebbleCmd', 'ea': 'clean', 'cid': 'PEBBLE_INTERNAL',
                  'cs': 'PEBBLE_INTERNAL'})
             
-
         # Restore original .pebble dir            
         if save_settings_dir is not None:
             shutil.rmtree(self.settings_dir)
