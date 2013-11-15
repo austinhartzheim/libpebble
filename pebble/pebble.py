@@ -894,6 +894,8 @@ class Pebble(object):
     def _system_message_response(self, endpoint, data):
         if len(data) == 2:
             log.info("Got system message %s" % repr(unpack('!bb', data)))
+        elif len(data) == 3:
+            log.info("Got system message %s" % repr(unpack('!bbb', data)))
         else:
             log.info("Got 'unknown' system message...")
 
@@ -1239,7 +1241,6 @@ class WSClient(object):
       self._topic = topic
       self._response = response;
       self._received = True
-
 
 class PutBytesClient(object):
     states = {
