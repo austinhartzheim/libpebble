@@ -560,11 +560,11 @@ class Pebble(object):
         self._send_message("TIME", data)
 
 
-    def install_app_ws(self, pbw_path):
+    def install_bundle_ws(self, bundle_path):
         self._ws_client = WSClient()
-        f = open(pbw_path, 'r')
+        f = open(bundle_path, 'r')
         data = f.read()
-        self._ser.write(data, ws_cmd=WebSocketPebble.WS_CMD_APP_INSTALL)
+        self._ser.write(data, ws_cmd=WebSocketPebble.WS_CMD_BUNDLE_INSTALL)
         self._ws_client.listen()
         while not self._ws_client._received and not self._ws_client._error:
             pass
@@ -574,7 +574,7 @@ class Pebble(object):
             return True
         log.debug("WS Operation failed with response %s" % 
                                         self._ws_client._response)
-        log.error("Failed to install %s" % repr(pbw_path))
+        log.error("Failed to install %s" % repr(bundle_path))
         return False
 
 
@@ -648,7 +648,7 @@ class Pebble(object):
         """Install an app bundle (*.pbw) to the target Pebble."""
 
         if self._connection_type == 'websocket':
-            self.install_app_ws(pbw_path)
+            self.install_bundle_ws(pbw_path)
         else:
             self.install_app_pebble_protocol(pbw_path, launch_on_install)
 
