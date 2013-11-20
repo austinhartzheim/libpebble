@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 
 
-from urllib2 import urlopen, Request
-from urllib import urlencode
 import datetime
-import time
 import logging
 import os
 import platform
-import uuid
 import pprint
 import subprocess
+import time
+from urllib import urlencode
+from urllib2 import urlopen, Request
+import uuid
 
 
 ####################################################################
@@ -42,6 +42,13 @@ class _Analytics(object):
         if cls._instance is None:
             cls._instance = _Analytics()
         return cls._instance
+    
+    @classmethod
+    def unload(cls):
+        """ Used by test code to force a re-instantiation  """
+        if cls._instance is not None:
+            del cls._instance
+        cls._instance = None
 
 
     ####################################################################
@@ -124,7 +131,7 @@ class _Analytics(object):
             from VersionGenerated import SDK_VERSION
             return SDK_VERSION
         except:
-            return "'Development'"
+            return "Development"
         
         
     ####################################################################

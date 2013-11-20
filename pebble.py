@@ -8,6 +8,10 @@ import pebble.PblAnalytics as PblAnalytics
 
 # Catch any missing python dependencies so we can send an event to analytics
 try:
+    # NOTE: Even though we don't use websocket in this module, keep this
+    #  import here for the unit tests so that they can trigger a missing 
+    #  python dependency event. 
+    import websocket        
     import pebble as libpebble
     from pebble.PblProjectCreator   import (PblProjectCreator, 
                                             InvalidProjectException, 
@@ -20,6 +24,7 @@ except Exception as e:
                     level = logging.DEBUG)
     PblAnalytics.missing_python_dependency_evt(str(e))
     raise
+
 
 class PbSDKShell:
     commands = []
@@ -44,7 +49,7 @@ class PbSDKShell:
             from pebble.VersionGenerated import SDK_VERSION
             return SDK_VERSION
         except:
-            return "'Development'"
+            return "Development"
         
 
     def main(self):

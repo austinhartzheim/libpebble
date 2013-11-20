@@ -162,7 +162,9 @@ class PblWafCommand(PblCommand):
             dirToSearch = os.path.join("build", "resources", dirName)
             found = False
             for name in os.listdir(dirToSearch):
-                if name.startswith(fileName):
+                if (type == "raw" and name == fileName) \
+                    or (type != 'raw' and name.startswith(fileName) 
+                        and name != fileName):
                     size = os.path.getsize(os.path.join(dirToSearch, name))
                     found = True
                     break
