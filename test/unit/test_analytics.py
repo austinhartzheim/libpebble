@@ -163,9 +163,9 @@ class TestAnalytics(unittest.TestCase):
                   print "Parsing event: %s" % (pprint.pformat(data))
               matches = True
               for (key, value) in items_filter.items():
-                if not re.match(value, data[key][0]):
-                  matches = False
-                  break
+                  if not re.match(value, data[key][0]):
+                      matches = False
+                      break
               if matches:
                   return (header, data)
 
