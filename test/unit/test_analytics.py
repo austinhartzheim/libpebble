@@ -253,6 +253,9 @@ class TestAnalytics(unittest.TestCase):
     def test_outdated_project(self, mock_urlopen):
         """ Test that we get the correct analytics produced when we run \
         a pebble command in an outdated project directory. 
+        
+        We made this project "outdated" by putting a resource_map.json
+        file in the resources/src directory. 
         """
         self._printTestHeader()
 
@@ -272,7 +275,11 @@ class TestAnalytics(unittest.TestCase):
     @patch('pebble.PblAnalytics.urlopen')
     def test_app_too_big(self, mock_urlopen):
         """ Test that we get the correct analytics produced when we run \
-        a pebble command in an app which is too big 
+        a pebble command in an app which is too big.
+        
+        We made this project "too big" by declaring a large static array
+        in the main source file (hello_world.c):
+           static int foo[25000] = {0};
         """
         self._printTestHeader()
 
