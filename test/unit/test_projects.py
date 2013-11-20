@@ -105,7 +105,7 @@ class TestProjects(unittest.TestCase):
         return working_dir
 
 
-    def test_with_spaes(self):
+    def test_with_spaces(self):
         """ Test for correct event sent in response to the 'clean' command """
         self._printTestHeader()
         
