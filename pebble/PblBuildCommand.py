@@ -201,7 +201,7 @@ class PblWafCommand(PblCommand):
         #  so we can determine the cause
           
         if (retval):
-            cmdArgs = [self.waf_path(args), self.waf_cmds]
+            cmdArgs = [self.waf_path(args)] + self.waf_cmds.split()
             try:
                 cmdObj = create_sh_cmd_obj(cmdArgs[0])
                 output = cmdObj(*cmdArgs[1:])
