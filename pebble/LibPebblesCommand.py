@@ -95,7 +95,8 @@ class PblInstallCommand(LibPebbleCommand):
             logging.error("Could not find pbw <{}> for install.".format(args.pbw_path))
             return 1
 
-        self.pebble.app_log_enable()
+        if args.logs:
+            self.pebble.app_log_enable()
 
         success = self.pebble.install_bundle_ws(args.pbw_path)
 
