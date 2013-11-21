@@ -372,6 +372,10 @@ class Pebble(object):
                         self._ws_client.handle_response(endpoint, resp)
                     elif endpoint == 'log':
                         log.info(resp)
+                    elif endpoint == 'watchConnectionStatusUpdate':
+                        watch_connected = resp
+                        if watch_connected and self._app_log_enabled:
+                            self.app_log_enable()
                     continue
 
                 #log.info("message for endpoint " + str(endpoint) + " resp : " + str(resp))
@@ -859,10 +863,12 @@ class Pebble(object):
             time.sleep(1)
 
     def app_log_enable(self):
+        self._app_log_enabled = True
         log.info("Enabling application logging...")
         self._send_message("APP_LOGS", pack("!B", 0x01))
 
     def app_log_disable(self):
+        self._app_log_enabled = False
         log.info("Disabling application logging...")
         self._send_message("APP_LOGS", pack("!B", 0x00))
 
