@@ -105,7 +105,7 @@ class WebSocketPebble(WebSocket):
             logging.info("Pebble " + ("connected" if watch_connected else "disconnected"));
             return ('ws', 'watchConnectionStatusUpdate', watch_connected, data)
 
-            return (None, None, None, data)
+        return (None, None, None, data)
 
 
 
