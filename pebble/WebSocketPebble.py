@@ -49,7 +49,6 @@ class WebSocketPebble(WebSocket):
                 logging.debug('send>>> ' + data.encode('hex'))
 
     def read(self):
-
         """
         BRIDGES THIS METHOD:
         def read(self):
