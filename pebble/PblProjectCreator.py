@@ -199,10 +199,12 @@ def check_project_directory():
     Raises an InvalidProjectException or an OutdatedProjectException if everything isn't quite right.
     """
 
-    if not os.path.isdir('src') or not os.path.exists('wscript'):
+    if not os.path.isdir('src'):
         raise InvalidProjectException
 
-    if os.path.islink('pebble_app.ld') or os.path.exists('resources/src/resource_map.json'):
+    if os.path.islink('pebble_app.ld') \
+            or os.path.exists('resources/src/resource_map.json') \
+            or not os.path.exists('wscript'):
         raise OutdatedProjectException
 
 def requires_project_dir(func):

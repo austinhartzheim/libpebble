@@ -114,8 +114,7 @@ def extract_c_appinfo(project_root):
 
     appinfo_json_def = {
         'uuid': convert_c_uuid(appinfo_c_def['uuid']),
-        'short_name': appinfo_c_def['name'],
-        'long_name': appinfo_c_def['name'],
+        'project_name': appinfo_c_def['name'],
         'company_name': appinfo_c_def['company_name'],
         'version_code': version_major,
         'version_label': '{}.{}.0'.format(version_major, version_minor),
@@ -239,7 +238,9 @@ Note: This will only convert the project, you'll still have to update your sourc
         try:
             check_project_directory()
             print "No conversion required"
+            return 0
         except OutdatedProjectException:
             convert_project()
             print "Project successfully converted!"
+            return 0
 
