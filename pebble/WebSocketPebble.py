@@ -16,6 +16,7 @@ WS_CMD_SERVER_LOG = 0x03
 WS_CMD_BUNDLE_INSTALL = 0x04
 WS_CMD_STATUS = 0x5
 WS_CMD_PHONE_INFO = 0x06
+WS_CMD_WATCH_CONNECTION_UPDATE = 0x07
 
 class WebSocketPebble(WebSocket):
 
@@ -71,34 +72,39 @@ class WebSocketPebble(WebSocket):
         retval:   (source, topic, response, data)
             source can be either 'ws' or 'watch'
             if source is 'watch', then topic is the endpoint identifier
-            if source is 'ws', then topic is either 'status','phoneInfo',
+            if source is 'ws', then topic is either 'status','phoneInfo','watchConnectionStatusUpdate'
                     or 'log'
             
         """
         opcode, data = self.recv_data()
         ws_cmd = unpack('!b',data[0])
+
         if ws_cmd[0]==WS_CMD_SERVER_LOG:
             logging.debug("Server: %s" % repr(data[1:]))
-        if ws_cmd[0]==WS_CMD_PHONE_APP_LOG:
+        elif ws_cmd[0]==WS_CMD_PHONE_APP_LOG:
             logging.debug("Log: %s" % repr(data[1:]))
             return ('ws', 'log', data[1:], data)
-        if ws_cmd[0]==WS_CMD_PHONE_TO_WATCH:
+        elif ws_cmd[0]==WS_CMD_PHONE_TO_WATCH:
             logging.debug("Phone ==> Watch: %s" % data[1:].encode("hex"))
-        if ws_cmd[0]==WS_CMD_WATCH_TO_PHONE:
+        elif ws_cmd[0]==WS_CMD_WATCH_TO_PHONE:
             logging.debug("Watch ==> Phone: %s" % data[1:].encode("hex"))
             size, endpoint = unpack("!HH", data[1:5])
             resp = data[5:]
             return ('watch', endpoint, resp, data[1:5])
-        if ws_cmd[0]==WS_CMD_STATUS:
+        elif ws_cmd[0]==WS_CMD_STATUS:
             logging.debug("Status: %s" % repr(data[1:]))
             status = unpack("I", data[1:5])[0]
             return ('ws', 'status', status, data[1:5])
-        if ws_cmd[0]==WS_CMD_PHONE_INFO:
+        elif ws_cmd[0]==WS_CMD_PHONE_INFO:
             logging.debug("Phone info: %s" % repr(data[1:]))
             response = data[1:]
             return ('ws', 'phoneInfo', response, data)
-        else:
-            return (None, None, None, data)
+        elif ws_cmd[0]==WS_CMD_WATCH_CONNECTION_UPDATE:
+            watch_connected = (int(data[1:].encode("hex"), 16) == 255)
+            logging.info("Pebble " + ("connected" if watch_connected else "disconnected"));
+            return ('ws', 'watchConnectionStatusUpdate', watch_connected, data)
+
+        return (None, None, None, data)
 
 
 
