@@ -101,7 +101,7 @@ class _Analytics(object):
                 urlopen(self.endpoint, timeout=0.1)
             except:
                 self.do_not_track = True
-                logging.debug("Analytics collection disabled due to lack of"
+                logging.debug("Analytics collection disabled due to lack of "
                               "internet connectivity")
             
         if self.do_not_track:
