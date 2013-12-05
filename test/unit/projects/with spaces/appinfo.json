@@ -30,6 +30,13 @@
         "type": "raw",
         "name": "RAW",
         "file": "raw/subdir/blob.bin"
+      },
+      {
+        "name": "FUTURA_40",
+        "trackingAdjust": -4,
+        "characterRegex": "[0-9\u00b0 -]",
+        "file": "fonts/futura.ttf",
+        "type": "font"
       }
     ]
   }
