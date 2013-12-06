@@ -98,7 +98,11 @@ class _Analytics(object):
         # Don't track if internet connection is down
         if not self.do_not_track:
             try:
-                urlopen(self.endpoint, timeout=0.1)
+                # NOTE: This is the IP address of www.google.com. On certain
+                # flavors of linux (Ubuntu 13.04 and others), the timeout argument
+                # is ignored during the DNS lookup portion so we test connectivity
+                # using an IP address only. 
+                urlopen("http://209.118.208.39", timeout=0.2)
             except:
                 self.do_not_track = True
                 logging.debug("Analytics collection disabled due to lack of"
