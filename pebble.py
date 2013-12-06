@@ -141,6 +141,10 @@ class PbSDKShell:
             PblAnalytics.cmd_fail_evt(args.command, 'unhandled exception: %s' %
                                  str(e))
             logging.error(str(e))
+            
+            # Print out stack trace if in debug mode to aid in bug reporting
+            if args.debug:
+                raise
             return 1
 
 
