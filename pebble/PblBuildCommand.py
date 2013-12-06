@@ -184,11 +184,26 @@ class PblWafCommand(PblCommand):
     ###########################################################################
     @requires_project_dir
     def run(self, args):
-        os.environ['PATH'] = "{}:{}".format(os.path.join(self.sdk_path(args), 
-                                "arm-cs-tools", "bin"), os.environ['PATH'])
+        os.environ['PATH'] = "{}:{}".format(
+            os.path.join(self.sdk_path(args), "arm-cs-tools", "bin"), 
+            os.environ['PATH'])
         
+        # If python3 is the default and python2 is available, then plug in
+        #  our stub 'python' shell script which passes control to python2
+        py_version = sh.python("-c", 
+                               "import sys;print(sys.version_info[0])").strip()
+        if py_version != '2':
+            if sh.which('python2') is None:
+                raise RuntimeError("The Pebble SDK requires python version 2.6 "
+                    "or 2.7 (python2). You are currently running 'python%s' "
+                    "by default and a 'python2' executable could not be found." % 
+                    py_version)
+            os.environ['PATH'] = "{}:{}".format(
+                os.path.join(os.path.normpath(os.path.dirname(__file__))),
+                os.environ['PATH'])
+            
+        # Execute the build command
         cmdLine = '"%s" %s' % (self.waf_path(args), self.waf_cmds)
-        
         retval = subprocess.call(cmdLine, shell=True)
         
         # If an error occurred, we need to do some sleuthing to determine a
@@ -199,7 +214,6 @@ class PblWafCommand(PblCommand):
         #
         # But, if an error occurs, let's run it again capturing the output
         #  so we can determine the cause
-          
         if (retval):
             cmdArgs = [self.waf_path(args)] + self.waf_cmds.split()
             try:
