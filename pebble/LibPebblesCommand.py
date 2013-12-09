@@ -212,7 +212,7 @@ class PblScreenshotCommand(LibPebbleCommand):
             #   after an upgrade to MacOS 10.9 or XCode 5 depending on which
             #   versions of PIL and/or Pillow were installed before the upgrade. 
             if "function takes at most" in e.message:
-                print("\nCONFLICT DETECTED: We detected two conflicting "
+                logging.error("CONFLICT DETECTED: We detected two conflicting "
                   "installations of the same python package for image "
                   "processing (PIL and Pillow) and could not proceed. In order "
                   "to clear up this conflict, please run the following commands "
