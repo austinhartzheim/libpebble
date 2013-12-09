@@ -202,7 +202,27 @@ class PblScreenshotCommand(LibPebbleCommand):
 
         image = self.pebble.screenshot(progress_callback)
         name = time.strftime("pebble-screenshot_%Y-%m-%d_%H-%M-%S.png")
-        image.save(name, "PNG")
+        try:
+            image.save(name, "PNG")
+        except TypeError as e:
+            # NOTE: Some customers have experienced the following exception
+            #  during image.save: "TypeError: function takes at most 4 arguments 
+            #   (6 given)". This is due to having the Pillow python modules
+            #   call into PIL compiled binaries. This apparently can happen
+            #   after an upgrade to MacOS 10.9 or XCode 5 depending on which
+            #   versions of PIL and/or Pillow were installed before the upgrade. 
+            if "function takes at most" in e.message:
+                print("\nCONFLICT DETECTED: We detected two conflicting "
+                  "installations of the same python package for image "
+                  "processing (PIL and Pillow) and could not proceed. In order "
+                  "to clear up this conflict, please run the following commands "
+                  "from a terminal window and try again: "
+                  "\n    pip uninstall PIL"
+                  "\n    pip install --user Pillow"
+                  "\n")
+                raise Exception("Conflicting PIL and Pillow packages")
+            else:
+                raise
         logging.info("Screenshot saved to %s" % name)
 
         # Open up the image in the user's default image viewer. For some
