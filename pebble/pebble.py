@@ -808,11 +808,13 @@ class Pebble(object):
         if not async:
             return EndpointSync(self, "PING").get_data()
 
-    def reset(self):
+    def reset(self, prf = False):
 
         """Reset the watch remotely."""
-
-        self._send_message("RESET", "\x00")
+        if prf is True:
+            self._send_message("RESET", "\xFF")
+        else:
+            self._send_message("RESET", "\x00")
 
     def dump_logs(self, generation_number):
         """Dump the saved logs from the watch.
