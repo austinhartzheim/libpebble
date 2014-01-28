@@ -34,12 +34,17 @@ class LibPebbleCommand(PblCommand):
         parser.add_argument('--phone', type=str, default=os.getenv(PEBBLE_PHONE_ENVVAR),
                 help='The IP address or hostname of your phone - Can also be provided through PEBBLE_PHONE environment variable.')
         parser.add_argument('--verbose', type=bool, default=False, help='Prints received system logs in addition to APP_LOG')
+        parser.add_argument('--pebble_id', type=str, default=False, help='BT ID')
+        parser.add_argument('--pair', action="store_true", help="BT pair")
 
     def run(self, args):
-        if not args.phone:
+        if not args.phone and not args.pebble_id:
             raise ConfigurationException("Argument --phone is required (Or set a PEBBLE_PHONE environment variable)")
         self.pebble = libpebble.Pebble()
         self.pebble.set_print_pbl_logs(args.verbose)
+        if args.pebble_id:
+          self.pebble.connect_via_lightblue(args.pebble_id, args.pair)
+          return
         self.pebble.connect_via_websocket(args.phone)
 
     def tail(self, interactive=False, skip_enable_app_log=False):
@@ -98,11 +103,11 @@ class PblInstallCommand(LibPebbleCommand):
         if args.logs:
             self.pebble.app_log_enable()
 
-        success = self.pebble.install_bundle_ws(args.pbw_path)
+        success = self.pebble.install_app(args.pbw_path)
 
         # Send the phone OS version to analytics
-        phoneInfoStr = self.pebble.get_phone_info()
-        PblAnalytics.phone_info_evt(phoneInfoStr = phoneInfoStr)
+        #phoneInfoStr = self.pebble.get_phone_info()
+        #PblAnalytics.phone_info_evt(phoneInfoStr = phoneInfoStr)
 
         if success and args.logs:
             self.tail(skip_enable_app_log=True)
