@@ -329,11 +329,11 @@ class Pebble(object):
         self._ser = serial.Serial(devicefile, 115200, timeout=1)
         self.init_reader()
 
-    def connect_via_lightblue(self, addr, pair_first = False):
+    def connect_via_lightblue(self, pair_first = False):
         self._connection_type = 'lightblue'
 
         from LightBluePebble import LightBluePebble
-        self._ser = LightBluePebble(addr, pair_first)
+        self._ser = LightBluePebble(self.id, pair_first)
         signal.signal(signal.SIGINT, self._exit_signal_handler)
         self.init_reader()
 
@@ -413,8 +413,7 @@ class Pebble(object):
     def _recv_message(self):
         if self._connection_type != 'serial':
             try:
-                endpoint, resp, data = self._ser.read()
-                source = 'lb'
+                source, endpoint, resp, data = self._ser.read()
                 if resp is None:
                     return None, None, None
             except TypeError:
