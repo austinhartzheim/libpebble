@@ -193,7 +193,7 @@ class ScreenshotSync():
             return Image.frombuffer('1', (self.width, self.height), \
                 self.data, "raw", "1;R", 0, 1)
         except:
-            raise PebbleError(None, "Timed out... Is the Pebble phone app connected?")
+            raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
 class EndpointSync():
     timeout = 10
@@ -211,7 +211,7 @@ class EndpointSync():
             self.marker.wait(timeout=self.timeout)
             return self.data
         except:
-            raise PebbleError(None, "Timed out... Is the Pebble phone app connected?")
+            raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
 class PebbleError(Exception):
     def __init__(self, id, message):
@@ -582,8 +582,13 @@ class Pebble(object):
         log.error("Failed to install %s" % repr(bundle_path))
         return False
 
+    def is_phone_info_available(self):
+        return self._connection_type == 'websocket'
 
     def get_phone_info(self):
+        if self._connection_type != 'websocket':
+            raise Exception("Not connected via websockets - cannot get phone info")
+
         self._ws_client = WSClient()
         # The first byte is reserved for future use as a protocol version ID
         #  and must be 0 for now.
