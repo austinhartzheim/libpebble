@@ -18,6 +18,7 @@ import re
 import uuid
 import zipfile
 import WebSocketPebble
+import atexit
 
 from collections import OrderedDict
 from struct import pack, unpack
@@ -335,6 +336,7 @@ class Pebble(object):
         from LightBluePebble import LightBluePebble
         self._ser = LightBluePebble(self.id, pair_first)
         signal.signal(signal.SIGINT, self._exit_signal_handler)
+        atexit.register(self._exit_signal_handler)
         self.init_reader()
 
     def connect_via_websocket(self, host, port=DEFAULT_WEBSOCKET_PORT):
@@ -344,7 +346,7 @@ class Pebble(object):
         self._ser = WebSocketPebble.create_connection(host, port, connect_timeout=5)
         self.init_reader()
 
-    def _exit_signal_handler(self, signum, frame):
+    def _exit_signal_handler(self, *args):
         log.warn("Disconnecting before exiting...")
         self.disconnect()
         time.sleep(1)
