@@ -617,7 +617,7 @@ class Pebble(object):
         if not apps:
             raise PebbleError(self.id, "could not obtain app list; try again")
 
-        first_free = 1
+        first_free = 0
         for app in apps["apps"]:
             if app["index"] == first_free:
                 first_free += 1

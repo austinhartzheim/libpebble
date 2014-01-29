@@ -32,17 +32,26 @@ class LibPebbleCommand(PblCommand):
 
     def configure_subparser(self, parser):
         PblCommand.configure_subparser(self, parser)
-        parser.add_argument('--phone', type=str, default=os.getenv(PEBBLE_PHONE_ENVVAR),
+        parser.add_argument('--phone', type=str,
                 help='When using Developer Connection, the IP address or hostname of your phone. Can also be provided through %s environment variable.' % PEBBLE_PHONE_ENVVAR)
-        parser.add_argument('--pebble_id', type=str, default=os.getenv(PEBBLE_BTID_ENVVAR), help='When using a direct BT connection, the watch\'s Bluetooth ID (e.g. DF38 or 01:23:45:67:DF:38). Can also be provided through %s environment variable.' % PEBBLE_BTID_ENVVAR)
+        parser.add_argument('--pebble_id', type=str,
+                help='When using a direct BT connection, the watch\'s Bluetooth ID (e.g. DF38 or 01:23:45:67:DF:38). Can also be provided through %s environment variable.' % PEBBLE_BTID_ENVVAR)
         parser.add_argument('--pair', action="store_true", help="When using a direct BT connection, attempt to pair the watch automatically")
         parser.add_argument('--verbose', type=bool, default=False, help='Prints received system logs in addition to APP_LOG')
 
     def run(self, args):
+        # Only use the envrionment variables as defaults if no command-line arguments were specified
+        # ...allowing you to leave the envrionment var(s) set at all times
+        if not args.phone and not args.pebble_id:
+            args.phone = os.getenv(PEBBLE_PHONE_ENVVAR)
+            args.pebble_id = os.getenv(PEBBLE_BTID_ENVVAR)
+
         if not args.phone and not args.pebble_id:
             raise ConfigurationException("No method specified to connect to watch\n- To use Developer Connection, argument --phone is required (or set the %s environment variable)\n- To use a direct BT connection, argument --pebble_id is required (or set the %s environment variable)" % (PEBBLE_PHONE_ENVVAR, PEBBLE_BTID_ENVVAR))
+
         if args.phone and args.pebble_id:
             raise ConfigurationException("You must specify only one method to connect to the watch - either Developer Connection (with --phone/%s) or direct via Bluetooth (with --pebble_id/%s)" % (PEBBLE_PHONE_ENVVAR, PEBBLE_BTID_ENVVAR))
+
         self.pebble = libpebble.Pebble(args.pebble_id)
         self.pebble.set_print_pbl_logs(args.verbose)
         if args.phone:
