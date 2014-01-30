@@ -18,6 +18,7 @@ import re
 import uuid
 import zipfile
 import WebSocketPebble
+import atexit
 
 from collections import OrderedDict
 from struct import pack, unpack
@@ -193,7 +194,7 @@ class ScreenshotSync():
             return Image.frombuffer('1', (self.width, self.height), \
                 self.data, "raw", "1;R", 0, 1)
         except:
-            raise PebbleError(None, "Timed out... Is the Pebble phone app connected?")
+            raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
 class EndpointSync():
     timeout = 10
@@ -211,7 +212,7 @@ class EndpointSync():
             self.marker.wait(timeout=self.timeout)
             return self.data
         except:
-            raise PebbleError(None, "Timed out... Is the Pebble phone app connected?")
+            raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
 class PebbleError(Exception):
     def __init__(self, id, message):
@@ -335,6 +336,7 @@ class Pebble(object):
         from LightBluePebble import LightBluePebble
         self._ser = LightBluePebble(self.id, pair_first)
         signal.signal(signal.SIGINT, self._exit_signal_handler)
+        atexit.register(self._exit_signal_handler)
         self.init_reader()
 
     def connect_via_websocket(self, host, port=DEFAULT_WEBSOCKET_PORT):
@@ -344,7 +346,7 @@ class Pebble(object):
         self._ser = WebSocketPebble.create_connection(host, port, connect_timeout=5)
         self.init_reader()
 
-    def _exit_signal_handler(self, signum, frame):
+    def _exit_signal_handler(self, *args):
         log.warn("Disconnecting before exiting...")
         self.disconnect()
         time.sleep(1)
@@ -581,8 +583,13 @@ class Pebble(object):
         log.error("Failed to install %s" % repr(bundle_path))
         return False
 
+    def is_phone_info_available(self):
+        return self._connection_type == 'websocket'
 
     def get_phone_info(self):
+        if self._connection_type != 'websocket':
+            raise Exception("Not connected via websockets - cannot get phone info")
+
         self._ws_client = WSClient()
         # The first byte is reserved for future use as a protocol version ID
         #  and must be 0 for now.
@@ -610,7 +617,7 @@ class Pebble(object):
         if not apps:
             raise PebbleError(self.id, "could not obtain app list; try again")
 
-        first_free = 1
+        first_free = 0
         for app in apps["apps"]:
             if app["index"] == first_free:
                 first_free += 1
