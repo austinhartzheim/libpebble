@@ -10,6 +10,7 @@ import os
 import sh
 import signal
 import stm32_crc
+import socket
 import struct
 import threading
 import time
@@ -76,7 +77,6 @@ class PebbleBundle(object):
         return self.manifest
 
     def get_app_metadata(self):
-
         if (self.header):
             return self.header
 
@@ -223,7 +223,6 @@ class PebbleError(Exception):
         return "%s (ID:%s)" % (self._message, self._id)
 
 class Pebble(object):
-
     """
     A connection to a Pebble watch; data and commands may be sent
     to the watch through an instance of this class.
@@ -343,7 +342,7 @@ class Pebble(object):
         self._connection_type = 'websocket'
 
         WebSocketPebble.enableTrace(False)
-        self._ser = WebSocketPebble.create_connection(host, port, connect_timeout=5)
+        self._ser = WebSocketPebble.create_connection(host, port, timeout=1, connect_timeout=5)
         self.init_reader()
 
     def _exit_signal_handler(self, *args):
@@ -418,7 +417,11 @@ class Pebble(object):
                 source, endpoint, resp, data = self._ser.read()
                 if resp is None:
                     return None, None, None
-            except TypeError:
+            except socket.timeout:
+                # timeout errors are expected so just return None
+                return None, None, None
+            except TypeError as e:
+                log.debug("ws read error...", e.message)
                 # the lightblue process has likely shutdown and cannot be read from
                 self.alive = False
                 return None, None, None
