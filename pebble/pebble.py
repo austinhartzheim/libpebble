@@ -657,14 +657,21 @@ class Pebble(object):
         if launch_on_install:
             self.launcher_message(app_metadata['uuid'].bytes, "RUNNING", uuid_is_string=False)
 
+        # If we have not thrown an exception, we succeeded
+        return True
+
+
     def install_app(self, pbw_path, launch_on_install=True):
 
         """Install an app bundle (*.pbw) to the target Pebble."""
 
+        # FIXME: One problem here is that install_bundle_ws will return True/False
+        # but install_app_pebble_protocol will return True or throw an exception.
+        # We should catch, report to user and return False.
         if self._connection_type == 'websocket':
-            self.install_bundle_ws(pbw_path)
+            return self.install_bundle_ws(pbw_path)
         else:
-            self.install_app_pebble_protocol(pbw_path, launch_on_install)
+            return self.install_app_pebble_protocol(pbw_path, launch_on_install)
 
     def install_firmware(self, pbz_path, recovery=False):
 
