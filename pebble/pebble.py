@@ -342,7 +342,7 @@ class Pebble(object):
         self._connection_type = 'websocket'
 
         WebSocketPebble.enableTrace(False)
-        self._ser = WebSocketPebble.create_connection(host, port, timeout=1, connect_timeout=5)
+        self._ser = WebSocketPebble.create_connection(host, port, connect_timeout=5)
         self.init_reader()
 
     def _exit_signal_handler(self, *args):
