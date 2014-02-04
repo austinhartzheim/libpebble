@@ -45,6 +45,7 @@ class PbSDKShell:
         self.commands.append(PblLogsCommand())
         self.commands.append(PblReplCommand())
         self.commands.append(PblScreenshotCommand())
+        self.commands.append(PblCoreDumpCommand())
 
     def _get_version(self):
         try:

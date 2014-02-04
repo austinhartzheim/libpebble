@@ -196,6 +196,62 @@ class ScreenshotSync():
         except:
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
+
+class CoreDumpSync():
+    timeout = 60
+    COREDUMP_OK = 0
+    COREDUMP_MALFORMED_COMMAND = 1
+
+    def __init__(self, pebble, endpoint, progress_callback):
+        self.marker = threading.Event()
+        self.data = ''
+        self.have_read_header = False
+        self.length_received = 0
+        self.progress_callback = progress_callback
+        pebble.register_endpoint(endpoint, self.message_callback)
+
+    # Received a reply message from the watch. We expect several of these...
+    def message_callback(self, endpoint, data):
+        if not self.have_read_header:
+            data = self.read_header(data)
+            self.have_read_header = True
+
+        self.data += data
+        self.length_received += len(data)
+        print "received %d bytes more, %d total" % ( len(data), self.length_received)
+        self.progress_callback(float(self.length_received)/self.total_length)
+        if self.length_received >= self.total_length:
+            self.marker.set()
+
+    def read_header(self, data):
+        core_dump_header = struct.Struct("!BII")
+        header_len = core_dump_header.size
+        header_data = data[:header_len]
+        data = data[header_len:]
+        response_code, version, self.total_length = \
+          core_dump_header.unpack(header_data)
+
+        print "Total length = %d" % (self.total_length)
+
+        if response_code is not CoreDumpSync.COREDUMP_OK:
+            raise PebbleError(None, "Pebble responded with nonzero response "
+                "code %d, signaling an error on the watch side." %
+                response_code)
+
+        if version is not 1:
+            raise PebbleError(None, "Received unrecognized core dump format "
+                "version %d from watch. Maybe your libpebble is out of "
+                "sync with your firmware version?" % version)
+
+        return data
+
+    def get_data(self):
+        try:
+            self.marker.wait(timeout=self.timeout)
+            return self.data
+        except:
+            raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
+
 class EndpointSync():
     timeout = 10
 
@@ -247,6 +303,7 @@ class Pebble(object):
             "RESOURCE": 4000,
             "APP_MANAGER": 6000,
             "SCREENSHOT": 8000,
+            "COREDUMP": 9000,
             "PUTBYTES": 48879,
     }
 
@@ -301,6 +358,7 @@ class Pebble(object):
                 self.endpoints["APP_LOGS"]: self._app_log_response,
                 self.endpoints["APP_MANAGER"]: self._appbank_status_response,
                 self.endpoints["SCREENSHOT"]: self._screenshot_response,
+                self.endpoints["COREDUMP"]: self._coredump_response,
         }
 
     def init_reader(self):
@@ -472,6 +530,10 @@ class Pebble(object):
     def screenshot(self, progress_callback):
         self._send_message("SCREENSHOT", "\x00")
         return ScreenshotSync(self, "SCREENSHOT", progress_callback).get_data()
+
+    def coredump(self, progress_callback):
+        self._send_message("COREDUMP", "\x00")
+        return CoreDumpSync(self, "COREDUMP", progress_callback).get_data()
 
     def get_versions(self, async = False):
 
@@ -906,6 +968,9 @@ class Pebble(object):
         self._send_message("APP_MANAGER", data)
 
     def _screenshot_response(self, endpoint, data):
+        return data
+
+    def _coredump_response(self, endpoint, data):
         return data
 
     def _ping_response(self, endpoint, data):
