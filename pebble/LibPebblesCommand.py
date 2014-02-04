@@ -263,12 +263,12 @@ class PblCoreDumpCommand(LibPebbleCommand):
     def run(self, args):
         LibPebbleCommand.run(self, args)
 
-        logging.info("Fetching coredump...")
+        logging.info("Fetching coredump from Pebble...")
         def progress_callback(amount):
             logging.info("%.2f%% done..." % (amount*100.0))
 
         blob = self.pebble.coredump(progress_callback)
-        name = time.strftime("pebble-coredump_%Y-%m-%d_%H-%M-%S.elf")
+        name = time.strftime("pebble-coredump_%Y-%m-%d_%H-%M-%S.bin")
         try:
             with open(name, 'w') as f:
                 f.write(blob)
