@@ -704,6 +704,7 @@ class Pebble(object):
         if client._error:
             raise PebbleError(self.id, "Failed to send firmware binary %s/tintin_fw.bin" % pbz_path)
 
+        log.info("Installation successful")
         self.system_message("FIRMWARE_COMPLETE")
 
     def launcher_message(self, app_uuid, key_value, uuid_is_string = True, async = False):
