@@ -218,7 +218,6 @@ class CoreDumpSync():
 
         self.data += data
         self.length_received += len(data)
-        print "received %d bytes more, %d total" % ( len(data), self.length_received)
         self.progress_callback(float(self.length_received)/self.total_length)
         if self.length_received >= self.total_length:
             self.marker.set()
@@ -230,8 +229,6 @@ class CoreDumpSync():
         data = data[header_len:]
         response_code, version, self.total_length = \
           core_dump_header.unpack(header_data)
-
-        print "Total length = %d" % (self.total_length)
 
         if response_code is not CoreDumpSync.COREDUMP_OK:
             raise PebbleError(None, "Pebble responded with nonzero response "
