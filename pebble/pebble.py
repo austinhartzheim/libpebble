@@ -342,7 +342,7 @@ class Pebble(object):
         self._connection_type = 'websocket'
 
         WebSocketPebble.enableTrace(False)
-        self._ser = WebSocketPebble.create_connection(host, port, connect_timeout=5)
+        self._ser = WebSocketPebble.create_connection(host, port, timeout=1, connect_timeout=5)
         self.init_reader()
 
     def _exit_signal_handler(self, *args):
@@ -417,7 +417,7 @@ class Pebble(object):
                 source, endpoint, resp, data = self._ser.read()
                 if resp is None:
                     return None, None, None
-            except socket.timeout:
+            except (socket.timeout, WebSocketPebble.WebSocketTimeoutException):
                 # timeout errors are expected so just return None
                 return None, None, None
             except TypeError as e:
@@ -704,6 +704,7 @@ class Pebble(object):
         if client._error:
             raise PebbleError(self.id, "Failed to send firmware binary %s/tintin_fw.bin" % pbz_path)
 
+        log.info("Installation successful")
         self.system_message("FIRMWARE_COMPLETE")
 
     def launcher_message(self, app_uuid, key_value, uuid_is_string = True, async = False):
@@ -1250,6 +1251,7 @@ class WSClient(object):
       self._error = False
       # Call the timeout handler after the timeout.
       self._timer = threading.Timer(90.0, self.timeout)
+      self._timer.setDaemon(True)
 
     def timeout(self):
       if (self._state != self.states["LISTENING"]):
