@@ -199,8 +199,10 @@ class ScreenshotSync():
 
 class CoreDumpSync():
     timeout = 60
+
+    # See the structure definitions at the top of tintin/src/fw/kernel/core_dump.c for documentation on the format
+    #  of the binary core dump file, the core dump download protocol, and error codes
     COREDUMP_OK = 0
-    COREDUMP_MALFORMED_COMMAND = 1
 
     def __init__(self, pebble, endpoint, progress_callback):
         self.marker = threading.Event()
@@ -208,6 +210,7 @@ class CoreDumpSync():
         self.have_read_header = False
         self.length_received = 0
         self.progress_callback = progress_callback
+        self.error_code = 0;
         pebble.register_endpoint(endpoint, self.message_callback)
 
     # Received a reply message from the watch. We expect several of these...
@@ -218,7 +221,7 @@ class CoreDumpSync():
 
         self.data += data
         self.length_received += len(data)
-        self.progress_callback(float(self.length_received)/self.total_length)
+        self.progress_callback(float(self.length_received) / self.total_length)
         if self.length_received >= self.total_length:
             self.marker.set()
 
@@ -231,11 +234,13 @@ class CoreDumpSync():
           core_dump_header.unpack(header_data)
 
         if response_code is not CoreDumpSync.COREDUMP_OK:
+            self.error_code = response_code
             raise PebbleError(None, "Pebble responded with nonzero response "
                 "code %d, signaling an error on the watch side." %
                 response_code)
 
         if version is not 1:
+            self.error_code = -1
             raise PebbleError(None, "Received unrecognized core dump format "
                 "version %d from watch. Maybe your libpebble is out of "
                 "sync with your firmware version?" % version)
@@ -243,11 +248,14 @@ class CoreDumpSync():
         return data
 
     def get_data(self):
+        if self.error_code != 0:
+            raise PebbleError(None, "Received error code %d from Pebble" % (self.error_code))
         try:
             self.marker.wait(timeout=self.timeout)
             return self.data
         except:
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
+        return None
 
 class EndpointSync():
     timeout = 10
@@ -529,8 +537,9 @@ class Pebble(object):
         return ScreenshotSync(self, "SCREENSHOT", progress_callback).get_data()
 
     def coredump(self, progress_callback):
+        session = CoreDumpSync(self, "COREDUMP", progress_callback);
         self._send_message("COREDUMP", "\x00")
-        return CoreDumpSync(self, "COREDUMP", progress_callback).get_data()
+        return session.get_data()
 
     def get_versions(self, async = False):
 

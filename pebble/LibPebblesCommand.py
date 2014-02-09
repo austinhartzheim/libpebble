@@ -269,6 +269,9 @@ class PblCoreDumpCommand(LibPebbleCommand):
 
         blob = self.pebble.coredump(progress_callback)
         name = time.strftime("pebble-coredump_%Y-%m-%d_%H-%M-%S.bin")
+        if len(blob) == 0:
+            logging.error("Error fetching core dump")
+            return
         try:
             with open(name, 'w') as f:
                 f.write(blob)
