@@ -52,7 +52,10 @@ class PblWafCommand(PblCommand):
 
     ###########################################################################
     def waf_path(self, args):
-        return os.path.join(self.sdk_path(args), 'Pebble', 'waf')
+        path = os.path.join(self.sdk_path(args), 'Pebble', 'waf')
+        if not os.path.exists(path):
+            raise Exception("Unable to locate waf at '{}'".format(path))
+        return path
     
     
     ###########################################################################
