@@ -386,10 +386,11 @@ class Pebble(object):
                 if endpoint in self._endpoint_handlers and resp is not None:
                     self._endpoint_handlers[endpoint](endpoint, resp)
         except Exception, e:
-            print str(e)
-            log.error("Lost connection to Pebble")
-            self._alive = False
-            os._exit(-1)
+            if self._alive:
+                print type(e) + ": " + str(e)
+                log.error("Lost connection to Pebble")
+                self._alive = False
+                os._exit(-1)
 
 
     def _pack_message_data(self, lead, parts):
@@ -487,12 +488,16 @@ class Pebble(object):
 
 
     def list_apps_by_uuid(self, async=False):
+        """Returns the apps installed on the Pebble as a list of Uuid objects."""
+
         data = pack("b", 0x05)
         self._send_message("APP_MANAGER", data)
         if not async:
             return EndpointSync(self, "APP_MANAGER").get_data()
 
     def describe_app_by_uuid(self, uuid, uuid_is_string=True, async = False):
+        """Returns a dictionary that describes the installed app with the given uuid."""
+
         if uuid_is_string:
             uuid = uuid.decode('hex')
         elif type(uuid) is uuid.UUID:
