@@ -542,8 +542,7 @@ class Pebble(object):
             return EndpointSync(self, "APP_MANAGER").get_data()
 
     def remove_app_by_uuid(self, uuid_to_remove, uuid_is_string=True, async = False):
-
-        """Remove an installed application by UUID."""
+        """Remove an installed application by UUID. Returns a string indicating status."""
 
         if uuid_is_string:
             uuid_to_remove = uuid_to_remove.decode('hex')
@@ -1027,12 +1026,6 @@ class Pebble(object):
         apps = {}
         restype, = unpack("!b", data[0])
 
-        app_install_message = {
-                0: "app available",
-                1: "app removed",
-                2: "app updated"
-        }
-
         if restype == 1:
             apps["banks"], apps_installed = unpack("!II", data[1:9])
             apps["apps"] = []
@@ -1059,6 +1052,13 @@ class Pebble(object):
         elif restype == 2:
             message_id = unpack("!I", data[1:])
             message_id = int(''.join(map(str, message_id)))
+
+            app_install_message = {
+                0: "app available",
+                1: "app removed",
+                2: "app updated"
+            }
+
             return app_install_message[message_id]
 
         elif restype == 5:
