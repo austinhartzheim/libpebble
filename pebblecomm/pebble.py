@@ -46,7 +46,6 @@ class PebbleBundle(object):
             'I',    # icon resource id
             'I',    # symbol table address
             'I',    # flags
-            'I',    # relocation list start
             'I',    # num relocation list entries
             '16s'   # uuid
     ]
@@ -102,9 +101,8 @@ class PebbleBundle(object):
                 'icon_resource_id' : values[12],
                 'symbol_table_addr' : values[13],
                 'flags' : values[14],
-                'relocation_list_index' : values[15],
-                'num_relocation_entries' : values[16],
-                'uuid' : uuid.UUID(bytes=values[17])
+                'num_relocation_entries' : values[15],
+                'uuid' : uuid.UUID(bytes=values[16])
         }
         return self.header
 
