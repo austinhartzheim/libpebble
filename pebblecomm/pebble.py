@@ -416,9 +416,6 @@ class Pebble(object):
                 source, endpoint, resp, data = self._ser.read()
                 if resp is None:
                     return None, None, None
-            except (socket.timeout, WebSocketPebble.WebSocketTimeoutException):
-                # timeout errors are expected so just return None
-                return None, None, None
             except TypeError as e:
                 log.debug("ws read error...", e.message)
                 # the lightblue process has likely shutdown and cannot be read from
