@@ -46,7 +46,6 @@ class PebbleBundle(object):
             'I',    # icon resource id
             'I',    # symbol table address
             'I',    # flags
-            'I',    # relocation list start
             'I',    # num relocation list entries
             '16s'   # uuid
     ]
@@ -102,9 +101,8 @@ class PebbleBundle(object):
                 'icon_resource_id' : values[12],
                 'symbol_table_addr' : values[13],
                 'flags' : values[14],
-                'relocation_list_index' : values[15],
-                'num_relocation_entries' : values[16],
-                'uuid' : uuid.UUID(bytes=values[17])
+                'num_relocation_entries' : values[15],
+                'uuid' : uuid.UUID(bytes=values[16])
         }
         return self.header
 
@@ -394,10 +392,11 @@ class Pebble(object):
                 if endpoint in self._endpoint_handlers and resp is not None:
                     self._endpoint_handlers[endpoint](endpoint, resp)
         except Exception, e:
-            print str(e)
-            log.error("Lost connection to Pebble")
-            self._alive = False
-            os._exit(-1)
+            if self._alive:
+                print type(e) + ": " + str(e)
+                log.error("Lost connection to Pebble")
+                self._alive = False
+                os._exit(-1)
 
 
     def _pack_message_data(self, lead, parts):
@@ -492,12 +491,16 @@ class Pebble(object):
 
 
     def list_apps_by_uuid(self, async=False):
+        """Returns the apps installed on the Pebble as a list of Uuid objects."""
+
         data = pack("b", 0x05)
         self._send_message("APP_MANAGER", data)
         if not async:
             return EndpointSync(self, "APP_MANAGER").get_data()
 
     def describe_app_by_uuid(self, uuid, uuid_is_string=True, async = False):
+        """Returns a dictionary that describes the installed app with the given uuid."""
+
         if uuid_is_string:
             uuid = uuid.decode('hex')
         elif type(uuid) is uuid.UUID:
@@ -542,8 +545,7 @@ class Pebble(object):
             return EndpointSync(self, "APP_MANAGER").get_data()
 
     def remove_app_by_uuid(self, uuid_to_remove, uuid_is_string=True, async = False):
-
-        """Remove an installed application by UUID."""
+        """Remove an installed application by UUID. Returns a string indicating status."""
 
         if uuid_is_string:
             uuid_to_remove = uuid_to_remove.decode('hex')
@@ -1028,12 +1030,6 @@ class Pebble(object):
         apps = {}
         restype, = unpack("!b", data[0])
 
-        app_install_message = {
-                0: "app available",
-                1: "app removed",
-                2: "app updated"
-        }
-
         if restype == 1:
             apps["banks"], apps_installed = unpack("!II", data[1:9])
             apps["apps"] = []
@@ -1060,6 +1056,29 @@ class Pebble(object):
         elif restype == 2:
             message_id = unpack("!I", data[1:])
             message_id = int(''.join(map(str, message_id)))
+
+            # FIXME: These response strings only apply to responses to app remove (0x2) commands
+            # If you receive a 0x2 message in response to a app install (0x3) message you actually
+            # need to use a different mapping.
+            #
+            # The mapping for responses to 0x3 commands is as follows...
+            # APP_AVAIL_SUCCESS = 1
+            # APP_AVAIL_BANK_IN_USE = 2
+            # APP_AVAIL_INVALID_COMMAND = 3
+            # APP_AVAIL_GENERAL_FAILURE = 4
+            #
+            # However, we only ever check responses to app remove commands in this file, so just
+            # use those mappings, as below. I'm not sure how to fix this going forward, as we don't
+            # have a way of figuring out which response type we're getting without making this
+            # code stateful, which I don't really want to do...
+            app_install_message = {
+                1: "success",
+                2: "no app in bank",
+                3: "install id mismatch",
+                4: "invalid command",
+                5: "general failure"
+            }
+
             return app_install_message[message_id]
 
         elif restype == 5:

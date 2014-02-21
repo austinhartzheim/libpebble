@@ -4,7 +4,7 @@ import os
 import sh
 import time
 
-import pebble as libpebble
+from pebblecomm import pebble as libpebble
 
 from PblCommand import PblCommand
 import PblAnalytics
