@@ -983,7 +983,8 @@ class Pebble(object):
 
                 result = '???'
             else:
-                result = sh.arm_none_eabi_addr2line(addr_str, exe=APP_ELF_PATH).strip()
+                result = sh.arm_none_eabi_addr2line(addr_str, exe=APP_ELF_PATH,
+                                                    _tty_out=False).strip()
 
             log.warn("%24s %10s %s", register_name + ':', addr_str, result)
 
