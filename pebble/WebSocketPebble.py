@@ -61,48 +61,56 @@ class WebSocketPebble(WebSocket):
                 if self.debug_protocol:
                     log.debug("LightBlue process has shutdown (queue read)")
                 return (None, None, '')
-                
+
         NOTE: The return value of this method was modified from 3 tuples to
         4 tuples in order to support multiple possible WS_CMD id's besides
         just WS_CMD_WATCH_TO_PHONE and WS_CMD_STATUS. Now, the first item in
         the tuple (source) identifies which WS_CMD we received. The other
         transports (LightBlue, etc.), if/when they are re-instantiated into
-        active use will have to be updated to return this new 4 item tuple. 
-                
+        active use will have to be updated to return this new 4 item tuple.
+
         retval:   (source, topic, response, data)
             source can be either 'ws' or 'watch'
             if source is 'watch', then topic is the endpoint identifier
             if source is 'ws', then topic is either 'status','phoneInfo','watchConnectionStatusUpdate'
                     or 'log'
-            
-        """
-        opcode, data = self.recv_data()
-        ws_cmd = unpack('!b',data[0])
 
-        if ws_cmd[0]==WS_CMD_SERVER_LOG:
+        """
+        # socket timeouts for asynchronous operation is normal.  In this
+        # case we shall return all None to let the caller know.
+        try:
+            opcode, data = self.recv_data()
+        except (socket.timeout, websocket.WebSocketTimeoutException):
+            return (None, None, None, None)
+
+        ws_cmd = unpack('!b',data[0])[0]
+
+        if ws_cmd==WS_CMD_SERVER_LOG:
             logging.debug("Server: %s" % repr(data[1:]))
-        elif ws_cmd[0]==WS_CMD_PHONE_APP_LOG:
+        elif ws_cmd==WS_CMD_PHONE_APP_LOG:
             logging.debug("Log: %s" % repr(data[1:]))
             return ('ws', 'log', data[1:], data)
-        elif ws_cmd[0]==WS_CMD_PHONE_TO_WATCH:
+        elif ws_cmd==WS_CMD_PHONE_TO_WATCH:
             logging.debug("Phone ==> Watch: %s" % data[1:].encode("hex"))
-        elif ws_cmd[0]==WS_CMD_WATCH_TO_PHONE:
+        elif ws_cmd==WS_CMD_WATCH_TO_PHONE:
             logging.debug("Watch ==> Phone: %s" % data[1:].encode("hex"))
             size, endpoint = unpack("!HH", data[1:5])
             resp = data[5:]
             return ('watch', endpoint, resp, data[1:5])
-        elif ws_cmd[0]==WS_CMD_STATUS:
+        elif ws_cmd==WS_CMD_STATUS:
             logging.debug("Status: %s" % repr(data[1:]))
             status = unpack("I", data[1:5])[0]
             return ('ws', 'status', status, data[1:5])
-        elif ws_cmd[0]==WS_CMD_PHONE_INFO:
+        elif ws_cmd==WS_CMD_PHONE_INFO:
             logging.debug("Phone info: %s" % repr(data[1:]))
             response = data[1:]
             return ('ws', 'phoneInfo', response, data)
-        elif ws_cmd[0]==WS_CMD_WATCH_CONNECTION_UPDATE:
+        elif ws_cmd==WS_CMD_WATCH_CONNECTION_UPDATE:
             watch_connected = (int(data[1:].encode("hex"), 16) == 255)
             logging.info("Pebble " + ("connected" if watch_connected else "disconnected"));
             return ('ws', 'watchConnectionStatusUpdate', watch_connected, data)
+        else:
+            logging.debug("Unexpected reponse: %s: data: %s", ws_cmd, data[1:].encode("hex"))
 
         return (None, None, None, data)
 
