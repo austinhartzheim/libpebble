@@ -346,7 +346,7 @@ class Pebble(object):
         endpoints_to_remove = ["PHONE_VERSION"]
         for endpoint_name in endpoints_to_remove:
             key = self.endpoints[endpoint_name]
-            if self._internal_endpoint_handlers.get(key):
+            if key in self._internal_endpoint_handlers:
                 del self._internal_endpoint_handlers[key]
 
         WebSocketPebble.enableTrace(False)
