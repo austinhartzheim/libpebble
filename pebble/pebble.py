@@ -341,6 +341,14 @@ class Pebble(object):
     def connect_via_websocket(self, host, port=DEFAULT_WEBSOCKET_PORT):
         self._connection_type = 'websocket'
 
+        # Remove endpoint handlers that we should not respond to
+        # (the mobile app will already do this and we should not interfere)
+        endpoints_to_remove = ["PHONE_VERSION"]
+        for endpoint_name in endpoints_to_remove:
+            key = self.endpoints[endpoint_name]
+            if key in self._internal_endpoint_handlers:
+                del self._internal_endpoint_handlers[key]
+
         WebSocketPebble.enableTrace(False)
         self._ser = WebSocketPebble.create_connection(host, port, timeout=1, connect_timeout=5)
         self.init_reader()
