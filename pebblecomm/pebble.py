@@ -1051,10 +1051,26 @@ class Pebble(object):
             message_id = unpack("!I", data[1:])
             message_id = int(''.join(map(str, message_id)))
 
+            # FIXME: These response strings only apply to responses to app remove (0x2) commands
+            # If you receive a 0x2 message in response to a app install (0x3) message you actually
+            # need to use a different mapping.
+            #
+            # The mapping for responses to 0x3 commands is as follows...
+            # APP_AVAIL_SUCCESS = 1
+            # APP_AVAIL_BANK_IN_USE = 2
+            # APP_AVAIL_INVALID_COMMAND = 3
+            # APP_AVAIL_GENERAL_FAILURE = 4
+            #
+            # However, we only ever check responses to app remove commands in this file, so just
+            # use those mappings, as below. I'm not sure how to fix this going forward, as we don't
+            # have a way of figuring out which response type we're getting without making this
+            # code stateful, which I don't really want to do...
             app_install_message = {
-                0: "app available",
-                1: "app removed",
-                2: "app updated"
+                1: "success",
+                2: "no app in bank",
+                3: "install id mismatch",
+                4: "invalid command",
+                5: "general failure"
             }
 
             return app_install_message[message_id]
