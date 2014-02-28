@@ -27,6 +27,10 @@ class AppTooBigException(Exception):
     """ Returned by PblBuildCommand if the app is too big"""
     pass
 
+class PillowNotInstalledException(Exception):
+    """ Returned by LibPebbleCommand if we need Pillow but haven't installed it yet """
+    pass
+
 
 class LibPebbleCommand(PblCommand):
 
@@ -218,6 +222,12 @@ class PblScreenshotCommand(LibPebbleCommand):
     help = 'take a screenshot of the pebble'
 
     def run(self, args):
+        try:
+            self.take_screenshot_with_pil(args)
+        except ImportError:
+            raise PillowNotInstalledException()
+
+    def take_screenshot_with_pil(self, args):
         LibPebbleCommand.run(self, args)
 
         logging.info("Taking screenshot...")

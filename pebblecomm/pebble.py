@@ -23,7 +23,6 @@ import atexit
 
 from collections import OrderedDict
 from struct import pack, unpack
-from PIL import Image
 
 DEFAULT_PEBBLE_ID = None #Triggers autodetection on unix-like systems
 DEFAULT_WEBSOCKET_PORT = 9000
@@ -187,6 +186,7 @@ class ScreenshotSync():
         return data
 
     def get_data(self):
+        from PIL import Image
         try:
             self.marker.wait(timeout=self.timeout)
             return Image.frombuffer('1', (self.width, self.height), \
