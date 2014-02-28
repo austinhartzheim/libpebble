@@ -143,8 +143,7 @@ class PbSDKShell:
             logging.error("""
 Install Pillow to take a screenshot with the pebble tool. Here's how:
 
-You'll need to add Pillow to pebble's virtualenv installs, via
-something like the following
+You'll need to add Pillow to pebble's virtualenv installs, by running
 
 > source $(which pebble)/../../.env/bin/activate
 > pip install Pillow
