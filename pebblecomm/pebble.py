@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import atexit
 import binascii
 import datetime
 import glob
@@ -7,19 +8,18 @@ import itertools
 import json
 import logging as log
 import os
+import re
 import sh
 import signal
-import stm32_crc
 import socket
+import stm32_crc
 import struct
 import threading
 import time
 import traceback
-import re
 import uuid
-import zipfile
 import WebSocketPebble
-import atexit
+import zipfile
 
 from collections import OrderedDict
 from struct import pack, unpack
