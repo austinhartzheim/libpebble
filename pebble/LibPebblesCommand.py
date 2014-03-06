@@ -240,11 +240,11 @@ class PblScreenshotCommand(LibPebbleCommand):
             image.save(name, "PNG")
         except TypeError as e:
             # NOTE: Some customers have experienced the following exception
-            #  during image.save: "TypeError: function takes at most 4 arguments 
+            #  during image.save: "TypeError: function takes at most 4 arguments
             #   (6 given)". This is due to having the Pillow python modules
             #   call into PIL compiled binaries. This apparently can happen
             #   after an upgrade to MacOS 10.9 or XCode 5 depending on which
-            #   versions of PIL and/or Pillow were installed before the upgrade. 
+            #   versions of PIL and/or Pillow were installed before the upgrade.
             if "function takes at most" in e.message:
                 logging.error("CONFLICT DETECTED: We detected two conflicting "
                   "installations of the same python package for image "
