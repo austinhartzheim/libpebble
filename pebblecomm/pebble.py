@@ -8,6 +8,7 @@ import itertools
 import json
 import logging as log
 import os
+import png
 import re
 import sh
 import signal
@@ -185,12 +186,25 @@ class ScreenshotSync():
         self.total_length = self.width * self.height
         return data
 
+    def get_data_array(self):
+        def data_bits_iter():
+            for ch in self.data:
+                byte = ord(ch)
+                for _ in xrange(8):
+                    yield byte & 0x01
+                    byte >>= 1
+
+        array = []
+        for i, pixel in enumerate(data_bits_iter()):
+            if i % self.width == 0:
+                array.append([])
+            array[-1].append(pixel)
+        return array
+
     def get_data(self):
-        from PIL import Image
         try:
             self.marker.wait(timeout=self.timeout)
-            return Image.frombuffer('1', (self.width, self.height), \
-                self.data, "raw", "1;R", 0, 1)
+            return png.from_array(self.get_data_array(), mode='L;1')
         except:
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 

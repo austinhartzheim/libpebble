@@ -27,10 +27,6 @@ class AppTooBigException(Exception):
     """ Returned by PblBuildCommand if the app is too big"""
     pass
 
-class PillowNotInstalledException(Exception):
-    """ Returned by LibPebbleCommand if we need Pillow but haven't installed it yet """
-    pass
-
 
 class LibPebbleCommand(PblCommand):
 
@@ -222,12 +218,6 @@ class PblScreenshotCommand(LibPebbleCommand):
     help = 'take a screenshot of the pebble'
 
     def run(self, args):
-        try:
-            self.take_screenshot_with_pil(args)
-        except ImportError:
-            raise PillowNotInstalledException()
-
-    def take_screenshot_with_pil(self, args):
         LibPebbleCommand.run(self, args)
 
         logging.info("Taking screenshot...")
@@ -237,7 +227,7 @@ class PblScreenshotCommand(LibPebbleCommand):
         image = self.pebble.screenshot(progress_callback)
         name = time.strftime("pebble-screenshot_%Y-%m-%d_%H-%M-%S.png")
         try:
-            image.save(name, "PNG")
+            image.save(name)
         except TypeError as e:
             # NOTE: Some customers have experienced the following exception
             #  during image.save: "TypeError: function takes at most 4 arguments

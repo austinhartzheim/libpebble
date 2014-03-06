@@ -138,26 +138,6 @@ class PbSDKShell:
             logging.error("The built application is too big")
             return 1
 
-        except PillowNotInstalledException as e:
-            PblAnalytics.cmd_fail_evt(args.command, 'pillow not installed yet')
-            logging.error("""
-Install Pillow to take a screenshot with the pebble tool. Here's how:
-
-You'll need to add Pillow to pebble's virtualenv installs, by running
-
-> source $(which pebble)/../../.env/bin/activate
-> pip install Pillow
-> deactivate
-
-Pillow can have a number of installation conflicts with PIL, so you may need to
-> pip uninstall PIL
-first.
-
-Backup plan: If you run into issues using Pillow, you can also take screenshots using
-cloudpebble.net (import the project, then go to compilation and click Screenshot).
-""")
-            return 1
-
         except Exception as e:
             PblAnalytics.cmd_fail_evt(args.command, 'unhandled exception: %s' %
                                  str(e))
