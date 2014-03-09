@@ -187,19 +187,16 @@ class ScreenshotSync():
         return data
 
     def get_data_array(self):
-        def data_bits_iter():
-            for ch in self.data:
-                byte = ord(ch)
-                for _ in xrange(8):
-                    yield byte & 0x01
-                    byte >>= 1
+        """ splits data in pure binary into a 2D array of bits of length N """
+        data_bytes_iter = (ord(ch) for ch in self.data)
+        # separate binary data into an array of bits
+        data_bits_iter = (byte >> bit & 0x01
+            for byte in data_bytes_iter for bit in xrange(8))
+        # pack 1-d bit array of size w*h into h arrays of size w, pad w/ zeros
+        bits_packed_2d_zero_padded = [row for row in itertools.izip_longest(
+            *([data_bits_iter] * self.width), fillvalue=0)]
 
-        array = []
-        for i, pixel in enumerate(data_bits_iter()):
-            if i % self.width == 0:
-                array.append([])
-            array[-1].append(pixel)
-        return array
+        return bits_packed_2d_zero_padded
 
     def get_data(self):
         try:
