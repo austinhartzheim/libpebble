@@ -188,15 +188,25 @@ class ScreenshotSync():
 
     def get_data_array(self):
         """ splits data in pure binary into a 2D array of bits of length N """
+        # break data into bytes
         data_bytes_iter = (ord(ch) for ch in self.data)
-        # separate binary data into an array of bits
-        data_bits_iter = (byte >> bit & 0x01
-            for byte in data_bytes_iter for bit in xrange(8))
-        # pack 1-d bit array of size w*h into h arrays of size w, pad w/ zeros
-        bits_packed_2d_zero_padded = [row for row in itertools.izip_longest(
-            *([data_bits_iter] * self.width), fillvalue=0)]
 
-        return bits_packed_2d_zero_padded
+        # separate each byte into 8 one-bit entries - IE, 0xf0 --> [1,1,1,1,0,0,0,0]
+        data_bits_iter = (byte >> bit_order & 0x01
+            for byte in data_bytes_iter for bit_order in xrange(8))
+
+        # pack 1-d bit array of size w*h into h arrays of size w, pad w/ zeros
+        output_bitmap = []
+        while True:
+            try:
+                new_row = []
+                for _ in xrange(self.width):
+                    new_row.append(data_bits_iter.next())
+                output_bitmap.append(new_row)
+            except StopIteration:
+                # add part of the last row anyway
+                output_bitmap.append(new_row)
+                return output_bitmap
 
     def get_data(self):
         try:
