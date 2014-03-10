@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import atexit
 import binascii
 import datetime
 import glob
@@ -7,19 +8,19 @@ import itertools
 import json
 import logging as log
 import os
+import png
+import re
 import sh
 import signal
-import stm32_crc
 import socket
+import stm32_crc
 import struct
 import threading
 import time
 import traceback
-import re
 import uuid
-import zipfile
 import WebSocketPebble
-import atexit
+import zipfile
 
 from collections import OrderedDict
 from struct import pack, unpack
@@ -185,12 +186,32 @@ class ScreenshotSync():
         self.total_length = self.width * self.height
         return data
 
+    def get_data_array(self):
+        """ splits data in pure binary into a 2D array of bits of length N """
+        # break data into bytes
+        data_bytes_iter = (ord(ch) for ch in self.data)
+
+        # separate each byte into 8 one-bit entries - IE, 0xf0 --> [1,1,1,1,0,0,0,0]
+        data_bits_iter = (byte >> bit_order & 0x01
+            for byte in data_bytes_iter for bit_order in xrange(8))
+
+        # pack 1-d bit array of size w*h into h arrays of size w, pad w/ zeros
+        output_bitmap = []
+        while True:
+            try:
+                new_row = []
+                for _ in xrange(self.width):
+                    new_row.append(data_bits_iter.next())
+                output_bitmap.append(new_row)
+            except StopIteration:
+                # add part of the last row anyway
+                output_bitmap.append(new_row)
+                return output_bitmap
+
     def get_data(self):
-        from PIL import Image
         try:
             self.marker.wait(timeout=self.timeout)
-            return Image.frombuffer('1', (self.width, self.height), \
-                self.data, "raw", "1;R", 0, 1)
+            return png.from_array(self.get_data_array(), mode='L;1')
         except:
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 

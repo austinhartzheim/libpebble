@@ -9,12 +9,12 @@ import pebble.PblAnalytics as PblAnalytics
 # Catch any missing python dependencies so we can send an event to analytics
 try:
     # NOTE: Even though we don't use websocket in this module, keep this
-    #  import here for the unit tests so that they can trigger a missing 
-    #  python dependency event. 
-    import websocket  
+    #  import here for the unit tests so that they can trigger a missing
+    #  python dependency event.
+    import websocket
     import pebble as libpebble
-    from pebble.PblProjectCreator   import (PblProjectCreator, 
-                                            InvalidProjectException, 
+    from pebble.PblProjectCreator   import (PblProjectCreator,
+                                            InvalidProjectException,
                                             OutdatedProjectException)
     from pebble.PblProjectConverter import PblProjectConverter
     from pebble.PblBuildCommand     import (PblBuildCommand,
@@ -22,7 +22,7 @@ try:
                                             PblAnalyzeSizeCommand)
     from pebble.LibPebblesCommand   import *
 except Exception as e:
-    logging.basicConfig(format='[%(levelname)-8s] %(message)s', 
+    logging.basicConfig(format='[%(levelname)-8s] %(message)s',
                     level = logging.DEBUG)
     PblAnalytics.missing_python_dependency_evt(str(e))
     raise
@@ -55,11 +55,11 @@ class PbSDKShell:
 
     def main(self):
         parser = argparse.ArgumentParser(description = 'Pebble SDK Shell')
-        parser.add_argument('--debug', action="store_true", 
+        parser.add_argument('--debug', action="store_true",
                             help="Enable debugging output")
-        parser.add_argument('--version', action='version', 
+        parser.add_argument('--version', action='version',
                             version='PebbleSDK %s' % self._get_version())
-        subparsers = parser.add_subparsers(dest="command", title="Command", 
+        subparsers = parser.add_subparsers(dest="command", title="Command",
                                            description="Action to perform")
         for command in self.commands:
             subparser = subparsers.add_parser(command.name, help = command.help)
@@ -70,7 +70,7 @@ class PbSDKShell:
         if args.debug:
             log_level = logging.DEBUG
 
-        logging.basicConfig(format='[%(levelname)-8s] %(message)s', 
+        logging.basicConfig(format='[%(levelname)-8s] %(message)s',
                             level = log_level)
         # Just in case logging was already setup, basicConfig would not
         # do anything, so set the level on the root logger
@@ -124,7 +124,7 @@ class PbSDKShell:
             PblAnalytics.missing_tools_evt()
             logging.error("The compiler/linker tools could not be found. "
                           "Ensure that the arm-cs-tools directory is present "
-                          "in the Pebble SDK directory (%s)" % 
+                          "in the Pebble SDK directory (%s)" %
                           PblCommand().sdk_path(args))
             return 1
 
@@ -136,26 +136,6 @@ class PbSDKShell:
         except AppTooBigException as e:
             PblAnalytics.cmd_fail_evt(args.command, 'application too big')
             logging.error("The built application is too big")
-            return 1
-
-        except PillowNotInstalledException as e:
-            PblAnalytics.cmd_fail_evt(args.command, 'pillow not installed yet')
-            logging.error("""
-Install Pillow to take a screenshot with the pebble tool. Here's how:
-
-You'll need to add Pillow to pebble's virtualenv installs, by running
-
-> source $(which pebble)/../../.env/bin/activate
-> pip install Pillow
-> deactivate
-
-Pillow can have a number of installation conflicts with PIL, so you may need to
-> pip uninstall PIL
-first.
-
-Backup plan: If you run into issues using Pillow, you can also take screenshots using
-cloudpebble.net (import the project, then go to compilation and click Screenshot).
-""")
             return 1
 
         except Exception as e:

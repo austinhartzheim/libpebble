@@ -27,10 +27,6 @@ class AppTooBigException(Exception):
     """ Returned by PblBuildCommand if the app is too big"""
     pass
 
-class PillowNotInstalledException(Exception):
-    """ Returned by LibPebbleCommand if we need Pillow but haven't installed it yet """
-    pass
-
 
 class LibPebbleCommand(PblCommand):
 
@@ -222,12 +218,6 @@ class PblScreenshotCommand(LibPebbleCommand):
     help = 'take a screenshot of the pebble'
 
     def run(self, args):
-        try:
-            self.take_screenshot_with_pil(args)
-        except ImportError:
-            raise PillowNotInstalledException()
-
-    def take_screenshot_with_pil(self, args):
         LibPebbleCommand.run(self, args)
 
         logging.info("Taking screenshot...")
@@ -237,14 +227,14 @@ class PblScreenshotCommand(LibPebbleCommand):
         image = self.pebble.screenshot(progress_callback)
         name = time.strftime("pebble-screenshot_%Y-%m-%d_%H-%M-%S.png")
         try:
-            image.save(name, "PNG")
+            image.save(name)
         except TypeError as e:
             # NOTE: Some customers have experienced the following exception
-            #  during image.save: "TypeError: function takes at most 4 arguments 
+            #  during image.save: "TypeError: function takes at most 4 arguments
             #   (6 given)". This is due to having the Pillow python modules
             #   call into PIL compiled binaries. This apparently can happen
             #   after an upgrade to MacOS 10.9 or XCode 5 depending on which
-            #   versions of PIL and/or Pillow were installed before the upgrade. 
+            #   versions of PIL and/or Pillow were installed before the upgrade.
             if "function takes at most" in e.message:
                 logging.error("CONFLICT DETECTED: We detected two conflicting "
                   "installations of the same python package for image "
