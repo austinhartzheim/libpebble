@@ -4,7 +4,7 @@ import os
 import sh
 import time
 
-import pebble as libpebble
+from pebblecomm import pebble as libpebble
 
 from PblCommand import PblCommand
 import PblAnalytics
@@ -97,25 +97,31 @@ class PblInstallCommand(LibPebbleCommand):
     name = 'install'
     help = 'Install your Pebble project to your watch'
 
-    def get_pbw_path(self):
+    def get_bundle_path(self):
         return 'build/{}.pbw'.format(os.path.basename(os.getcwd()))
 
     def configure_subparser(self, parser):
         LibPebbleCommand.configure_subparser(self, parser)
-        parser.add_argument('pbw_path', type=str, nargs='?', default=self.get_pbw_path(), help='Path to the pbw to install (e.g. build/*.pbw)')
-        parser.add_argument('--logs', action='store_true', help='Display logs after installing the app')
+        parser.add_argument('bundle_path', type=str, nargs='?', default=self.get_bundle_path(), help='Path to the .pbw or .pbz to install (e.g. build/*.pbw, default %s)' % self.get_bundle_path())
+        parser.add_argument('--logs', action='store_true', help='Display logs after installing the bundle')
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
 
-        if not os.path.exists(args.pbw_path):
-            logging.error("Could not find pbw <{}> for install.".format(args.pbw_path))
+        if not os.path.exists(args.bundle_path):
+            logging.error("Could not find bundle <{}> for install.".format(args.bundle_path))
             return 1
 
         if args.logs:
             self.pebble.app_log_enable()
 
-        success = self.pebble.install_app(args.pbw_path)
+        if args.bundle_path.lower().endswith(".pbw"):
+            success = self.pebble.install_app(args.bundle_path)
+        elif args.bundle_path.lower().endswith(".pbz"):
+            success = self.pebble.install_firmware(args.bundle_path)
+        else:
+            logging.error("You must specify either a .pbw or .pbz to install")
+            return 1
 
         if self.pebble.is_phone_info_available():
             # Send the phone OS version to analytics
@@ -221,14 +227,14 @@ class PblScreenshotCommand(LibPebbleCommand):
         image = self.pebble.screenshot(progress_callback)
         name = time.strftime("pebble-screenshot_%Y-%m-%d_%H-%M-%S.png")
         try:
-            image.save(name, "PNG")
+            image.save(name)
         except TypeError as e:
             # NOTE: Some customers have experienced the following exception
-            #  during image.save: "TypeError: function takes at most 4 arguments 
+            #  during image.save: "TypeError: function takes at most 4 arguments
             #   (6 given)". This is due to having the Pillow python modules
             #   call into PIL compiled binaries. This apparently can happen
             #   after an upgrade to MacOS 10.9 or XCode 5 depending on which
-            #   versions of PIL and/or Pillow were installed before the upgrade. 
+            #   versions of PIL and/or Pillow were installed before the upgrade.
             if "function takes at most" in e.message:
                 logging.error("CONFLICT DETECTED: We detected two conflicting "
                   "installations of the same python package for image "

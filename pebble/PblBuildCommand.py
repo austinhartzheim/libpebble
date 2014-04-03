@@ -52,7 +52,10 @@ class PblWafCommand(PblCommand):
 
     ###########################################################################
     def waf_path(self, args):
-        return os.path.join(self.sdk_path(args), 'Pebble', 'waf')
+        path = os.path.join(self.sdk_path(args), 'Pebble', 'waf')
+        if not os.path.exists(path):
+            raise Exception("Unable to locate waf at '{}'".format(path))
+        return path
     
     
     ###########################################################################
@@ -68,7 +71,7 @@ class PblWafCommand(PblCommand):
         cmdName = 'arm_none_eabi_size'
         cmdArgs = [os.path.join("build", "pebble-app.elf")]
         try:
-            output = sh.arm_none_eabi_size(*cmdArgs)
+            output = sh.arm_none_eabi_size(*cmdArgs, _tty_out=False)
             (textSize, dataSize, bssSize) = [int(x) for x in \
                                      output.stdout.splitlines()[1].split()[:3]]
             sizeDict = {'text': textSize, 'data': dataSize, 'bss': bssSize}
@@ -191,9 +194,10 @@ class PblWafCommand(PblCommand):
         # If python3 is the default and python2 is available, then plug in
         #  our stub 'python' shell script which passes control to python2
         py_version = sh.python("-c", 
-                               "import sys;print(sys.version_info[0])").strip()
+                               "import sys;print(sys.version_info[0])",
+                               _tty_out=False).strip()
         if py_version != '2':
-            if sh.which('python2') is None:
+            if sh.which('python2', _tty_out=False) is None:
                 raise RuntimeError("The Pebble SDK requires python version 2.6 "
                     "or 2.7 (python2). You are currently running 'python%s' "
                     "by default and a 'python2' executable could not be found." % 

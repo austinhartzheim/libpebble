@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import atexit
 import binascii
 import datetime
 import glob
@@ -7,23 +8,22 @@ import itertools
 import json
 import logging as log
 import os
+import png
+import re
 import sh
 import signal
-import stm32_crc
 import socket
+import stm32_crc
 import struct
 import threading
 import time
 import traceback
-import re
 import uuid
-import zipfile
 import WebSocketPebble
-import atexit
+import zipfile
 
 from collections import OrderedDict
 from struct import pack, unpack
-from PIL import Image
 
 DEFAULT_PEBBLE_ID = None #Triggers autodetection on unix-like systems
 DEFAULT_WEBSOCKET_PORT = 9000
@@ -46,7 +46,6 @@ class PebbleBundle(object):
             'I',    # icon resource id
             'I',    # symbol table address
             'I',    # flags
-            'I',    # relocation list start
             'I',    # num relocation list entries
             '16s'   # uuid
     ]
@@ -102,9 +101,8 @@ class PebbleBundle(object):
                 'icon_resource_id' : values[12],
                 'symbol_table_addr' : values[13],
                 'flags' : values[14],
-                'relocation_list_index' : values[15],
-                'num_relocation_entries' : values[16],
-                'uuid' : uuid.UUID(bytes=values[17])
+                'num_relocation_entries' : values[15],
+                'uuid' : uuid.UUID(bytes=values[16])
         }
         return self.header
 
@@ -188,11 +186,32 @@ class ScreenshotSync():
         self.total_length = self.width * self.height
         return data
 
+    def get_data_array(self):
+        """ splits data in pure binary into a 2D array of bits of length N """
+        # break data into bytes
+        data_bytes_iter = (ord(ch) for ch in self.data)
+
+        # separate each byte into 8 one-bit entries - IE, 0xf0 --> [1,1,1,1,0,0,0,0]
+        data_bits_iter = (byte >> bit_order & 0x01
+            for byte in data_bytes_iter for bit_order in xrange(8))
+
+        # pack 1-d bit array of size w*h into h arrays of size w, pad w/ zeros
+        output_bitmap = []
+        while True:
+            try:
+                new_row = []
+                for _ in xrange(self.width):
+                    new_row.append(data_bits_iter.next())
+                output_bitmap.append(new_row)
+            except StopIteration:
+                # add part of the last row anyway
+                output_bitmap.append(new_row)
+                return output_bitmap
+
     def get_data(self):
         try:
             self.marker.wait(timeout=self.timeout)
-            return Image.frombuffer('1', (self.width, self.height), \
-                self.data, "raw", "1;R", 0, 1)
+            return png.from_array(self.get_data_array(), mode='L;1')
         except:
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
@@ -404,8 +423,16 @@ class Pebble(object):
     def connect_via_websocket(self, host, port=DEFAULT_WEBSOCKET_PORT):
         self._connection_type = 'websocket'
 
+        # Remove endpoint handlers that we should not respond to
+        # (the mobile app will already do this and we should not interfere)
+        endpoints_to_remove = ["PHONE_VERSION"]
+        for endpoint_name in endpoints_to_remove:
+            key = self.endpoints[endpoint_name]
+            if key in self._internal_endpoint_handlers:
+                del self._internal_endpoint_handlers[key]
+
         WebSocketPebble.enableTrace(False)
-        self._ser = WebSocketPebble.create_connection(host, port, connect_timeout=5)
+        self._ser = WebSocketPebble.create_connection(host, port, timeout=1, connect_timeout=5)
         self.init_reader()
 
     def _exit_signal_handler(self, *args):
@@ -449,10 +476,11 @@ class Pebble(object):
                 if endpoint in self._endpoint_handlers and resp is not None:
                     self._endpoint_handlers[endpoint](endpoint, resp)
         except Exception, e:
-            print str(e)
-            log.error("Lost connection to Pebble")
-            self._alive = False
-            os._exit(-1)
+            if self._alive:
+                print type(e) + ": " + str(e)
+                log.error("Lost connection to Pebble")
+                self._alive = False
+                os._exit(-1)
 
 
     def _pack_message_data(self, lead, parts):
@@ -480,9 +508,6 @@ class Pebble(object):
                 source, endpoint, resp, data = self._ser.read()
                 if resp is None:
                     return None, None, None
-            except socket.timeout:
-                # timeout errors are expected so just return None
-                return None, None, None
             except TypeError as e:
                 log.debug("ws read error...", e.message)
                 # the lightblue process has likely shutdown and cannot be read from
@@ -555,12 +580,16 @@ class Pebble(object):
 
 
     def list_apps_by_uuid(self, async=False):
+        """Returns the apps installed on the Pebble as a list of Uuid objects."""
+
         data = pack("b", 0x05)
         self._send_message("APP_MANAGER", data)
         if not async:
             return EndpointSync(self, "APP_MANAGER").get_data()
 
     def describe_app_by_uuid(self, uuid, uuid_is_string=True, async = False):
+        """Returns a dictionary that describes the installed app with the given uuid."""
+
         if uuid_is_string:
             uuid = uuid.decode('hex')
         elif type(uuid) is uuid.UUID:
@@ -605,8 +634,7 @@ class Pebble(object):
             return EndpointSync(self, "APP_MANAGER").get_data()
 
     def remove_app_by_uuid(self, uuid_to_remove, uuid_is_string=True, async = False):
-
-        """Remove an installed application by UUID."""
+        """Remove an installed application by UUID. Returns a string indicating status."""
 
         if uuid_is_string:
             uuid_to_remove = uuid_to_remove.decode('hex')
@@ -772,6 +800,7 @@ class Pebble(object):
         if client._error:
             raise PebbleError(self.id, "Failed to send firmware binary %s/tintin_fw.bin" % pbz_path)
 
+        log.info("Installation successful")
         self.system_message("FIRMWARE_COMPLETE")
 
     def launcher_message(self, app_uuid, key_value, uuid_is_string = True, async = False):
@@ -1056,7 +1085,8 @@ class Pebble(object):
 
                 result = '???'
             else:
-                result = sh.arm_none_eabi_addr2line(addr_str, exe=APP_ELF_PATH).strip()
+                result = sh.arm_none_eabi_addr2line(addr_str, exe=APP_ELF_PATH,
+                                                    _tty_out=False).strip()
 
             log.warn("%24s %10s %s", register_name + ':', addr_str, result)
 
@@ -1092,12 +1122,6 @@ class Pebble(object):
         apps = {}
         restype, = unpack("!b", data[0])
 
-        app_install_message = {
-                0: "app available",
-                1: "app removed",
-                2: "app updated"
-        }
-
         if restype == 1:
             apps["banks"], apps_installed = unpack("!II", data[1:9])
             apps["apps"] = []
@@ -1124,6 +1148,29 @@ class Pebble(object):
         elif restype == 2:
             message_id = unpack("!I", data[1:])
             message_id = int(''.join(map(str, message_id)))
+
+            # FIXME: These response strings only apply to responses to app remove (0x2) commands
+            # If you receive a 0x2 message in response to a app install (0x3) message you actually
+            # need to use a different mapping.
+            #
+            # The mapping for responses to 0x3 commands is as follows...
+            # APP_AVAIL_SUCCESS = 1
+            # APP_AVAIL_BANK_IN_USE = 2
+            # APP_AVAIL_INVALID_COMMAND = 3
+            # APP_AVAIL_GENERAL_FAILURE = 4
+            #
+            # However, we only ever check responses to app remove commands in this file, so just
+            # use those mappings, as below. I'm not sure how to fix this going forward, as we don't
+            # have a way of figuring out which response type we're getting without making this
+            # code stateful, which I don't really want to do...
+            app_install_message = {
+                1: "success",
+                2: "no app in bank",
+                3: "install id mismatch",
+                4: "invalid command",
+                5: "general failure"
+            }
+
             return app_install_message[message_id]
 
         elif restype == 5:
@@ -1321,6 +1368,7 @@ class WSClient(object):
       self._error = False
       # Call the timeout handler after the timeout.
       self._timer = threading.Timer(90.0, self.timeout)
+      self._timer.setDaemon(True)
 
     def timeout(self):
       if (self._state != self.states["LISTENING"]):
