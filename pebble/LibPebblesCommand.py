@@ -262,6 +262,31 @@ class PblScreenshotCommand(LibPebbleCommand):
                          "it has still been saved, however).")
 
 
+class PblCoreDumpCommand(LibPebbleCommand):
+    name = 'coredump'
+    help = 'get most recent core dump from the pebble'
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+
+        logging.info("Fetching coredump from Pebble...")
+        def progress_callback(amount):
+            logging.info("%.2f%% done..." % (amount*100.0))
+
+        blob = self.pebble.coredump(progress_callback)
+        name = time.strftime("pebble-coredump_%Y-%m-%d_%H-%M-%S.bin")
+        if len(blob) == 0:
+            logging.error("Error fetching core dump")
+            return
+        try:
+            with open(name, 'w') as f:
+                f.write(blob)
+        except:
+            raise
+
+        logging.info("Core dump saved to %s" % name)
+
+
 class PblLogsCommand(LibPebbleCommand):
     name = 'logs'
     help = 'Continuously displays logs from the watch'
