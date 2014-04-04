@@ -80,7 +80,7 @@ class WebSocketPebble(WebSocket):
         # case we shall return all None to let the caller know.
         try:
             opcode, data = self.recv_data()
-        except (socket.timeout, WebSocketTimeoutException):
+        except (socket.timeout, WebSocketException):
             return (None, None, None, None)
 
         ws_cmd = unpack('!b',data[0])[0]

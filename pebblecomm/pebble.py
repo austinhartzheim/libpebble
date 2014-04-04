@@ -217,7 +217,7 @@ class ScreenshotSync():
 
 
 class CoreDumpSync():
-    timeout = 60
+    timeout = 180
 
     # See the structure definitions at the top of tintin/src/fw/kernel/core_dump.c for documentation on the format
     #  of the binary core dump file, the core dump download protocol, and error codes
@@ -271,8 +271,11 @@ class CoreDumpSync():
             raise PebbleError(None, "Received error code %d from Pebble" % (self.error_code))
         try:
             self.marker.wait(timeout=self.timeout)
+            if self.length_received < self.total_length:
+                raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
             return self.data
         except:
+            print "Got Error"
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
         return None
 
@@ -477,7 +480,7 @@ class Pebble(object):
                     self._endpoint_handlers[endpoint](endpoint, resp)
         except Exception, e:
             if self._alive:
-                print type(e) + ": " + str(e)
+                print str(type(e)) + ": " + str(e)
                 log.error("Lost connection to Pebble")
                 self._alive = False
                 os._exit(-1)
