@@ -217,7 +217,7 @@ class ScreenshotSync():
 
 
 class CoreDumpSync():
-    timeout = 180
+    timeout_sec = 180
 
     # See the structure definitions at the top of tintin/src/fw/kernel/core_dump.c for documentation on the format
     #  of the binary core dump file, the core dump download protocol, and error codes
@@ -258,7 +258,7 @@ class CoreDumpSync():
                 "code %d, signaling an error on the watch side." %
                 response_code)
 
-        if version is not 1:
+        if not version == 1:
             self.error_code = -1
             raise PebbleError(None, "Received unrecognized core dump format "
                 "version %d from watch. Maybe your libpebble is out of "
@@ -270,7 +270,7 @@ class CoreDumpSync():
         if self.error_code != 0:
             raise PebbleError(None, "Received error code %d from Pebble" % (self.error_code))
         try:
-            self.marker.wait(timeout=self.timeout)
+            self.marker.wait(timeout=self.timeout_sec)
             if self.length_received < self.total_length:
                 raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
             return self.data
