@@ -222,6 +222,10 @@ class CoreDumpSync():
     # See the structure definitions at the top of tintin/src/fw/kernel/core_dump.c for documentation on the format
     #  of the binary core dump file, the core dump download protocol, and error codes
     COREDUMP_OK = 0
+    COREDUMP_OP_REQ_CORE_DUMP_IMAGE = 0
+    COREDUMP_OP_RSP_CORE_DUMP_IMAGE_INFO = 1
+    COREDUMP_OP_RSP_CORE_DUMP_IMAGE_DATA = 2
+    COREDUMP_TRANSACTION_ID = 0x42
 
     def __init__(self, pebble, endpoint, progress_callback):
         self.marker = threading.Event()
@@ -235,34 +239,58 @@ class CoreDumpSync():
     # Received a reply message from the watch. We expect several of these...
     def message_callback(self, endpoint, data):
         if not self.have_read_header:
-            data = self.read_header(data)
+            self.read_header(data)
             self.have_read_header = True
+            return
+
+        data_header = struct.Struct("!BBI")
+        header_len = data_header.size
+        header_data = data[:header_len]
+        data = data[header_len:]
+        op_code, transaction_id, byte_offset = \
+        data_header.unpack(header_data)
+
+        if op_code != CoreDumpSync.COREDUMP_OP_RSP_CORE_DUMP_IMAGE_DATA:
+            self.error_code = -1
+            raise PebbleError(None, "Pebble responded with invalid opcode: %d" % (op_code))
+
+        if transaction_id != CoreDumpSync.COREDUMP_TRANSACTION_ID:
+            self.error_code = -1
+            raise PebbleError(None, "Pebble responded with invalid transaction id %d" % (transaction_id))
+
+        if byte_offset != self.length_received:
+            self.error_code = -1
+            raise PebbleError(None, "Expected next data with byte offset 0x%x but got byte offset 0x%x" %
+                              (self.length_received, byte_offset))
 
         self.data += data
         self.length_received += len(data)
+        print "received 0x%x bytes, length received: 0x%x" % (len(data), self.length_received)
         self.progress_callback(float(self.length_received) / self.total_length)
         if self.length_received >= self.total_length:
             self.marker.set()
 
     def read_header(self, data):
-        core_dump_header = struct.Struct("!BII")
+        core_dump_header = struct.Struct("!BBBI")
         header_len = core_dump_header.size
         header_data = data[:header_len]
         data = data[header_len:]
-        response_code, version, self.total_length = \
-          core_dump_header.unpack(header_data)
+        op_code, transaction_id, response_code, self.total_length = \
+            core_dump_header.unpack(header_data)
 
-        if response_code is not CoreDumpSync.COREDUMP_OK:
+        print "total length of core dump: 0x%x" % (self.total_length)
+        if op_code != 1:
+          self.error_code = -1
+          raise PebbleError(None, "Pebble responded with invalid opcode: %d" % (op_code))
+
+        if transaction_id != CoreDumpSync.COREDUMP_TRANSACTION_ID:
+            self.error_code = -1
+            raise PebbleError(None, "Pebble responded with invalid transaction id: %d" % (transaction_id))
+
+        if response_code != CoreDumpSync.COREDUMP_OK:
             self.error_code = response_code
             raise PebbleError(None, "Pebble responded with nonzero response "
-                "code %d, signaling an error on the watch side." %
-                response_code)
-
-        if not version == 1:
-            self.error_code = -1
-            raise PebbleError(None, "Received unrecognized core dump format "
-                "version %d from watch. Maybe your libpebble is out of "
-                "sync with your firmware version?" % version)
+                "code %d, signaling an error on the watch side." % response_code)
 
         return data
 
@@ -566,7 +594,7 @@ class Pebble(object):
 
     def coredump(self, progress_callback):
         session = CoreDumpSync(self, "COREDUMP", progress_callback);
-        self._send_message("COREDUMP", "\x00")
+        self._send_message("COREDUMP", "%c%c" % (CoreDumpSync.COREDUMP_OP_REQ_CORE_DUMP_IMAGE, CoreDumpSync.COREDUMP_TRANSACTION_ID))
         return session.get_data()
 
     def get_versions(self, async = False):
