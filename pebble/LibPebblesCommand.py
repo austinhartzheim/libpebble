@@ -37,7 +37,8 @@ class LibPebbleCommand(PblCommand):
         parser.add_argument('--pebble_id', type=str,
                 help='When using a direct BT connection, the watch\'s Bluetooth ID (e.g. DF38 or 01:23:45:67:DF:38). Can also be provided through %s environment variable.' % PEBBLE_BTID_ENVVAR)
         parser.add_argument('--pair', action="store_true", help="When using a direct BT connection, attempt to pair the watch automatically")
-        parser.add_argument('--verbose', type=bool, default=False, help='Prints received system logs in addition to APP_LOG')
+        parser.add_argument('--verbose', action="store_true", default=False,
+                            help='Prints received system logs in addition to APP_LOG')
 
     def run(self, args):
         # Only use the envrionment variables as defaults if no command-line arguments were specified
