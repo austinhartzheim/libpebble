@@ -222,9 +222,9 @@ class CoreDumpSync():
     # See the structure definitions at the top of tintin/src/fw/kernel/core_dump.c for documentation on the format
     #  of the binary core dump file, the core dump download protocol, and error codes
     COREDUMP_OK = 0
-    COREDUMP_OP_REQ_CORE_DUMP_IMAGE = 0
-    COREDUMP_OP_RSP_CORE_DUMP_IMAGE_INFO = 1
-    COREDUMP_OP_RSP_CORE_DUMP_IMAGE_DATA = 2
+    COREDUMP_CMD_REQ_CORE_DUMP_IMAGE = 0
+    COREDUMP_CMD_RSP_CORE_DUMP_IMAGE_INFO = 1
+    COREDUMP_CMD_RSP_CORE_DUMP_IMAGE_DATA = 2
     COREDUMP_TRANSACTION_ID = 0x42
 
     def __init__(self, pebble, endpoint, progress_callback):
@@ -247,10 +247,9 @@ class CoreDumpSync():
         header_len = data_header.size
         header_data = data[:header_len]
         data = data[header_len:]
-        op_code, transaction_id, byte_offset = \
-        data_header.unpack(header_data)
+        op_code, transaction_id, byte_offset = data_header.unpack(header_data)
 
-        if op_code != CoreDumpSync.COREDUMP_OP_RSP_CORE_DUMP_IMAGE_DATA:
+        if op_code != CoreDumpSync.COREDUMP_CMD_RSP_CORE_DUMP_IMAGE_DATA:
             self.error_code = -1
             raise PebbleError(None, "Pebble responded with invalid opcode: %d" % (op_code))
 
@@ -280,8 +279,8 @@ class CoreDumpSync():
 
         print "total length of core dump: 0x%x" % (self.total_length)
         if op_code != 1:
-          self.error_code = -1
-          raise PebbleError(None, "Pebble responded with invalid opcode: %d" % (op_code))
+            self.error_code = -1
+            raise PebbleError(None, "Pebble responded with invalid opcode: %d" % (op_code))
 
         if transaction_id != CoreDumpSync.COREDUMP_TRANSACTION_ID:
             self.error_code = -1
@@ -594,7 +593,7 @@ class Pebble(object):
 
     def coredump(self, progress_callback):
         session = CoreDumpSync(self, "COREDUMP", progress_callback);
-        self._send_message("COREDUMP", "%c%c" % (CoreDumpSync.COREDUMP_OP_REQ_CORE_DUMP_IMAGE, CoreDumpSync.COREDUMP_TRANSACTION_ID))
+        self._send_message("COREDUMP", "%c%c" % (CoreDumpSync.COREDUMP_CMD_REQ_CORE_DUMP_IMAGE, CoreDumpSync.COREDUMP_TRANSACTION_ID))
         return session.get_data()
 
     def get_versions(self, async = False):
