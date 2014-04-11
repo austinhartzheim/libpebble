@@ -394,6 +394,7 @@ class Pebble(object):
 
     def __init__(self, id = None):
         self.id = id
+        self._app_log_enabled = False
         self._connection_type = None
         self._ser = None
         self._read_thread = None
@@ -401,19 +402,19 @@ class Pebble(object):
         self._ws_client = None
         self._endpoint_handlers = {}
         self._internal_endpoint_handlers = {
-                self.endpoints["TIME"]: self._get_time_response,
-                self.endpoints["VERSION"]: self._version_response,
-                self.endpoints["PHONE_VERSION"]: self._phone_version_response,
-                self.endpoints["SYSTEM_MESSAGE"]: self._system_message_response,
-                self.endpoints["MUSIC_CONTROL"]: self._music_control_response,
-                self.endpoints["APPLICATION_MESSAGE"]: self._application_message_response,
-                self.endpoints["LAUNCHER"]: self._application_message_response,
-                self.endpoints["LOGS"]: self._log_response,
-                self.endpoints["PING"]: self._ping_response,
-                self.endpoints["APP_LOGS"]: self._app_log_response,
-                self.endpoints["APP_MANAGER"]: self._appbank_status_response,
-                self.endpoints["SCREENSHOT"]: self._screenshot_response,
-                self.endpoints["COREDUMP"]: self._coredump_response,
+            self.endpoints["TIME"]: self._get_time_response,
+            self.endpoints["VERSION"]: self._version_response,
+            self.endpoints["PHONE_VERSION"]: self._phone_version_response,
+            self.endpoints["SYSTEM_MESSAGE"]: self._system_message_response,
+            self.endpoints["MUSIC_CONTROL"]: self._music_control_response,
+            self.endpoints["APPLICATION_MESSAGE"]: self._application_message_response,
+            self.endpoints["LAUNCHER"]: self._application_message_response,
+            self.endpoints["LOGS"]: self._log_response,
+            self.endpoints["PING"]: self._ping_response,
+            self.endpoints["APP_LOGS"]: self._app_log_response,
+            self.endpoints["APP_MANAGER"]: self._appbank_status_response,
+            self.endpoints["SCREENSHOT"]: self._screenshot_response,
+            self.endpoints["COREDUMP"]: self._coredump_response,
         }
 
     def init_reader(self):
@@ -506,9 +507,9 @@ class Pebble(object):
 
                 if endpoint in self._endpoint_handlers and resp is not None:
                     self._endpoint_handlers[endpoint](endpoint, resp)
-        except Exception, e:
+        except Exception as e:
             if self._alive:
-                print str(type(e)) + ": " + str(e)
+                log.info(str(type(e)) + ": " + str(e))
                 log.error("Lost connection to Pebble")
                 self._alive = False
                 os._exit(-1)
@@ -542,7 +543,7 @@ class Pebble(object):
             except TypeError as e:
                 log.debug("ws read error...", e.message)
                 # the lightblue process has likely shutdown and cannot be read from
-                self.alive = False
+                self._alive = False
                 return None, None, None
         else:
             data = self._ser.read(4)
