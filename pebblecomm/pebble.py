@@ -205,7 +205,8 @@ class ScreenshotSync():
                 output_bitmap.append(new_row)
             except StopIteration:
                 # add part of the last row anyway
-                output_bitmap.append(new_row)
+                if new_row:
+                    output_bitmap.append(new_row)
                 return output_bitmap
 
     def get_data(self):
