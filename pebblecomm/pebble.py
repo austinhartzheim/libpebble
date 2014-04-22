@@ -509,7 +509,7 @@ class Pebble(object):
                     self._endpoint_handlers[endpoint](endpoint, resp)
         except Exception as e:
             if self._alive:
-                log.info(str(type(e)) + ": " + str(e))
+                log.info("%s: %s" % (type(e), e))
                 log.error("Lost connection to Pebble")
                 self._alive = False
                 os._exit(-1)
