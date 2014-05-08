@@ -1078,6 +1078,8 @@ class Pebble(object):
     def _print_crash_message(self, crashed_uuid, crashed_pc, crashed_lr):
         # Read the current projects UUID from it's appinfo.json. If we can't do this or the uuid doesn't match
         # the uuid of the crashed app we don't print anything.
+        import os, sys
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'pebble'))
         from PblProjectCreator import check_project_directory, PebbleProjectException
         try:
             check_project_directory()
