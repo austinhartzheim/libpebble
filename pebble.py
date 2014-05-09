@@ -99,7 +99,7 @@ class PbSDKShell:
             if args.debug:
                 raise e
             else:
-                logging.error(str(e))
+                logging.error(e)
                 return 1
 
         except ConfigurationException as e:

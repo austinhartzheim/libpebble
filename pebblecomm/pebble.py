@@ -518,12 +518,17 @@ class Pebble(object):
 
                 if endpoint in self._endpoint_handlers and resp is not None:
                     self._endpoint_handlers[endpoint](endpoint, resp)
+
         except Exception as e:
-            if self._alive:
+            if type(e) is PebbleError:
+                log.info(e)
+
+            else:
                 log.info("%s: %s" % (type(e), e))
                 log.error("Lost connection to Pebble")
                 self._alive = False
-                os._exit(-1)
+
+            os._exit(-1)
 
 
     def _pack_message_data(self, lead, parts):
