@@ -222,7 +222,14 @@ class CoreDumpSync():
 
     # See the structure definitions at the top of tintin/src/fw/kernel/core_dump.c for documentation on the format
     #  of the binary core dump file, the core dump download protocol, and error codes
-    COREDUMP_OK = 0
+    response_codes = {
+        "OK": 0,
+        "MALFORMED_COMMAND": 1,
+        "ALREADY_IN_PROGRESS": 2,
+        "DOES_NOT_EXIST": 3,
+        "CORRUPTED": 4,
+    }
+
     COREDUMP_CMD_REQ_CORE_DUMP_IMAGE = 0
     COREDUMP_CMD_RSP_CORE_DUMP_IMAGE_INFO = 1
     COREDUMP_CMD_RSP_CORE_DUMP_IMAGE_DATA = 2
@@ -278,16 +285,20 @@ class CoreDumpSync():
         op_code, transaction_id, response_code, self.total_length = \
             core_dump_header.unpack(header_data)
 
+        if response_code == self.response_codes["DOES_NOT_EXIST"]:
+            raise PebbleError(None, "No coredumps found on watch")
+
         print "total length of core dump: 0x%x" % (self.total_length)
+
         if op_code != 1:
             self.error_code = -1
             raise PebbleError(None, "Pebble responded with invalid opcode: %d" % (op_code))
 
-        if transaction_id != CoreDumpSync.COREDUMP_TRANSACTION_ID:
+        if transaction_id != self.COREDUMP_TRANSACTION_ID:
             self.error_code = -1
             raise PebbleError(None, "Pebble responded with invalid transaction id: %d" % (transaction_id))
 
-        if response_code != CoreDumpSync.COREDUMP_OK:
+        if response_code != self.response_codes["COREDUMP_OK"]:
             self.error_code = response_code
             raise PebbleError(None, "Pebble responded with nonzero response "
                 "code %d, signaling an error on the watch side." % response_code)
@@ -507,12 +518,17 @@ class Pebble(object):
 
                 if endpoint in self._endpoint_handlers and resp is not None:
                     self._endpoint_handlers[endpoint](endpoint, resp)
+
         except Exception as e:
-            if self._alive:
+            if type(e) is PebbleError:
+                log.info(e)
+
+            else:
                 log.info("%s: %s" % (type(e), e))
                 log.error("Lost connection to Pebble")
                 self._alive = False
-                os._exit(-1)
+
+            os._exit(-1)
 
 
     def _pack_message_data(self, lead, parts):
