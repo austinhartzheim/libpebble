@@ -223,7 +223,7 @@ class CoreDumpSync():
     # See the structure definitions at the top of tintin/src/fw/kernel/core_dump.c for documentation on the format
     #  of the binary core dump file, the core dump download protocol, and error codes
     response_codes = {
-        "OK": 0,
+        "COREDUMP_OK": 0,
         "MALFORMED_COMMAND": 1,
         "ALREADY_IN_PROGRESS": 2,
         "DOES_NOT_EXIST": 3,
