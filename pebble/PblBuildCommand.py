@@ -187,9 +187,7 @@ class PblWafCommand(PblCommand):
     ###########################################################################
     @requires_project_dir
     def run(self, args):
-        os.environ['PATH'] = "{}:{}".format(
-            os.path.join(self.sdk_path(args), "arm-cs-tools", "bin"), 
-            os.environ['PATH'])
+        self.add_arm_tools_to_path(args)
         
         # If python3 is the default and python2 is available, then plug in
         #  our stub 'python' shell script which passes control to python2
@@ -290,6 +288,8 @@ class PblAnalyzeSizeCommand(PblCommand):
     @requires_project_dir
     def run(self, args):
         sys.path.append(os.path.join(self.sdk_path(args), 'Pebble', 'tools'))
+        self.add_arm_tools_to_path(args)
+
         import analyze_static_memory_usage
 
         sections = analyze_static_memory_usage.make_sections_dict('bdt')

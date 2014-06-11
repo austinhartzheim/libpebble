@@ -30,3 +30,8 @@ class PblCommand:
         if not os.path.exists(sdk_path):
             raise Exception("SDK path '{}' doesn't exist!".format(sdk_path))
         return sdk_path
+
+    def add_arm_tools_to_path(self, args):
+        os.environ['PATH'] = "{}:{}".format(
+            os.path.join(self.sdk_path(args), "arm-cs-tools", "bin"),
+            os.environ['PATH'])
