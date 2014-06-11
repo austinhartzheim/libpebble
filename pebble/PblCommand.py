@@ -33,5 +33,5 @@ class PblCommand:
 
     def add_arm_tools_to_path(self, args):
         os.environ['PATH'] = "{}:{}".format(
-            os.path.join(self.sdk_path(args), "arm-cs-tools", "bin"),
-            os.environ['PATH'])
+            os.environ['PATH'],
+            os.path.join(self.sdk_path(args), "arm-cs-tools", "bin"))
