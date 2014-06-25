@@ -772,11 +772,14 @@ class Pebble(object):
             raise PebbleError(self.id, "All %d app banks are full" % apps["banks"])
         log.debug("Attempting to add app to bank %d of %d" % (first_free, apps["banks"]))
 
-        binary = bundle.zip.read(bundle.get_application_info()['name'])
+        # Install the app code
+        app_info = bundle.get_application_info()
+        binary = bundle.zip.read(app_info['name'])
         if bundle.has_resources():
             resources = bundle.zip.read(bundle.get_resources_info()['name'])
         else:
             resources = None
+
         client = PutBytesClient(self, first_free, "BINARY", binary)
         self.register_endpoint("PUTBYTES", client.handle_message)
         client.init()
@@ -785,6 +788,7 @@ class Pebble(object):
         if client._error:
             raise PebbleError(self.id, "Failed to send application binary %s/pebble-app.bin" % pbw_path)
 
+        # Install the resources
         if resources:
             client = PutBytesClient(self, first_free, "RESOURCES", resources)
             self.register_endpoint("PUTBYTES", client.handle_message)
@@ -793,6 +797,19 @@ class Pebble(object):
                 pass
             if client._error:
                 raise PebbleError(self.id, "Failed to send application resources %s/app_resources.pbpack" % pbw_path)
+
+        # Is there a worker to install?
+        worker_name = app_info.get('worker_name', None)
+        if worker_name is not None:
+            binary = bundle.zip.read(worker_name)
+            client = PutBytesClient(self, first_free, "WORKER", binary)
+            self.register_endpoint("PUTBYTES", client.handle_message)
+            client.init()
+            while not client._done and not client._error:
+                pass
+            if client._error:
+                raise PebbleError(self.id, "Failed to send worker binary %s/%s" % (pbw_path, worker_name))
+
 
         time.sleep(2)
         self._add_app(first_free)
@@ -805,14 +822,14 @@ class Pebble(object):
         return True
 
 
-    def install_app(self, pbw_path, launch_on_install=True):
+    def install_app(self, pbw_path, launch_on_install=True, direct=False):
 
         """Install an app bundle (*.pbw) to the target Pebble."""
 
         # FIXME: One problem here is that install_bundle_ws will return True/False
         # but install_app_pebble_protocol will return True or throw an exception.
         # We should catch, report to user and return False.
-        if self._connection_type == 'websocket':
+        if not direct and self._connection_type == 'websocket':
             return self.install_bundle_ws(pbw_path)
         else:
             return self.install_app_pebble_protocol(pbw_path, launch_on_install)
@@ -1459,7 +1476,8 @@ class PutBytesClient(object):
             "RECOVERY": 2,
             "SYS_RESOURCES": 3,
             "RESOURCES": 4,
-            "BINARY": 5
+            "BINARY": 5,
+            "WORKER": 6
     }
 
     def __init__(self, pebble, index, transfer_type, buffer):
