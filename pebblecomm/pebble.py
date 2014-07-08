@@ -73,13 +73,6 @@ class PebbleBundle(object):
             raise Exception("Could not find {}; are you sure this is a PebbleBundle?".format(self.MANIFEST_FILENAME))
 
         self.manifest = json.loads(self.zip.read(self.MANIFEST_FILENAME))
-
-        # In order to force older mobile apps to display an error alert if they encounter a PBW with a worker
-        #  in it, we changed the name of the application key to 'application_v2'. Otherwise, they would only install
-        #  the foreground app, ignore the background worker bin, and show no error to the user.
-        if 'application_v2' in self.manifest:
-            self.manifest['application'] = self.manifest['application_v2']
-            self.manifest.pop('application_v2')
         return self.manifest
 
     def get_app_metadata(self):
