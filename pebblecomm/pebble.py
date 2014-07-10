@@ -118,6 +118,9 @@ class PebbleBundle(object):
     def has_resources(self):
         return 'resources' in self.get_manifest()
 
+    def has_worker(self):
+        return 'worker' in self.get_manifest()
+
     def has_javascript(self):
         return 'js' in self.get_manifest()
 
@@ -138,6 +141,13 @@ class PebbleBundle(object):
             return None
 
         return self.get_manifest()['resources']
+
+    def get_worker_info(self):
+        if not self.is_app_bundle() or not self.has_worker():
+            return None
+
+        return self.get_manifest()['worker']
+
 
 class ScreenshotSync():
     timeout = 60
@@ -799,16 +809,16 @@ class Pebble(object):
                 raise PebbleError(self.id, "Failed to send application resources %s/app_resources.pbpack" % pbw_path)
 
         # Is there a worker to install?
-        worker_name = app_info.get('worker_name', None)
-        if worker_name is not None:
-            binary = bundle.zip.read(worker_name)
-            client = PutBytesClient(self, first_free, "WORKER", binary)
-            self.register_endpoint("PUTBYTES", client.handle_message)
-            client.init()
-            while not client._done and not client._error:
-                pass
-            if client._error:
-                raise PebbleError(self.id, "Failed to send worker binary %s/%s" % (pbw_path, worker_name))
+        worker_info = bundle.get_worker_info()
+        if worker_info is not None:
+          binary = bundle.zip.read(worker_info['name'])
+          client = PutBytesClient(self, first_free, "WORKER", binary)
+          self.register_endpoint("PUTBYTES", client.handle_message)
+          client.init()
+          while not client._done and not client._error:
+              pass
+          if client._error:
+              raise PebbleError(self.id, "Failed to send worker binary %s/%s" % (pbw_path, worker_info['name']))
 
 
         time.sleep(2)
