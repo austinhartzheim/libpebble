@@ -1487,7 +1487,7 @@ class PutBytesClient(object):
             "SYS_RESOURCES": 3,
             "RESOURCES": 4,
             "BINARY": 5,
-            "WORKER": 6
+            "WORKER": 7
     }
 
     def __init__(self, pebble, index, transfer_type, buffer):
