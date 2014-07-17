@@ -977,11 +977,12 @@ class Pebble(object):
         if prf and coredump:
             raise Exception("prf and coredump are mutually exclusive!")
 
-        cmd = "\x00"  # Normal reset
         if prf:
             cmd = "\xFF"  # Recovery Mode
-        if coredump:
+        elif coredump:
             cmd = "\x01"  # Force coredump
+        else:
+            cmd = "\x00"  # Normal reset
         self._send_message("RESET", cmd)
 
     def dump_logs(self, generation_number):
