@@ -973,8 +973,12 @@ class Pebble(object):
     def reset(self, prf=False, coredump=False):
 
         """Reset the watch remotely."""
+
+        if prf and coredump:
+            raise Exception("prf and coredump are mutually exclusive!")
+
         cmd = "\x00"  # Normal reset
-        if prf is True:
+        if prf:
             cmd = "\xFF"  # Recovery Mode
         if coredump:
             cmd = "\x01"  # Force coredump
