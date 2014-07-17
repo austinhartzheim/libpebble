@@ -1475,6 +1475,9 @@ class PutBytesClient(object):
     }
 
     def __init__(self, pebble, index, transfer_type, buffer, filename=""):
+        if len(filename) > 255:
+            raise Exception("Filename too long (>255 chars) " + filename)
+
         self._pebble = pebble
         self._state = self.states["NOT_STARTED"]
         self._transfer_type = self.transfer_types[transfer_type]
