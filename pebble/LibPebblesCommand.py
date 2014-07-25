@@ -105,6 +105,9 @@ class PblInstallCommand(LibPebbleCommand):
         LibPebbleCommand.configure_subparser(self, parser)
         parser.add_argument('bundle_path', type=str, nargs='?', default=self.get_bundle_path(), help='Path to the .pbw or .pbz to install (e.g. build/*.pbw, default %s)' % self.get_bundle_path())
         parser.add_argument('--logs', action='store_true', help='Display logs after installing the bundle')
+        parser.add_argument('--direct', action='store_true', help='Install directly on watch. Default is to send the'
+                'complete bundle to the phone and have it send the pieces of the bundle to the watch. '
+                'WARNING: This option won\'t work for PBWs with javascript in them.')
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
@@ -117,7 +120,7 @@ class PblInstallCommand(LibPebbleCommand):
             self.pebble.app_log_enable()
 
         if args.bundle_path.lower().endswith(".pbw"):
-            success = self.pebble.install_app(args.bundle_path)
+            success = self.pebble.install_app(args.bundle_path, direct=args.direct)
         elif args.bundle_path.lower().endswith(".pbz"):
             success = self.pebble.install_firmware(args.bundle_path)
         else:
