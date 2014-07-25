@@ -844,6 +844,17 @@ class Pebble(object):
         else:
             return self.install_app_pebble_protocol(pbw_path, launch_on_install)
 
+    def send_file(self, file_path, name):
+        data = open(file_path, 'r').read()
+        client = PutBytesClient(self, 0, "FILE", data, name)
+        self.register_endpoint("PUTBYTES", client.handle_message)
+        client.init()
+        while not client._done and not client._error:
+            pass
+        if client._error:
+            raise PebbleError(self.id, "Failed to send file %s" % file_path)
+        log.info("File transfer succesful")
+
     def install_firmware(self, pbz_path, recovery=False):
 
         """Install a firmware bundle to the target watch."""
@@ -997,13 +1008,20 @@ class Pebble(object):
         if not async:
             return EndpointSync(self, "PING").get_data()
 
-    def reset(self, prf = False):
+    def reset(self, prf=False, coredump=False):
 
         """Reset the watch remotely."""
-        if prf is True:
-            self._send_message("RESET", "\xFF")
+
+        if prf and coredump:
+            raise Exception("prf and coredump are mutually exclusive!")
+
+        if prf:
+            cmd = "\xFF"  # Recovery Mode
+        elif coredump:
+            cmd = "\x01"  # Force coredump
         else:
-            self._send_message("RESET", "\x00")
+            cmd = "\x00"  # Normal reset
+        self._send_message("RESET", cmd)
 
     def dump_logs(self, generation_number):
         """Dump the saved logs from the watch.
@@ -1487,10 +1505,14 @@ class PutBytesClient(object):
             "SYS_RESOURCES": 3,
             "RESOURCES": 4,
             "BINARY": 5,
-            "WORKER": 7
+            "FILE": 6,
+            "WORKER": 7,
     }
 
-    def __init__(self, pebble, index, transfer_type, buffer):
+    def __init__(self, pebble, index, transfer_type, buffer, filename=""):
+        if len(filename) > 255:
+            raise Exception("Filename too long (>255 chars) " + filename)
+
         self._pebble = pebble
         self._state = self.states["NOT_STARTED"]
         self._transfer_type = self.transfer_types[transfer_type]
@@ -1498,9 +1520,10 @@ class PutBytesClient(object):
         self._index = index
         self._done = False
         self._error = False
+        self._filename = filename + '\0'
 
     def init(self):
-        data = pack("!bIbb", 1, len(self._buffer), self._transfer_type, self._index)
+        data = pack("!bIbb%ds" % (len(self._filename)), 1, len(self._buffer), self._transfer_type, self._index, self._filename)
         self._pebble._send_message("PUTBYTES", data)
         self._state = self.states["WAIT_FOR_TOKEN"]
 
@@ -1522,7 +1545,7 @@ class PutBytesClient(object):
             return
         if self._left > 0:
             self.send()
-            log.debug("Sent %d of %d bytes" % (len(self._buffer)-self._left, len(self._buffer)))
+            log.info("Sent %d of %d bytes" % (len(self._buffer)-self._left, len(self._buffer)))
         else:
             self._state = self.states["COMMIT"]
             self.commit()
