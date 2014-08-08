@@ -270,8 +270,20 @@ class PblCoreDumpCommand(LibPebbleCommand):
     name = 'coredump'
     help = 'get most recent core dump from the pebble'
 
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('--generate', action='store_true', help='If specified, generate a core dump image on the '
+                'watch. Wait for the watch to reboot and issue the coredump command again without --generate to '
+                'then fetch it.')
+
     def run(self, args):
         LibPebbleCommand.run(self, args)
+
+        if args.generate:
+            self.pebble.reset(coredump=True);
+            logging.info("Generating a coredump image and resetting the Pebble. Issue this command again without "
+                         "the --generate option after the Pebble reboots in order to fetch the coredump image");
+            return
 
         logging.info("Fetching coredump from Pebble...")
         def progress_callback(amount):
