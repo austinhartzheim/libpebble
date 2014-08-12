@@ -158,8 +158,7 @@ int main(void) {
 
 DICT_DUMMY_APPINFO = {
     'company_name': 'MakeAwesomeHappen',
-    'version_code': 1,
-    'version_label': '1.0.0',
+    'version_label': '1.0',
     'is_watchface': 'false',
     'app_keys': """{
     "dummy": 0
@@ -172,7 +171,6 @@ FILE_DUMMY_APPINFO = string.Template("""{
   "shortName": "${project_name}",
   "longName": "${project_name}",
   "companyName": "${company_name}",
-  "versionCode": ${version_code},
   "versionLabel": "${version_label}",
   "watchapp": {
     "watchface": ${is_watchface}

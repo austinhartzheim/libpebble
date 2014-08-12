@@ -3,8 +3,7 @@
   "shortName": "hello_world",
   "longName": "hello_world",
   "companyName": "MakeAwesomeHappen",
-  "versionCode": 1,
-  "versionLabel": "1.0.0",
+  "versionLabel": "1.0",
   "watchapp": {
     "watchface": false
   },
