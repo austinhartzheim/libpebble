@@ -3,7 +3,7 @@
   "shortName": "Draw Bitmap",
   "longName": "Draw Bitmap",
   "companyName": "Pebble Technology",
-  "versionLabel": "2.0.0",
+  "versionLabel": "2.0",
   "watchapp": {
     "watchface": false
   },

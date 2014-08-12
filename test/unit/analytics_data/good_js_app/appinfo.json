@@ -3,7 +3,7 @@
   "shortName": "PebbleJS Weather",
   "longName": "PebbleJS Weather",
   "companyName": "Pebble Technology",
-  "versionLabel": "2.0.0",
+  "versionLabel": "2.0",
   "watchapp": {
     "watchface": false
   },
