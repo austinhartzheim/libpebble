@@ -41,6 +41,9 @@ class LibPebbleCommand(PblCommand):
                             help='Prints received system logs in addition to APP_LOG')
 
     def run(self, args):
+        # e.g. needed to de-sym crashes on `pebble logs`
+        self.add_arm_tools_to_path(args)
+
         # Only use the envrionment variables as defaults if no command-line arguments were specified
         # ...allowing you to leave the envrionment var(s) set at all times
         if not args.phone and not args.pebble_id:
