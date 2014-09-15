@@ -1,62 +1,59 @@
-import os, sh
+import os
+import string
 import uuid
 
 from PblCommand import PblCommand
 
 class PblProjectCreator(PblCommand):
-  name = 'new-project'
-  help = 'Create a new Pebble project'
+    name = 'new-project'
+    help = 'Create a new Pebble project'
 
-  def configure_subparser(self, parser):
-    parser.add_argument("name", help = "Name of the project you want to create")
+    def configure_subparser(self, parser):
+        parser.add_argument("name", help = "Name of the project you want to create")
+        parser.add_argument("--simple", action="store_true", help = "Use a minimal c file")
+        parser.add_argument("--javascript", action="store_true", help = "Generate javascript related files")
 
-  def run(self, args):
-    print "Creating new project {}".format(args.name)
+    def run(self, args):
+        print "Creating new project {}".format(args.name)
 
-    # User can give a path to a new project dir
-    project_path = args.name
-    project_name = os.path.split(project_path)[1]
-    project_root = os.path.join(os.getcwd(), project_path)
+        # User can give a path to a new project dir
+        project_path = args.name
+        project_name = os.path.split(project_path)[1]
+        project_root = os.path.join(os.getcwd(), project_path)
 
-    project_resources_src = os.path.join(project_root, os.path.join("resources","src"))
-    project_src = os.path.join(project_root, "src")
+        project_src = os.path.join(project_root, "src")
 
-    # Create directories
-    os.makedirs(project_root)
-    os.makedirs(project_resources_src)
-    os.makedirs(project_src)
+        # Create directories
+        os.makedirs(project_root)
+        os.makedirs(os.path.join(project_root, "resources"))
+        os.makedirs(project_src)
 
-    # Create main .c file
-    self.generate_main_file(os.path.join(project_src, "%s.c" % (project_name)))
+        # Create main .c file
+        with open(os.path.join(project_src, "%s.c" % (project_name)), "w") as f:
+            f.write(FILE_SIMPLE_MAIN if args.simple else FILE_DUMMY_MAIN)
 
-    # Add resource file
-    open(os.path.join(project_resources_src, "resource_map.json"), "w").write(FILE_DUMMY_RESOURCE_MAP)
+        # Add wscript file
+        with open(os.path.join(project_root, "wscript"), "w") as f:
+            f.write(FILE_WSCRIPT)
 
-    # Add wscript file
-    open(os.path.join(project_root, "wscript"), "w").write(FILE_WSCRIPT)
+        # Add appinfo.json file
+        appinfo_dummy = DICT_DUMMY_APPINFO.copy()
+        appinfo_dummy['uuid'] = str(uuid.uuid4())
+        appinfo_dummy['project_name'] = project_name
+        with open(os.path.join(project_root, "appinfo.json"), "w") as f:
+            f.write(FILE_DUMMY_APPINFO.substitute(**appinfo_dummy))
 
-    # Add .gitignore file
-    open(os.path.join(project_root, ".gitignore"), "w").write(FILE_GITIGNORE)
+        # Add .gitignore file
+        with open(os.path.join(project_root, ".gitignore"), "w") as f:
+            f.write(FILE_GITIGNORE)
 
-  def generate_uuid_as_array(self):
-    """
-    Returns a freshly generated UUID value in string form formatted as
-    a C array for inclusion in a template's "#define MY_UUID {...}"
-    macro.
-    """
-    return ", ".join(["0x%02X" % ord(b) for b in uuid.uuid4().bytes])
+        if args.javascript:
+            project_js_src = os.path.join(project_src, "js")
+            os.makedirs(project_js_src)
 
+            with open(os.path.join(project_js_src, "pebble-js-app.js"), "w") as f:
+                f.write(FILE_DUMMY_JAVASCRIPT_SRC)
 
-  def generate_main_file(self, destination_filepath):
-    """
-    Generates the main file *and* replaces a dummy UUID
-    value in it with a freshly generated value.
-    """
-
-    # This is the dummy UUID value in the template file.
-    UUID_VALUE_TO_REPLACE="/* GENERATE YOURSELF USING `uuidgen` */ 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF"
-
-    open(destination_filepath, "w").write(FILE_DUMMY_MAIN.replace(UUID_VALUE_TO_REPLACE, self.generate_uuid_as_array(), 1))
 
 
 FILE_GITIGNORE = """
@@ -75,88 +72,152 @@ top = '.'
 out = 'build'
 
 def options(ctx):
-  ctx.load('pebble_sdk')
+    ctx.load('pebble_sdk')
 
 def configure(ctx):
-  ctx.load('pebble_sdk')
+    ctx.load('pebble_sdk')
 
 def build(ctx):
-  ctx.load('pebble_sdk')
+    ctx.load('pebble_sdk')
+
+    ctx.pbl_program(source=ctx.path.ant_glob('src/**/*.c'),
+                    target='pebble-app.elf')
+
+    ctx.pbl_bundle(elf='pebble-app.elf',
+                   js=ctx.path.ant_glob('src/js/**/*.js'))
 """
 
-# When an empty resource map is required this can be used but...
-FILE_DEFAULT_RESOURCE_MAP = """
-{"friendlyVersion": "VERSION", "versionDefName": "VERSION", "media": []}
-"""
+FILE_SIMPLE_MAIN = """#include <pebble.h>
 
-# ...for the moment we need to have one with a dummy entry due to
-# a bug that causes a hang when there's an empty resource map.
-FILE_DUMMY_RESOURCE_MAP = """
-{"friendlyVersion": "VERSION",
- "versionDefName": "VERSION",
- "media": [
-     {
-      "type":"raw",
-      "defName":"DUMMY",
-      "file":"resource_map.json"
-     }
-    ]
-}
-"""
-
-FILE_DUMMY_MAIN = """#include <pebble_os.h>
-#include <pebble_app.h>
-#include <pebble_fonts.h>
-
-
-#define MY_UUID { /* GENERATE YOURSELF USING `uuidgen` */ 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF, 0xBE, 0xEF }
-PBL_APP_INFO(MY_UUID,
-             "Template App", "Your Company",
-             1, 0, /* App version */
-             DEFAULT_MENU_ICON,
-             APP_INFO_STANDARD_APP);
-
-Window *window;
-TextLayer *text_layer;
-
-void select_click_handler(ClickRecognizerRef recognizer, void *context) {
-  text_layer_set_text(text_layer, "Select");
-}
-
-void up_click_handler(ClickRecognizerRef recognizer, void *context) {
-  text_layer_set_text(text_layer, "Up");
-}
-
-void down_click_handler(ClickRecognizerRef recognizer, void *context) {
-  text_layer_set_text(text_layer, "Button");
-}
-
-void config_provider(ClickConfig **config, Window *window) {
-  config[BUTTON_ID_SELECT]->click.handler = select_click_handler;
-  config[BUTTON_ID_UP]->click.handler = up_click_handler;
-  config[BUTTON_ID_DOWN]->click.handler = down_click_handler;
-}
-
-void handle_init() {
-  window = window_create();
-  window_stack_push(window, true /* Animated */);
-
-  window_set_click_config_provider(window, (ClickConfigProvider) config_provider);
-
-  text_layer = text_layer_create(GRect(/* x: */ 0, /* y: */ 74,
-                                       /* width: */ 144, /* height: */ 20));
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_layer));
-
-  text_layer_set_text(text_layer, "Press a button");
-}
-
-void handle_deinit() {
-  // unsubscribe from services here
-}
-
-void pbl_main(void *params) {
-  register_init_handler(&handle_init);
-  register_deinit_handler(&handle_deinit);
+int main(void) {
   app_event_loop();
 }
 """
+
+FILE_DUMMY_MAIN = """#include <pebble.h>
+
+static Window *window;
+static TextLayer *text_layer;
+
+static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
+  text_layer_set_text(text_layer, "Select");
+}
+
+static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
+  text_layer_set_text(text_layer, "Up");
+}
+
+static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
+  text_layer_set_text(text_layer, "Down");
+}
+
+static void click_config_provider(void *context) {
+  window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
+  window_single_click_subscribe(BUTTON_ID_UP, up_click_handler);
+  window_single_click_subscribe(BUTTON_ID_DOWN, down_click_handler);
+}
+
+static void window_load(Window *window) {
+  Layer *window_layer = window_get_root_layer(window);
+  GRect bounds = layer_get_bounds(window_layer);
+
+  text_layer = text_layer_create((GRect) { .origin = { 0, 72 }, .size = { bounds.size.w, 20 } });
+  text_layer_set_text(text_layer, "Press a button");
+  text_layer_set_text_alignment(text_layer, GTextAlignmentCenter);
+  layer_add_child(window_layer, text_layer_get_layer(text_layer));
+}
+
+static void window_unload(Window *window) {
+  text_layer_destroy(text_layer);
+}
+
+static void init(void) {
+  window = window_create();
+  window_set_click_config_provider(window, click_config_provider);
+  window_set_window_handlers(window, (WindowHandlers) {
+    .load = window_load,
+    .unload = window_unload,
+  });
+  const bool animated = true;
+  window_stack_push(window, animated);
+}
+
+static void deinit(void) {
+  window_destroy(window);
+}
+
+int main(void) {
+  init();
+
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Done initializing, pushed window: %p", window);
+
+  app_event_loop();
+  deinit();
+}
+"""
+
+DICT_DUMMY_APPINFO = {
+    'company_name': 'MakeAwesomeHappen',
+    'version_code': 1,
+    'version_label': '1.0',
+    'is_watchface': 'false',
+    'app_keys': """{
+    "dummy": 0
+  }""",
+    'resources_media': '[]'
+}
+
+FILE_DUMMY_APPINFO = string.Template("""{
+  "uuid": "${uuid}",
+  "shortName": "${project_name}",
+  "longName": "${project_name}",
+  "companyName": "${company_name}",
+  "versionCode": "${version_code}",
+  "versionLabel": "${version_label}",
+  "watchapp": {
+    "watchface": ${is_watchface}
+  },
+  "appKeys": ${app_keys},
+  "resources": {
+    "media": ${resources_media}
+  }
+}
+""")
+
+FILE_DUMMY_JAVASCRIPT_SRC = """\
+Pebble.addEventListener("ready",
+    function(e) {
+        console.log("Hello world! - Sent from your javascript application.");
+    }
+);
+"""
+
+class PebbleProjectException(Exception):
+    pass
+
+class InvalidProjectException(PebbleProjectException):
+    pass
+
+class OutdatedProjectException(PebbleProjectException):
+    pass
+
+def check_project_directory():
+    """Check to see if the current directly matches what is created by PblProjectCreator.run.
+
+    Raises an InvalidProjectException or an OutdatedProjectException if everything isn't quite right.
+    """
+
+    if not os.path.isdir('src'):
+        raise InvalidProjectException
+
+    if os.path.islink('pebble_app.ld') \
+            or os.path.exists('resources/src/resource_map.json') \
+            or not os.path.exists('wscript'):
+        raise OutdatedProjectException
+
+def requires_project_dir(func):
+    def wrapper(self, args):
+        check_project_directory()
+        return func(self, args)
+    return wrapper
+

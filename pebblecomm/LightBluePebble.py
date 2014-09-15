@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import logging
+import logging as log
 import multiprocessing
 import os
 import Queue
@@ -7,10 +7,6 @@ import re
 import socket
 from multiprocessing import Process
 from struct import unpack
-
-log = logging.getLogger()
-logging.basicConfig(format='[%(levelname)-8s] %(message)s')
-log.setLevel(logging.DEBUG)
 
 class LightBluePebbleError(Exception):
     def __init__(self, id, message):
@@ -62,12 +58,12 @@ class LightBluePebble(object):
             tup = self.rec_queue.get()
             return tup
         except Queue.Empty:
-            return (None, None, '')
+            return (None, None, None, '')
         except:
             self.bt_teardown.set()
             if self.debug_protocol:
                 log.debug("LightBlue process has shutdown (queue read)")
-            return (None, None, '')
+            return (None, None, None, '')
 
     def close(self):
         """ close the LightBlue connection process"""
@@ -164,9 +160,10 @@ class LightBluePebble(object):
                         # TODO: Should probably have some kind of timeout here
                         pass
                 try:
-                    print (endpoint, resp, rec_data)
-                    self.rec_queue.put((endpoint, resp, rec_data))
-                    
+                    if self.debug_protocol:
+                        log.debug("{}: {} {} ".format(endpoint, resp, rec_data))
+                    self.rec_queue.put(("watch", endpoint, resp, rec_data))
+
                 except (IOError, EOFError):
                     self.BT_TEARDOWN.set()
                     e = "Queue Error while recieving data"
