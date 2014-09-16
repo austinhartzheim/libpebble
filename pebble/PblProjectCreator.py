@@ -172,7 +172,7 @@ FILE_DUMMY_APPINFO = string.Template("""{
   "shortName": "${project_name}",
   "longName": "${project_name}",
   "companyName": "${company_name}",
-  "versionCode": "${version_code}",
+  "versionCode": ${version_code},
   "versionLabel": "${version_label}",
   "watchapp": {
     "watchface": ${is_watchface}
