@@ -12,6 +12,7 @@ class PblProjectCreator(PblCommand):
         parser.add_argument("name", help = "Name of the project you want to create")
         parser.add_argument("--simple", action="store_true", help = "Use a minimal c file")
         parser.add_argument("--javascript", action="store_true", help = "Generate javascript related files")
+        parser.add_argument("--worker", action="store_true", help = "Generate background worker related files")
 
     def run(self, args):
         print "Creating new project {}".format(args.name)
@@ -32,10 +33,6 @@ class PblProjectCreator(PblCommand):
         with open(os.path.join(project_src, "%s.c" % (project_name)), "w") as f:
             f.write(FILE_SIMPLE_MAIN if args.simple else FILE_DUMMY_MAIN)
 
-        # Add wscript file
-        with open(os.path.join(project_root, "wscript"), "w") as f:
-            f.write(FILE_WSCRIPT)
-
         # Add appinfo.json file
         appinfo_dummy = DICT_DUMMY_APPINFO.copy()
         appinfo_dummy['uuid'] = str(uuid.uuid4())
@@ -47,6 +44,7 @@ class PblProjectCreator(PblCommand):
         with open(os.path.join(project_root, ".gitignore"), "w") as f:
             f.write(FILE_GITIGNORE)
 
+        # Add javascript files if applicable
         if args.javascript:
             project_js_src = os.path.join(project_src, "js")
             os.makedirs(project_js_src)
@@ -54,7 +52,17 @@ class PblProjectCreator(PblCommand):
             with open(os.path.join(project_js_src, "pebble-js-app.js"), "w") as f:
                 f.write(FILE_DUMMY_JAVASCRIPT_SRC)
 
+        # Add background worker files if applicable
+        if args.worker:
+            project_worker_src = os.path.join(project_root, "worker_src")
+            os.makedirs(project_worker_src)
+            # Add simple source file
+            with open(os.path.join(project_worker_src, "%s_worker.c" % (project_name)), "w") as f:
+                f.write(FILE_DUMMY_WORKER)
 
+        # Add wscript file
+        with open(os.path.join(project_root, "wscript"), "w") as f:
+            f.write(FILE_WSCRIPT)
 
 FILE_GITIGNORE = """
 # Ignore build generated files
@@ -67,6 +75,8 @@ FILE_WSCRIPT = """
 #
 # Feel free to customize this to your needs.
 #
+
+import os.path
 
 top = '.'
 out = 'build'
@@ -83,14 +93,28 @@ def build(ctx):
     ctx.pbl_program(source=ctx.path.ant_glob('src/**/*.c'),
                     target='pebble-app.elf')
 
-    ctx.pbl_bundle(elf='pebble-app.elf',
-                   js=ctx.path.ant_glob('src/js/**/*.js'))
+    if os.path.exists('worker_src'):
+        ctx.pbl_worker(source=ctx.path.ant_glob('worker_src/**/*.c'),
+                        target='pebble-worker.elf')
+        ctx.pbl_bundle(elf='pebble-app.elf',
+                        worker_elf='pebble-worker.elf',
+                        js=ctx.path.ant_glob('src/js/**/*.js'))
+    else:
+        ctx.pbl_bundle(elf='pebble-app.elf',
+                        js=ctx.path.ant_glob('src/js/**/*.js'))
 """
 
 FILE_SIMPLE_MAIN = """#include <pebble.h>
 
 int main(void) {
   app_event_loop();
+}
+"""
+
+FILE_DUMMY_WORKER = """#include <pebble_worker.h>
+
+int main(void) {
+  worker_event_loop();
 }
 """
 
