@@ -62,7 +62,7 @@ class PblProjectCreator(PblCommand):
 
         # Add wscript file
         with open(os.path.join(project_root, "wscript"), "w") as f:
-            f.write(FILE_WORKER_WSCRIPT if args.worker else FILE_WSCRIPT)
+            f.write(FILE_WSCRIPT)
 
 FILE_GITIGNORE = """
 # Ignore build generated files
@@ -76,31 +76,7 @@ FILE_WSCRIPT = """
 # Feel free to customize this to your needs.
 #
 
-top = '.'
-out = 'build'
-
-def options(ctx):
-    ctx.load('pebble_sdk')
-
-def configure(ctx):
-    ctx.load('pebble_sdk')
-
-def build(ctx):
-    ctx.load('pebble_sdk')
-
-    ctx.pbl_program(source=ctx.path.ant_glob('src/**/*.c'),
-                    target='pebble-app.elf')
-
-    ctx.pbl_bundle(elf='pebble-app.elf',
-                   js=ctx.path.ant_glob('src/js/**/*.js'))
-"""
-
-FILE_WORKER_WSCRIPT = """
-#
-# This file is the default set of rules to compile a Pebble project with a worker.
-#
-# Feel free to customize this to your needs.
-#
+import os.path
 
 top = '.'
 out = 'build'
@@ -117,15 +93,16 @@ def build(ctx):
     ctx.pbl_program(source=ctx.path.ant_glob('src/**/*.c'),
                     target='pebble-app.elf')
 
-    ctx.pbl_worker(source=ctx.path.ant_glob('worker_src/**/*.c'),
-                    target='pebble-worker.elf')
-
-    ctx.pbl_bundle(elf='pebble-app.elf',
-                   worker_elf='pebble-worker.elf',
-                   js=ctx.path.ant_glob('src/js/**/*.js'))
-
+    if os.path.exists('worker_src'):
+        ctx.pbl_worker(source=ctx.path.ant_glob('worker_src/**/*.c'),
+                        target='pebble-worker.elf')
+        ctx.pbl_bundle(elf='pebble-app.elf',
+                        worker_elf='pebble-worker.elf',
+                        js=ctx.path.ant_glob('src/js/**/*.js'))
+    else:
+        ctx.pbl_bundle(elf='pebble-app.elf',
+                        js=ctx.path.ant_glob('src/js/**/*.js'))
 """
-
 
 FILE_SIMPLE_MAIN = """#include <pebble.h>
 
