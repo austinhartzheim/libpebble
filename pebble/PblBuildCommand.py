@@ -290,11 +290,9 @@ class PblAnalyzeSizeCommand(PblCommand):
         sys.path.append(os.path.join(self.sdk_path(args), 'Pebble', 'tools'))
         self.add_arm_tools_to_path(args)
 
-        import analyze_static_memory_usage
+        import binutils
 
-        sections = analyze_static_memory_usage.make_sections_dict('bdt')
-
-        analyze_static_memory_usage.analyze_elf(args.elf_path, sections)
+        sections = binutils.analyze_elf(args.elf_path, 'bdt', use_fast_nm=True)
 
         for s in sections.itervalues():
             s.pprint(args.summary, args.verbose)
