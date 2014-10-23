@@ -1119,7 +1119,7 @@ class Pebble(object):
 
     def _parse_log_response(self, log_message_data):
         timestamp, level, msgsize, linenumber = unpack("!IBBH", log_message_data[:8])
-        filename = log_message_data[8:24].decode('utf-8', 'ignore')
+        filename = (log_message_data[8:24].split("\0")[0]).decode('utf-8', 'ignore')
         message = log_message_data[24:24+msgsize].decode('utf-8', 'ignore')
 
         str_level = self.log_levels[level] if level in self.log_levels else "?"
