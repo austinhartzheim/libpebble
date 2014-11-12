@@ -12,6 +12,7 @@ from pebblecomm import pebble as libpebble
 
 from PblCommand import PblCommand
 from PebbleEmulator import PebbleEmulator
+from PblAccount import PblAccount, get_default_account
 import PblAnalytics
 
 PEBBLE_PHONE_ENVVAR='PEBBLE_PHONE'
@@ -66,6 +67,8 @@ class LibPebbleCommand(PblCommand):
         if not args.phone and not args.pebble_id and not args.emulator and not args.qemu:
             args.emulator = 'basalt'
 
+        account = get_default_account()
+
         num_args = bool(args.phone) + bool(args.pebble_id) + bool(args.qemu) + bool(args.emulator)
         if num_args > 1:
             raise ConfigurationException("You must specify only one method to connect to the watch "
@@ -75,6 +78,7 @@ class LibPebbleCommand(PblCommand):
 
         self.pebble = libpebble.Pebble(args.pebble_id)
         self.pebble.set_print_pbl_logs(args.verbose)
+
         if args.phone:
             self.pebble.connect_via_websocket(args.phone)
         elif args.pebble_id:
@@ -85,6 +89,8 @@ class LibPebbleCommand(PblCommand):
             self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
         elif args.qemu:
             self.pebble.connect_via_qemu(args.qemu)
+        else:
+            self.pebble.connect_via_cloud(account)
 
     def get_persistent_dir(self):
         if platform.system() == 'Darwin':

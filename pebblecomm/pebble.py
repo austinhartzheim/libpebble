@@ -25,6 +25,7 @@ import traceback
 import uuid
 import WebSocketPebble
 import QemuPebble
+import ProxyWebSocketPebble
 import zipfile
 
 from AppStore import AppStoreClient
@@ -715,6 +716,11 @@ class Pebble(object):
         self._ser = QemuPebble.QemuPebble(host, port, timeout=1, connect_timeout=5)
         self._ser.enable_trace(True)
         self._ser.connect()
+        self.init_reader()
+
+    def connect_via_cloud(self, account):
+        self._conection_type = 'cloud'
+        self._ser = ProxyWebSocketPebble.create_connection(account, timeout=2, connect_timeout=10)
         self.init_reader()
 
     def _exit_signal_handler(self, *args):
