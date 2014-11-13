@@ -368,12 +368,12 @@ class AudioSync():
         pass
 
     def get_data(self):
-        # try:
+        try:
             self.marker.wait(self.timeout)
             speex.store_data(self.frames, self.filename)
             return self.filename
-        # except:
-        #     raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
+        except:
+            raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
 class EndpointSync():
     def __init__(self, pebble, endpoint, timeout=10):
