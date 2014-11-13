@@ -13,6 +13,7 @@ import re
 import sh
 import signal
 import socket
+import speex
 import stm32_crc
 import struct
 import threading
@@ -330,13 +331,12 @@ class CoreDumpSync():
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
         return None
 
-class RecordSync():
-    def __init__(self, pebble, endpoint, timeout = 10, filename = 'recording.ogg'):
+class AudioSync():
+    def __init__(self, pebble, endpoint, timeout, filename):
         self.timeout = timeout
         self.marker = threading.Event()
         self.frames = []
         self.filename = filename
-        self.pebble = pebble
         pebble.register_endpoint(endpoint, self.packet_callback)
 
     def packet_callback(self, endpoint, data):
@@ -345,45 +345,33 @@ class RecordSync():
             self.process_start_packet(data)
         elif packet_id == 0x02:
             self.process_data_packet(data)
-        else:
+        elif packet_id == 0x03:
             self.process_end_packet(data)
 
     def process_start_packet(self, data):
-        print 'Starting...'
         _, self.encoder_id, self.sample_rate, self.bit_rate = unpack('<BBIH', data[:8])
-        print 'Sample Rate:', self.sample_rate, 'Hz'
         if self.encoder_id == 1:
             self.encoder_version = data[8:28]
             self.bitstream_version, self.frame_size = unpack('<BH', data[28:])
-            print 'Encoded with Speex', self.encoder_version
         self.frames = []
 
     def process_data_packet(self, data):
         _, num_frames = unpack('BB', data[:2])
         index = 2
-        print 'Got', len(data), 'bytes'
-        frame = 0
         while index < len(data):
             frame_length = unpack('B', data[index])[0]
             index += 1
-            print 'Frame is', frame_length, 'bytes'
             self.frames.append(data[index:index + frame_length])
             index += frame_length
-            frame += 1
-            print 'Processed frame', frame
 
     def process_end_packet(self, data):
-        print 'Finished.'
+        pass
 
     def get_data(self):
         # try:
-        self.marker.wait(self.timeout)
-        # self.pebble._send_message("AUDIO", pack('b', 0x03))
-        print 'Processed', len(self.frames), 'frames.'
-
-        import speex
-        speex.store_data(self.frames, self.filename)
-        print 'Stored data in', self.filename
+            self.marker.wait(self.timeout)
+            speex.store_data(self.frames, self.filename)
+            return self.filename
         # except:
         #     raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
@@ -775,12 +763,12 @@ class Pebble(object):
         if not async:
             return EndpointSync(self, "TIME").get_data()
 
-    def record(self, timeout = 10, async = False):
+    def record(self, timeout = 10, filename = 'recording.ogg'):
 
-        """Listen to audio endpoint for incoming messages and store them in test.ogg"""
+        """Listen to audio endpoint for incoming messages and store them in recording.ogg"""
 
-        if not async:
-            return RecordSync(self, "AUDIO", timeout).get_data()
+        filename = AudioSync(self, "AUDIO", timeout, filename).get_data()
+        print "recording stored in", filename
 
     def set_time(self, timestamp):
 

@@ -1,22 +1,11 @@
 from subprocess import call
 import argparse
-# from serial_port_wrapper import SerialPortWrapper
 import array
-# import hdlc
 import struct
 import binascii
 
 MAX_FRAME_LEN = 255
 MAX_FRAME_COUNT = 255
-
-# def receive_hdlc_data(s):
-
-#     def callback(frame):
-#         if (len(frame) == frame[0] + 1) and (frame[0] <= MAX_FRAME_LEN):
-#             return array.array('B', frame[1:]).tostring()
-
-#     complete = hdlc.decode_stream(s, callback)
-#     return complete
 
 def decode(in_file, out_file):
     call(["speexdec", in_file, out_file])
@@ -41,7 +30,7 @@ def create_ogg_packet(bos, eos, granule, serial_no, packet_no, segments):
     ogg += ''.join(segments)
 
     # crc = binascii.crc32(ogg) & 0xffffffff  # calulate crc over whole packet
-    
+
     import zlib
     crc = (~zlib.crc32(ogg.translate(bitswap), -1)) & 0xffffffff
     crc = to_uint_be(crc).translate(bitswap)
@@ -65,7 +54,7 @@ def create_speex_header(version, rate, frame_sz):
     spx += struct.pack('i', -1)   # bit-rate
     spx += struct.pack('I', frame_sz) # frame size (number of PCM16 samples)
     spx += struct.pack('i', 0)    # variable bit rate (off)
-    spx += struct.pack('i', 1)    # frames per packet 
+    spx += struct.pack('i', 1)    # frames per packet
     spx += struct.pack('i', 0)    # extra headers
     spx += struct.pack('i', 0)    # reserved
     spx += struct.pack('i', 0)    # reserved
@@ -102,9 +91,9 @@ def store_data(frames, filename):
 
         tot_granules += packet_frames * frame_sz
         granule_pos = tot_granules - frame_sz
-        
+
         ogg += create_ogg_packet(False, last_packet, granule_pos, serial_no, packet_no, frames[:packet_frames])
-        
+
         frames = frames[packet_frames:]
         packet_no += 1
 
