@@ -30,6 +30,8 @@ DEFAULT_WEBSOCKET_PORT = 9000
 DEBUG_PROTOCOL = False
 APP_ELF_PATH = 'build/pebble-app.elf'
 
+FILE = open('test.txt', 'a')
+
 class PebbleBundle(object):
     MANIFEST_FILENAME = 'manifest.json'
 
@@ -328,11 +330,67 @@ class CoreDumpSync():
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
         return None
 
-class EndpointSync():
-    timeout = 10
-
-    def __init__(self, pebble, endpoint):
+class RecordSync():
+    def __init__(self, pebble, endpoint, timeout = 10, filename = 'recording.ogg'):
+        self.timeout = timeout
         self.marker = threading.Event()
+        self.frames = []
+        self.filename = filename
+        self.pebble = pebble
+        pebble.register_endpoint(endpoint, self.packet_callback)
+
+    def packet_callback(self, endpoint, data):
+        packet_id = unpack('B', data[:1])[0]
+        if packet_id == 0x01:
+            self.process_start_packet(data)
+        elif packet_id == 0x02:
+            self.process_data_packet(data)
+        else:
+            self.process_end_packet(data)
+
+    def process_start_packet(self, data):
+        print 'Starting...'
+        _, self.encoder_id, self.sample_rate, self.bit_rate = unpack('<BBIH', data[:8])
+        print 'Sample Rate:', self.sample_rate, 'Hz'
+        if self.encoder_id == 1:
+            self.encoder_version = data[8:28]
+            self.bitstream_version, self.frame_size = unpack('<BH', data[28:])
+            print 'Encoded with Speex', self.encoder_version
+        self.frames = []
+
+    def process_data_packet(self, data):
+        _, num_frames = unpack('BB', data[:2])
+        index = 2
+        print 'Got', len(data), 'bytes'
+        frame = 0
+        while index < len(data):
+            frame_length = unpack('B', data[index])[0]
+            index += 1
+            print 'Frame is', frame_length, 'bytes'
+            self.frames.append(data[index:index + frame_length])
+            index += frame_length
+            frame += 1
+            print 'Processed frame', frame
+
+    def process_end_packet(self, data):
+        print 'Finished.'
+
+    def get_data(self):
+        # try:
+        self.marker.wait(self.timeout)
+        # self.pebble._send_message("AUDIO", pack('b', 0x03))
+        print 'Processed', len(self.frames), 'frames.'
+
+        import speex
+        speex.store_data(self.frames, self.filename)
+        print 'Stored data in', self.filename
+        # except:
+        #     raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
+
+class EndpointSync():
+    def __init__(self, pebble, endpoint, timeout=10):
+        self.marker = threading.Event()
+        self.timeout = timeout
         pebble.register_endpoint(endpoint, self.callback)
 
     def callback(self, endpoint, response):
@@ -381,6 +439,7 @@ class Pebble(object):
             "SCREENSHOT": 8000,
             "COREDUMP": 9000,
             "PUTBYTES": 48879,
+            "AUDIO": 10000,
     }
 
     log_levels = {
@@ -436,6 +495,7 @@ class Pebble(object):
             self.endpoints["APP_MANAGER"]: self._appbank_status_response,
             self.endpoints["SCREENSHOT"]: self._screenshot_response,
             self.endpoints["COREDUMP"]: self._coredump_response,
+            self.endpoints["AUDIO"]: self._audio_response,
         }
 
     def init_reader(self):
@@ -714,6 +774,13 @@ class Pebble(object):
 
         if not async:
             return EndpointSync(self, "TIME").get_data()
+
+    def record(self, timeout = 10, async = False):
+
+        """Listen to audio endpoint for incoming messages and store them in test.ogg"""
+
+        if not async:
+            return RecordSync(self, "AUDIO", timeout).get_data()
 
     def set_time(self, timestamp):
 
@@ -1100,6 +1167,45 @@ class Pebble(object):
 
     def _coredump_response(self, endpoint, data):
         return data
+
+    def _audio_response(self, endpoint, data):
+        return data
+        # packet_id = unpack('B', data[0])[0]
+        # data = data[1:]
+
+        # def parse_start_packet(data):
+        #     print unpack('<BIH', data[:7])
+        #     if len(data) > 7:
+        #         data = data[7:]
+        #         print 'Encoder data :)'
+        #         encoder_info = unpack('<' + 'c' * 20 + 'BH', data)
+        #         print ''.join(encoder_info[:20])
+        #         print encoder_info[20:]
+        #     else:
+        #         print 'No encoder data :('
+
+        # def parse_data_packet(data):
+        #     n = unpack('B', data[0])[0]
+        #     data = data[1:] # frames in packet
+        #     i = 0
+        #     while len(data) > 0:
+        #         i += 1
+        #         m = unpack('B', data[0])[0]
+        #         data = data[1:]
+        #         print '{} {}/{}'.format(m, i, n), unpack('B' * m, data[:m])
+        #         data = data[m:]
+
+        # def parse_end_packet(data):
+        #     print 'Received end packet'
+
+        # if packet_id == 0x01:
+        #     parse_start_packet(data)
+        # elif packet_id == 0x02:
+        #     parse_data_packet(data)
+        # elif packet_id ==0x03:
+        #     parse_end_packet(data)
+        # else:
+            # print 'Unknown packet!'
 
     def _ping_response(self, endpoint, data):
         restype, retcookie = unpack("!bL", data)
