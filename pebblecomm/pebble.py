@@ -31,8 +31,6 @@ DEFAULT_WEBSOCKET_PORT = 9000
 DEBUG_PROTOCOL = False
 APP_ELF_PATH = 'build/pebble-app.elf'
 
-FILE = open('test.txt', 'a')
-
 class PebbleBundle(object):
     MANIFEST_FILENAME = 'manifest.json'
 
@@ -768,6 +766,8 @@ class Pebble(object):
         """Listen to audio endpoint for incoming messages and store them in recording.ogg"""
 
         filename = AudioSync(self, "AUDIO", timeout, filename).get_data()
+        # self._send_message("AUDIO", "\x03") # stop recording message, crashes mic test app
+
         print "recording stored in", filename
 
     def set_time(self, timestamp):
@@ -1158,42 +1158,6 @@ class Pebble(object):
 
     def _audio_response(self, endpoint, data):
         return data
-        # packet_id = unpack('B', data[0])[0]
-        # data = data[1:]
-
-        # def parse_start_packet(data):
-        #     print unpack('<BIH', data[:7])
-        #     if len(data) > 7:
-        #         data = data[7:]
-        #         print 'Encoder data :)'
-        #         encoder_info = unpack('<' + 'c' * 20 + 'BH', data)
-        #         print ''.join(encoder_info[:20])
-        #         print encoder_info[20:]
-        #     else:
-        #         print 'No encoder data :('
-
-        # def parse_data_packet(data):
-        #     n = unpack('B', data[0])[0]
-        #     data = data[1:] # frames in packet
-        #     i = 0
-        #     while len(data) > 0:
-        #         i += 1
-        #         m = unpack('B', data[0])[0]
-        #         data = data[1:]
-        #         print '{} {}/{}'.format(m, i, n), unpack('B' * m, data[:m])
-        #         data = data[m:]
-
-        # def parse_end_packet(data):
-        #     print 'Received end packet'
-
-        # if packet_id == 0x01:
-        #     parse_start_packet(data)
-        # elif packet_id == 0x02:
-        #     parse_data_packet(data)
-        # elif packet_id ==0x03:
-        #     parse_end_packet(data)
-        # else:
-            # print 'Unknown packet!'
 
     def _ping_response(self, endpoint, data):
         restype, retcookie = unpack("!bL", data)
