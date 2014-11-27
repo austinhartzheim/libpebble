@@ -347,15 +347,16 @@ class AudioSync():
             self.process_end_packet(data)
 
     def process_start_packet(self, data):
-        _, self.encoder_id, self.sample_rate, self.bit_rate = unpack('<BBIH', data[:8])
+        _, session, self.encoder_id, self.sample_rate, self.bit_rate = unpack('<BHBIH', data[:10])
+        print session
         if self.encoder_id == 1:
-            self.encoder_version = data[8:28]
-            self.bitstream_version, self.frame_size = unpack('<BH', data[28:])
+            self.encoder_version = data[10:30]
+            self.bitstream_version, self.frame_size = unpack('<BH', data[30:])
         self.frames = []
 
     def process_data_packet(self, data):
-        _, num_frames = unpack('BB', data[:2])
-        index = 2
+        _, _, _ = unpack('<BHB', data[:4])
+        index = 4
         while index < len(data):
             frame_length = unpack('B', data[index])[0]
             index += 1
@@ -363,7 +364,7 @@ class AudioSync():
             index += frame_length
 
     def process_end_packet(self, data):
-        pass
+        self.marker.set()
 
     def get_data(self):
         try:
