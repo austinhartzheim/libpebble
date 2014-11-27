@@ -338,8 +338,7 @@ class AudioSync():
         pebble.register_endpoint(endpoint, self.packet_callback)
 
     def packet_callback(self, endpoint, data):
-        packet_id = unpack('B', data[:1])[0]
-        print 'got packet with id', packet_id
+        packet_id = unpack('B', data[0])[0]
         if packet_id == 0x01:
             self.process_start_packet(data)
         elif packet_id == 0x02:
@@ -367,13 +366,13 @@ class AudioSync():
         pass
 
     def get_data(self):
-        # try:
-        self.marker.wait(self.timeout)
-        siren.store(self.frames, self.filename)
-        siren.decode(self.filename)
-        return self.filename
-        # except:
-        #     raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
+        try:
+            self.marker.wait(self.timeout)
+            siren.store(self.frames, self.filename)
+            siren.decode(self.filename)
+            return self.filename
+        except:
+            raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
 class EndpointSync():
     def __init__(self, pebble, endpoint, timeout=10):
@@ -1159,7 +1158,6 @@ class Pebble(object):
         return data
 
     def _audio_response(self, endpoint, data):
-        print 'got packet with id', unpack('B', data[0])
         return data
 
     def _ping_response(self, endpoint, data):
