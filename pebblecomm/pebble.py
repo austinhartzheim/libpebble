@@ -13,7 +13,7 @@ import re
 import sh
 import signal
 import socket
-import speex
+import siren
 import stm32_crc
 import struct
 import threading
@@ -339,6 +339,7 @@ class AudioSync():
 
     def packet_callback(self, endpoint, data):
         packet_id = unpack('B', data[:1])[0]
+        print 'got packet with id', packet_id
         if packet_id == 0x01:
             self.process_start_packet(data)
         elif packet_id == 0x02:
@@ -366,12 +367,13 @@ class AudioSync():
         pass
 
     def get_data(self):
-        try:
-            self.marker.wait(self.timeout)
-            speex.store_data(self.frames, self.filename)
-            return self.filename
-        except:
-            raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
+        # try:
+        self.marker.wait(self.timeout)
+        siren.store(self.frames, self.filename)
+        siren.decode(self.filename)
+        return self.filename
+        # except:
+        #     raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
 class EndpointSync():
     def __init__(self, pebble, endpoint, timeout=10):
@@ -761,9 +763,9 @@ class Pebble(object):
         if not async:
             return EndpointSync(self, "TIME").get_data()
 
-    def record(self, timeout = 10, filename = 'recording.ogg'):
+    def record(self, timeout = 10, filename = 'recording.sir7'):
 
-        """Listen to audio endpoint for incoming messages and store them in recording.ogg"""
+        """Listen to audio endpoint for incoming messages and store them in recording.sir7"""
 
         filename = AudioSync(self, "AUDIO", timeout, filename).get_data()
         # self._send_message("AUDIO", "\x03") # stop recording message, crashes mic test app
@@ -1157,6 +1159,7 @@ class Pebble(object):
         return data
 
     def _audio_response(self, endpoint, data):
+        print 'got packet with id', unpack('B', data[0])
         return data
 
     def _ping_response(self, endpoint, data):
