@@ -18,6 +18,8 @@ def decode(filename):
     wb.setparams((1, 2, 16000, 0, 'NONE', 'NOT COMPRESSED'))
     nb.setparams((1, 2, 8000, 0, 'NONE', 'NOT COMPRESSED'))
     with open('decoded_16kHz.pcm', mode='r') as frames:
-        raw = array.array('H', frames.read())
+        raw = frames.read()
         wb.writeframes(raw)
-        nb.writeframes(raw[::2])
+        for i in range(0, len(raw), 2):
+            if i % 4 == 0:
+                nb.writeframes(raw[i:i + 2])

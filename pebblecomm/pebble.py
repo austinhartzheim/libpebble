@@ -330,8 +330,8 @@ class CoreDumpSync():
         return None
 
 class AudioSync():
-    def __init__(self, pebble, endpoint, timeout, filename):
-        self.timeout = timeout
+    def __init__(self, pebble, endpoint, filename):
+        self.timeout = 60
         self.marker = threading.Event()
         self.frames = []
         self.filename = filename
@@ -763,11 +763,11 @@ class Pebble(object):
         if not async:
             return EndpointSync(self, "TIME").get_data()
 
-    def record(self, timeout = 10, filename = 'recording.sir7'):
+    def record(self, filename = 'recording.sir7'):
 
         """Listen to audio endpoint for incoming messages and store them in recording.sir7"""
 
-        filename = AudioSync(self, "AUDIO", timeout, filename).get_data()
+        filename = AudioSync(self, "AUDIO", filename).get_data()
         # self._send_message("AUDIO", "\x03") # stop recording message, crashes mic test app
 
         print "recording stored in", filename
