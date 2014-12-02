@@ -11,6 +11,7 @@ import PblAnalytics
 
 PEBBLE_PHONE_ENVVAR='PEBBLE_PHONE'
 PEBBLE_BTID_ENVVAR='PEBBLE_BTID'
+PEBBLE_QEMU_ENVVAR='PEBBLE_QEMU'
 
 class ConfigurationException(Exception):
     pass
@@ -36,6 +37,8 @@ class LibPebbleCommand(PblCommand):
                 help='When using Developer Connection, the IP address or hostname of your phone. Can also be provided through %s environment variable.' % PEBBLE_PHONE_ENVVAR)
         parser.add_argument('--pebble_id', type=str,
                 help='When using a direct BT connection, the watch\'s Bluetooth ID (e.g. DF38 or 01:23:45:67:DF:38). Can also be provided through %s environment variable.' % PEBBLE_BTID_ENVVAR)
+        parser.add_argument('--qemu', type=str,
+                help='When connecting to the emulator, the hostname:port of the emulator. Can also be provided through %s environment variable.' % PEBBLE_QEMU_ENVVAR)
         parser.add_argument('--pair', action="store_true", help="When using a direct BT connection, attempt to pair the watch automatically")
         parser.add_argument('--verbose', action="store_true", default=False,
                             help='Prints received system logs in addition to APP_LOG')
@@ -46,15 +49,25 @@ class LibPebbleCommand(PblCommand):
 
         # Only use the envrionment variables as defaults if no command-line arguments were specified
         # ...allowing you to leave the envrionment var(s) set at all times
-        if not args.phone and not args.pebble_id:
+        if not args.phone and not args.pebble_id and not args.qemu:
             args.phone = os.getenv(PEBBLE_PHONE_ENVVAR)
             args.pebble_id = os.getenv(PEBBLE_BTID_ENVVAR)
+            args.qemu = os.getenv(PEBBLE_QEMU_ENVVAR)
 
-        if not args.phone and not args.pebble_id:
-            raise ConfigurationException("No method specified to connect to watch\n- To use Developer Connection, argument --phone is required (or set the %s environment variable)\n- To use a direct BT connection, argument --pebble_id is required (or set the %s environment variable)" % (PEBBLE_PHONE_ENVVAR, PEBBLE_BTID_ENVVAR))
+        if not args.phone and not args.pebble_id and not args.qemu:
+            raise ConfigurationException("No method specified to connect to watch\n- To use "
+                  "Developer Connection, argument --phone is required (or set the %s environment "
+                  "variable)\n- To use a direct BT connection, argument --pebble_id is required "
+                  "(or set the %s environment variable)\n- To use a QEMU connection, argument "
+                  "--qemu is required (or set the %s environment variable)" % (PEBBLE_PHONE_ENVVAR,
+                   PEBBLE_BTID_ENVVAR, PEBBLE_QEMU_ENVVAR))
 
-        if args.phone and args.pebble_id:
-            raise ConfigurationException("You must specify only one method to connect to the watch - either Developer Connection (with --phone/%s) or direct via Bluetooth (with --pebble_id/%s)" % (PEBBLE_PHONE_ENVVAR, PEBBLE_BTID_ENVVAR))
+        num_args = bool(args.phone) + bool(args.pebble_id) + bool(args.qemu)
+        if num_args > 1:
+            raise ConfigurationException("You must specify only one method to connect to the watch "
+                 " - either Developer Connection (with --phone/%s), direct via Bluetooth (with "
+                 "--pebble_id/%s), or via QEMU (with --qemu/%s)" % (PEBBLE_PHONE_ENVVAR,
+                 PEBBLE_BTID_ENVVAR, PEBBLE_QEMU_ENVVAR))
 
         self.pebble = libpebble.Pebble(args.pebble_id)
         self.pebble.set_print_pbl_logs(args.verbose)
@@ -62,6 +75,8 @@ class LibPebbleCommand(PblCommand):
             self.pebble.connect_via_websocket(args.phone)
         elif args.pebble_id:
             self.pebble.connect_via_lightblue(pair_first=args.pair)
+        elif args.qemu:
+            self.pebble.connect_via_qemu(args.qemu)
 
     def tail(self, interactive=False, skip_enable_app_log=False):
         if not skip_enable_app_log:

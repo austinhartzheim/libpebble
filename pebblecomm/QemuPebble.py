@@ -1,0 +1,128 @@
+import errno
+import sys
+import logging
+import struct
+import time
+import socket
+import select
+
+# These protocol IDs are defined in qemu_serial.h in the tintin project
+QemuProtocol_SPP = 1
+QEMU_HEADER_SIGNATURE = 0xFEED
+QEMU_FOOTER_SIGNATURE = 0xBEEF
+QEMU_MAX_DATA_LEN = 2048
+
+class QemuPebble(object):
+
+    def __init__(self, host, port, timeout=1, connect_timeout=5):
+        self.host = host
+        self.port = port
+        self.timeout = timeout
+        self.connect_timeout = connect_timeout
+        self.socket = None
+        self.hdr_format = "!HHH"
+        self.footer_format = "!H"
+        self.hdr_size = struct.calcsize(self.hdr_format)
+        self.footer_size = struct.calcsize(self.footer_format)
+        self.max_packet_size = QEMU_MAX_DATA_LEN + self.hdr_size + self.footer_size
+        self.assembled_data = ''
+        self.trace_enabled = False
+
+    def enable_trace(self, setting):
+        self.trace_enabled = setting
+
+    def connect(self):
+        start_time = time.time()
+        connected = False
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        while not connected and (time.time() - start_time < self.connect_timeout):
+            try:
+                self.socket.connect((self.host, self.port))
+                connected = True
+            except socket.error:
+                self.socket.close()
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                time.sleep(0.1)
+
+        if not connected:
+            logging.error("Unable to connect to emuator at %s:%s. Is it running?" % (self.host,
+                            self.port))
+            os._exit(-1)
+
+
+        logging.info("Connected to emulator at %s:%s" % (self.host, self.port))
+
+
+    def write(self, payload, protocol=QemuProtocol_SPP):
+
+        # Append header and footer to the payload
+        data = (struct.pack(self.hdr_format, QEMU_HEADER_SIGNATURE, protocol, len(payload))
+                    + payload + struct.pack(self.footer_format, QEMU_FOOTER_SIGNATURE))
+
+        self.socket.send(data)
+        if self.trace_enabled:
+            logging.debug('send>>> ' + data.encode('hex'))
+
+    def read(self):
+        """
+        retval:   (source, topic, response, data)
+            source can be either 'ws' or 'watch'
+            if source is 'watch', then topic is the endpoint identifier
+            if source is 'ws', then topic is either 'status','phoneInfo','watchConnectionStatusUpdate'
+                    or 'log'
+
+        """
+        # socket timeouts for asynchronous operation is normal.  In this
+        # case we shall return all None to let the caller know.
+        readable, writable, errored = select.select([self.socket], [], [], self.timeout)
+        if not readable:
+            return (None, None, None, None)
+
+        data = self.socket.recv(self.max_packet_size)
+        if not data:
+            logging.error("emulator disconnected")
+            os._exit(-1)
+
+        if self.trace_enabled:
+            logging.debug('rcv<<< ' + data.encode('hex'))
+            
+        self.assembled_data += data
+
+        # Look for the header
+        while True:
+            # See if we have a complete header yet
+            if len(self.assembled_data) < self.hdr_size:
+                return (None, None, None, None)
+
+            (signature, protocol, data_len) = struct.unpack(self.hdr_format,
+                                                      self.assembled_data[0:self.hdr_size])
+            if signature == QEMU_HEADER_SIGNATURE:
+                break
+
+            # Skip till we find the header signature
+            self.assembled_data = self.assembled_data[1:]
+            logging.debug("Skipping garbage byte")
+
+        # Check for valid data len
+        if data_len > QEMU_MAX_DATA_LEN:
+            logging.warning("Invalid packet len detected: %d" % data_len)
+            self.assembled_data = ''
+            return (None, None, None, None)
+
+        # See if we have all the data and footer
+        if len(self.assembled_data) < self.hdr_size + data_len + self.footer_size:
+            return (None, None, None, None)
+
+        # Get the data
+        data = self.assembled_data[self.hdr_size:data_len+self.hdr_size]
+        self.assembled_data = self.assembled_data[self.hdr_size + data_len + self.footer_size:]
+
+        # Ignore everything but SPP protocol for now
+        if protocol != QemuProtocol_SPP:
+            logging.error("Received unsupported protocol: %d" % (protocol))
+            self.assembled_data = self.assembled_data[self.hdr_size + data_len + self.footer_size:]
+            return (None, None, None)
+
+        size, endpoint = struct.unpack("!HH", data[0:4])
+        return ('watch', endpoint, data[4:], data)
+
