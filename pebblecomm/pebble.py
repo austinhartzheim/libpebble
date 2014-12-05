@@ -794,7 +794,7 @@ class Pebble(object):
         self.register_endpoint("PUTBYTES", client.handle_message)
         client.init()
         while not client._done and not client._error:
-            pass
+            time.sleep(0.5)
         if client._error:
             raise PebbleError(self.id, "Failed to send application binary %s/pebble-app.bin" % pbw_path)
 
@@ -804,7 +804,7 @@ class Pebble(object):
             self.register_endpoint("PUTBYTES", client.handle_message)
             client.init()
             while not client._done and not client._error:
-                pass
+                time.sleep(0.5)
             if client._error:
                 raise PebbleError(self.id, "Failed to send application resources %s/app_resources.pbpack" % pbw_path)
 
@@ -816,7 +816,7 @@ class Pebble(object):
           self.register_endpoint("PUTBYTES", client.handle_message)
           client.init()
           while not client._done and not client._error:
-              pass
+              time.sleep(0.5)
           if client._error:
               raise PebbleError(self.id, "Failed to send worker binary %s/%s" % (pbw_path, worker_info['name']))
 
