@@ -88,41 +88,38 @@ class QemuPebble(object):
             
         self.assembled_data += data
 
-        # Look for the header
-        while True:
-            # See if we have a complete header yet
-            if len(self.assembled_data) < self.hdr_size:
-                return (None, None, None, None)
-
+        # Look for a complete packet
+        while len(self.assembled_data) >= self.hdr_size:
             (signature, protocol, data_len) = struct.unpack(self.hdr_format,
                                                       self.assembled_data[0:self.hdr_size])
-            if signature == QEMU_HEADER_SIGNATURE:
+            if signature != QEMU_HEADER_SIGNATURE:
+                self.assembled_data = self.assembled_data[1:]
+                logging.debug("Skipping garbage byte")
+                continue
+
+            # Check for valid data len
+            if data_len > QEMU_MAX_DATA_LEN:
+                logging.warning("Invalid packet len detected: %d" % data_len)
+                # Skip past this header and look for another one
+                self.assembled_data = self.assembled_data[1:]
+                continue
+
+            # If not a complete packet, break out
+            if len(self.assembled_data) < self.hdr_size + data_len + self.footer_size:
                 break
 
-            # Skip till we find the header signature
-            self.assembled_data = self.assembled_data[1:]
-            logging.debug("Skipping garbage byte")
-
-        # Check for valid data len
-        if data_len > QEMU_MAX_DATA_LEN:
-            logging.warning("Invalid packet len detected: %d" % data_len)
-            self.assembled_data = ''
-            return (None, None, None, None)
-
-        # See if we have all the data and footer
-        if len(self.assembled_data) < self.hdr_size + data_len + self.footer_size:
-            return (None, None, None, None)
-
-        # Get the data
-        data = self.assembled_data[self.hdr_size:data_len+self.hdr_size]
-        self.assembled_data = self.assembled_data[self.hdr_size + data_len + self.footer_size:]
-
-        # Ignore everything but SPP protocol for now
-        if protocol != QemuProtocol_SPP:
-            logging.error("Received unsupported protocol: %d" % (protocol))
+            # Pull out the packet
+            data = self.assembled_data[self.hdr_size:data_len+self.hdr_size]
             self.assembled_data = self.assembled_data[self.hdr_size + data_len + self.footer_size:]
-            return (None, None, None)
 
-        size, endpoint = struct.unpack("!HH", data[0:4])
-        return ('watch', endpoint, data[4:], data)
+            # Ignore everything but SPP protocol for now
+            if protocol != QemuProtocol_SPP:
+                logging.error("Received unsupported protocol: %d" % (protocol))
+                continue
+
+            size, endpoint = struct.unpack("!HH", data[0:4])
+            return ('watch', endpoint, data[4:], data)
+
+        # If we broke out, we don't have a complete packet yet
+        return (None, None, None, None)
 
