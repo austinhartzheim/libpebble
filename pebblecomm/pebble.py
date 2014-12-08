@@ -20,6 +20,7 @@ import time
 import traceback
 import uuid
 import WebSocketPebble
+import QemuPebble
 import zipfile
 
 from collections import OrderedDict
@@ -486,6 +487,16 @@ class Pebble(object):
 
         WebSocketPebble.enableTrace(False)
         self._ser = WebSocketPebble.create_connection(host, port, timeout=1, connect_timeout=5)
+        self.init_reader()
+
+    def connect_via_qemu(self, host_and_port):
+        self._connection_type = 'qemu'
+
+        (host, port) = host_and_port.split(':')
+        port = int(port)
+        self._ser = QemuPebble.QemuPebble(host, port, timeout=1, connect_timeout=5)
+        self._ser.enable_trace(True)
+        self._ser.connect()
         self.init_reader()
 
     def _exit_signal_handler(self, *args):
