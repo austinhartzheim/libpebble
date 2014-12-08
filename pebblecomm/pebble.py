@@ -370,6 +370,7 @@ class Pebble(object):
             "PHONE_CONTROL": 33,
             "APPLICATION_MESSAGE": 48,
             "LAUNCHER": 49,
+            "APPLICATION_LIFECYCLE": 52,
             "LOGS": 2000,
             "PING": 2001,
             "LOG_DUMP": 2002,
@@ -1385,7 +1386,7 @@ class Pebble(object):
         # Version 2 of the phone version response.
         response_vers = 2
         major = 2
-        minor = 0
+        minor = 3
         bugfix = 0
 
         msg = pack("!biIIbbbb", 1, -1, session, remote, response_vers,
