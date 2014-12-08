@@ -430,7 +430,6 @@ class Pebble(object):
             self.endpoints["PHONE_VERSION"]: self._phone_version_response,
             self.endpoints["SYSTEM_MESSAGE"]: self._system_message_response,
             self.endpoints["MUSIC_CONTROL"]: self._music_control_response,
-            self.endpoints["LAUNCHER"]: self._application_message_response,
             self.endpoints["LOGS"]: self._log_response,
             self.endpoints["PING"]: self._ping_response,
             self.endpoints["APP_LOGS"]: self._app_log_response,
@@ -1335,22 +1334,6 @@ class Pebble(object):
         resp["btmac"] = ":".join([btmac_hex[i:i+2].upper() for i in reversed(xrange(0, 12, 2))])
 
         return resp
-
-    def _application_message_response(self, endpoint, data):
-        app_messages = {
-                b'\x01': "PUSH",
-                b'\x02': "REQUEST",
-                b'\xFF': "ACK",
-                b'\x7F': "NACK"
-        }
-
-        if len(data) > 1:
-            rest = data[1:]
-        else:
-            rest = ''
-        if data[0] in app_messages:
-            return app_messages[data[0]] + rest
-
 
     def _phone_version_response(self, endpoint, data):
         session_cap = {
