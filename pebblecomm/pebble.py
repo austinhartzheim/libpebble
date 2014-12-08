@@ -429,7 +429,6 @@ class Pebble(object):
             self.endpoints["PHONE_VERSION"]: self._phone_version_response,
             self.endpoints["SYSTEM_MESSAGE"]: self._system_message_response,
             self.endpoints["MUSIC_CONTROL"]: self._music_control_response,
-            self.endpoints["APPLICATION_MESSAGE"]: self._application_message_response,
             self.endpoints["LAUNCHER"]: self._application_message_response,
             self.endpoints["LOGS"]: self._log_response,
             self.endpoints["PING"]: self._ping_response,
@@ -925,7 +924,7 @@ class Pebble(object):
 
         # build and send a single tuple-sized launcher command
         app_message_tuple = amsg.build_tuple(launcher_keys["RUN_STATE_KEY"], "UINT", launcher_key_values[key_value])
-        app_message_dict = amsg.build_dict(app_message_tuple)
+        app_message_dict = amsg.build_dict([app_message_tuple])
         packed_message = amsg.build_message(app_message_dict, "PUSH", app_uuid)
         self._send_message("LAUNCHER", packed_message)
 
@@ -941,7 +940,7 @@ class Pebble(object):
         amsg = AppMessage()
 
         app_message_tuple = amsg.build_tuple(key, tuple_datatype, tuple_data)
-        app_message_dict = amsg.build_dict(app_message_tuple)
+        app_message_dict = amsg.build_dict([app_message_tuple])
         packed_message = amsg.build_message(app_message_dict, "PUSH", app_uuid)
         self._send_message("APPLICATION_MESSAGE", packed_message)
 
@@ -1432,7 +1431,7 @@ class AppMessage(object):
         # note that "TUPLE" can refer to 0 or more tuples. Tuples must be correct endian-ness already
         tuple_count = len(tuple_of_tuples)
         # make the bytearray from the flattened tuples
-        tuple_total_bytes = ''.join(item for item in itertools.chain(*tuple_of_tuples.values()))
+        tuple_total_bytes = ''.join(item for item in itertools.chain(*[x.values() for x in tuple_of_tuples]))
         # now build the dict
         app_message_dict = OrderedDict([
                 ("TUPLECOUNT", pack('B', tuple_count)),
