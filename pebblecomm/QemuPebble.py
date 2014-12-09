@@ -1,10 +1,9 @@
-import errno
-import sys
 import logging
 import struct
 import time
 import socket
 import select
+import os
 
 # These protocol IDs are defined in qemu_serial.h in the tintin project
 QemuProtocol_SPP = 1
@@ -122,4 +121,7 @@ class QemuPebble(object):
 
         # If we broke out, we don't have a complete packet yet
         return (None, None, None, None)
+
+    def close(self):
+        self.socket.close()
 
