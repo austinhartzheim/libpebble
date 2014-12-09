@@ -548,7 +548,7 @@ class Pebble(object):
                 log.error("Lost connection to Pebble")
                 self._alive = False
 
-            os._exit(-1)
+            # os._exit(-1)
 
 
     def _pack_message_data(self, lead, parts):
