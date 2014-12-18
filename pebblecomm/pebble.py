@@ -330,15 +330,15 @@ class CoreDumpSync():
         return None
 
 class AudioSync():
-    def __init__(self, pebble, endpoint, filename):
-        self.timeout = 60
+    timeout = 60
+
+    def __init__(self, pebble, endpoint):
         self.marker = threading.Event()
-        self.frames = []
-        self.filename = filename
+        self.recording = False
         pebble.register_endpoint(endpoint, self.packet_callback)
 
     def packet_callback(self, endpoint, data):
-        packet_id = unpack('B', data[0])[0]
+        packet_id, = unpack('B', data[0])
         if packet_id == 0x01:
             self.process_start_packet(data)
         elif packet_id == 0x02:
@@ -347,31 +347,30 @@ class AudioSync():
             self.process_end_packet(data)
 
     def process_start_packet(self, data):
-        _, session, self.encoder_id, self.sample_rate, self.bit_rate = unpack('<BHBIH', data[:10])
-        print session
-        if self.encoder_id == 1:
-            self.encoder_version = data[10:30]
-            self.bitstream_version, self.frame_size = unpack('<BH', data[30:])
+        _, _, encoder_id, self.sample_rate, _ = unpack('<BHBIH', data[:10])
+        if encoder_id == 1:
+            print 'Receiving audio data... Encoded with Speex {}'.format(data[10:30].strip())
         self.frames = []
+        self.recording = True
 
     def process_data_packet(self, data):
         _, _, _ = unpack('<BHB', data[:4])
         index = 4
         while index < len(data):
-            frame_length = unpack('B', data[index])[0]
+            frame_length, = unpack('B', data[index])
             index += 1
-            self.frames.append(data[index:index + frame_length])
+            if self.recording:
+                self.frames.append(data[index:index + frame_length])
             index += frame_length
 
     def process_end_packet(self, data):
         self.marker.set()
+        self.recording = False
 
-    def get_data(self):
+    def save(self, name):
         try:
             self.marker.wait(self.timeout)
-            siren.store(self.frames, self.filename)
-            siren.decode(self.filename)
-            return self.filename
+            siren.save((1, 2, self.sample_rate, 0, 'NONE', 'UNCOMPRESSED'), self.frames, name)
         except:
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
@@ -763,14 +762,13 @@ class Pebble(object):
         if not async:
             return EndpointSync(self, "TIME").get_data()
 
-    def record(self, filename = 'recording.sir7'):
+    def record(self, name):
 
-        """Listen to audio endpoint for incoming messages and store them in recording.sir7"""
+        """Decode and store audio data streamed from Pebble"""
 
-        filename = AudioSync(self, "AUDIO", filename).get_data()
-        # self._send_message("AUDIO", "\x03") # stop recording message, crashes mic test app
+        AudioSync(self, "AUDIO", filename).save(name)
 
-        print "recording stored in", filename
+        print "Recording stored in", name
 
     def set_time(self, timestamp):
 
