@@ -370,7 +370,7 @@ class AudioSync():
     def save(self, name):
         try:
             self.marker.wait(self.timeout)
-            siren.save((1, 2, self.sample_rate, 0, 'NONE', 'UNCOMPRESSED'), self.frames, name)
+            return siren.save((1, 2, self.sample_rate, 0, 'NONE', 'UNCOMPRESSED'), self.frames, name)
         except:
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
@@ -762,11 +762,11 @@ class Pebble(object):
         if not async:
             return EndpointSync(self, "TIME").get_data()
 
-    def record(self, name):
+    def record(self, name="recording"):
 
         """Decode and store audio data streamed from Pebble"""
 
-        AudioSync(self, "AUDIO", filename).save(name)
+        name = AudioSync(self, "AUDIO").save(name)
 
         print "Recording stored in", name
 
