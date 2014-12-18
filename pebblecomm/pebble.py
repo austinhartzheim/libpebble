@@ -8,6 +8,7 @@ import itertools
 import json
 import logging as log
 import os
+import PebbleUtil as util
 import png
 import re
 import sh
@@ -381,6 +382,7 @@ class Pebble(object):
             "APP_MANAGER": 6000,
             "SCREENSHOT": 8000,
             "COREDUMP": 9000,
+            "BLOB_DB": 45531,
             "PUTBYTES": 48879,
     }
 
@@ -437,6 +439,7 @@ class Pebble(object):
             self.endpoints["APP_MANAGER"]: self._appbank_status_response,
             self.endpoints["SCREENSHOT"]: self._screenshot_response,
             self.endpoints["COREDUMP"]: self._coredump_response,
+            self.endpoints["BLOB_DB"]: self._blob_db_response,
         }
 
     def init_reader(self):
@@ -855,6 +858,25 @@ class Pebble(object):
         else:
             return self.install_app_pebble_protocol(pbw_path, launch_on_install)
 
+
+    def blob_db_insert(self, database_key, key, value):
+        db = BlobDB()
+        data = db.insert(database_key, key, value)
+        self._send_message("BLOB_DB", data)
+        return EndpointSync(self, "BLOB_DB").get_data()
+
+    def blob_db_remove(self, database_key, key):
+        db = BlobDB()
+        data = db.remove(database_key, key)
+        self._send_message("BLOB_DB", data)
+        return EndpointSync(self, "BLOB_DB").get_data()
+
+    def blob_db_clear(self, database_key):
+        db = BlobDB()
+        data = db.clear(database_key)
+        self._send_message("BLOB_DB", data)
+        return EndpointSync(self, "BLOB_DB").get_data()
+
     def send_file(self, file_path, name):
         data = open(file_path, 'r').read()
         client = PutBytesClient(self, 0, "FILE", data, name)
@@ -1006,7 +1028,6 @@ class Pebble(object):
         data = pack("!bb", 0, commands[command])
         log.debug("Sending command %s (code %d)" % (command, commands[command]))
         self._send_message("SYSTEM_MESSAGE", data)
-
 
 
     def ping(self, cookie = 0xDEC0DE, async = False):
@@ -1404,6 +1425,11 @@ class Pebble(object):
 
         return event_names[event] if event in event_names else None
 
+    def _blob_db_response(self, endpoint, data):
+        db = BlobDB()
+        resp = unpack("B", data)[0]
+        return db.interpret_response(resp)
+
 
 class AppMessage(object):
 # tools to build a valid app message
@@ -1606,3 +1632,27 @@ class PutBytesClient(object):
             self.handle_commit(resp)
         elif self._state == self.states["COMPLETE"]:
             self.handle_complete(resp)
+
+class BlobDB:
+
+    def insert(self, database_key, key, value):
+        key_bytes = util.convert_to_bytes(key)
+        value_bytes = util.convert_to_bytes(value)
+        data = pack("BBB", 0x01, database_key, len(key_bytes)) + str(key_bytes) \
+                    + pack("H", len(value_bytes)) + str(value)
+        return data
+
+    def remove(self, database_key, key):
+        key_bytes = util.convert_to_bytes(key)
+        data = pack("BBB", 0x04, database_key, len(key_bytes)) + str(key_bytes)
+        return data
+
+    def clear(self, database_key):
+        data = pack("BB", 0x05, database_key)
+        return data
+
+    def interpret_response(self, code):
+        if (code == 1):
+            return "SUCCESS"
+        else:
+            return "ERROR"
