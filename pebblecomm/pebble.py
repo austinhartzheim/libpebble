@@ -10,6 +10,7 @@ import logging as log
 import os
 import PebbleUtil as util
 import png
+import random
 import re
 import sh
 import signal
@@ -865,9 +866,9 @@ class Pebble(object):
         self._send_message("BLOB_DB", data)
         return EndpointSync(self, "BLOB_DB").get_data()
 
-    def blob_db_remove(self, database_key, key):
+    def blob_db_delete(self, database_key, key):
         db = BlobDB()
-        data = db.remove(database_key, key)
+        data = db.delete(database_key, key)
         self._send_message("BLOB_DB", data)
         return EndpointSync(self, "BLOB_DB").get_data()
 
@@ -1427,7 +1428,7 @@ class Pebble(object):
 
     def _blob_db_response(self, endpoint, data):
         db = BlobDB()
-        resp = unpack("B", data)[0]
+        token, resp = unpack("HB", data)
         return db.interpret_response(resp)
 
 
@@ -1635,24 +1636,30 @@ class PutBytesClient(object):
 
 class BlobDB:
 
+    def get_token(self):
+        return random.randrange(1, pow(2,16) - 1, 1)
+
     def insert(self, database_key, key, value):
         key_bytes = util.convert_to_bytes(key)
         value_bytes = util.convert_to_bytes(value)
-        data = pack("BBB", 0x01, database_key, len(key_bytes)) + str(key_bytes) \
-                    + pack("H", len(value_bytes)) + str(value)
+        token = self.get_token()
+        data = pack("<BHBB", 0x01, token, database_key, len(key_bytes)) + str(key_bytes) \
+                    + pack("<H", len(value_bytes)) + str(value)
         return data
 
-    def remove(self, database_key, key):
+    def delete(self, database_key, key):
         key_bytes = util.convert_to_bytes(key)
-        data = pack("BBB", 0x04, database_key, len(key_bytes)) + str(key_bytes)
+        token = self.get_token()
+        data = pack("<BHBB", 0x04, token, database_key, len(key_bytes)) + str(key_bytes)
         return data
 
     def clear(self, database_key):
-        data = pack("BB", 0x05, database_key)
+        token = self.get_token()
+        data = pack("<BHB", 0x05, token, database_key)
         return data
 
     def interpret_response(self, code):
         if (code == 1):
             return "SUCCESS"
         else:
-            return "ERROR"
+            return "ERROR: %d" % (code)
