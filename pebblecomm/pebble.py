@@ -861,20 +861,20 @@ class Pebble(object):
 
 
     def blob_db_insert(self, database_key, key, value):
-        db = BlobDB()
-        data = db.insert(database_key, key, value)
+        db = BlobDB(database_key)
+        data = db.insert(key, value)
         self._send_message("BLOB_DB", data)
         return EndpointSync(self, "BLOB_DB").get_data()
 
     def blob_db_delete(self, database_key, key):
-        db = BlobDB()
-        data = db.delete(database_key, key)
+        db = BlobDB(database_key)
+        data = db.delete(key)
         self._send_message("BLOB_DB", data)
         return EndpointSync(self, "BLOB_DB").get_data()
 
     def blob_db_clear(self, database_key):
-        db = BlobDB()
-        data = db.clear(database_key)
+        db = BlobDB(database_key)
+        data = db.clear()
         self._send_message("BLOB_DB", data)
         return EndpointSync(self, "BLOB_DB").get_data()
 
@@ -1634,28 +1634,31 @@ class PutBytesClient(object):
         elif self._state == self.states["COMPLETE"]:
             self.handle_complete(resp)
 
-class BlobDB:
+class BlobDB(object):
+
+    def __init__(self, db_id=0):
+        self.db_id = db_id
 
     def get_token(self):
         return random.randrange(1, pow(2,16) - 1, 1)
 
-    def insert(self, database_key, key, value):
+    def insert(self, key, value):
         key_bytes = util.convert_to_bytes(key)
         value_bytes = util.convert_to_bytes(value)
         token = self.get_token()
-        data = pack("<BHBB", 0x01, token, database_key, len(key_bytes)) + str(key_bytes) \
+        data = pack("<BHBB", 0x01, token, self.db_id, len(key_bytes)) + str(key_bytes) \
                     + pack("<H", len(value_bytes)) + str(value)
         return data
 
-    def delete(self, database_key, key):
+    def delete(self, key):
         key_bytes = util.convert_to_bytes(key)
         token = self.get_token()
-        data = pack("<BHBB", 0x04, token, database_key, len(key_bytes)) + str(key_bytes)
+        data = pack("<BHBB", 0x04, token, self.db_id, len(key_bytes)) + str(key_bytes)
         return data
 
-    def clear(self, database_key):
+    def clear(self):
         token = self.get_token()
-        data = pack("<BHB", 0x05, token, database_key)
+        data = pack("<BHB", 0x05, token, self.db_id)
         return data
 
     def interpret_response(self, code):
