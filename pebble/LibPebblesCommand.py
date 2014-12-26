@@ -347,9 +347,13 @@ class PblEmuTapCommand(LibPebbleCommand):
 
     def configure_subparser(self, parser):
         LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('--axis', type=str, choices=['x', 'y', 'z'], default='x',
+                help='which axis to send tap event on')
+        parser.add_argument('--direction', type=int, choices=[1, -1], default=1,
+                help='which direction')
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
-        self.pebble.emu_tap()
+        self.pebble.emu_tap(axis=args.axis, direction=args.direction)
 
 
