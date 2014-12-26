@@ -1034,6 +1034,19 @@ class Pebble(object):
             cmd = "\x00"  # Normal reset
         self._send_message("RESET", cmd)
 
+    def emu_tap(self, axis='x', direction=1):
+
+        """Send a tap to the watch running in the emulator"""
+        axes = {'x': 0, 'y': 1, 'z': 2}
+        axis_int = axes.get(axis)
+        msg = pack('!bb', axis_int, direction);
+
+        if DEBUG_PROTOCOL:
+            log.debug('>>> ' + msg.encode('hex'))
+
+        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Tap)
+
+
     def dump_logs(self, generation_number):
         """Dump the saved logs from the watch.
 
