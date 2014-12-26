@@ -56,7 +56,8 @@ class PbSDKShell:
             return "Development"
 
     def main(self):
-        parser = argparse.ArgumentParser(description = 'Pebble SDK Shell')
+        parser = argparse.ArgumentParser(description = 'Pebble SDK Shell',
+                                formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.add_argument('--debug', action="store_true",
                             help="Enable debugging output")
         parser.add_argument('--version', action='version',
