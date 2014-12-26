@@ -7,7 +7,9 @@ import socket
 import select
 
 # These protocol IDs are defined in qemu_serial.h in the tintin project
-QemuProtocol_SPP = 1
+QemuProtocol_SPP = 1      # Send SPP data (used for Pebble protocol)
+QemuProtocol_Tap = 2      # Send a tap event
+
 QEMU_HEADER_SIGNATURE = 0xFEED
 QEMU_FOOTER_SIGNATURE = 0xBEEF
 QEMU_MAX_DATA_LEN = 2048
@@ -45,7 +47,7 @@ class QemuPebble(object):
                 time.sleep(0.1)
 
         if not connected:
-            logging.error("Unable to connect to emuator at %s:%s. Is it running?" % (self.host,
+            logging.error("Unable to connect to emulator at %s:%s. Is it running?" % (self.host,
                             self.port))
             os._exit(-1)
 

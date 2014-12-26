@@ -339,3 +339,17 @@ class PblReplCommand(LibPebbleCommand):
     def run(self, args):
         LibPebbleCommand.run(self, args)
         self.tail(interactive=True)
+
+
+class PblEmuTapCommand(LibPebbleCommand):
+    name = 'emu_tap'
+    help = 'Send a tap event to Pebble running in the emulator'
+
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+        self.pebble.emu_tap()
+
+
