@@ -1068,6 +1068,16 @@ class Pebble(object):
 
         self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Tap)
 
+    def emu_bluetooth_connection(self, is_ble=False, connected=True):
+
+        """Send a bluetooth connection event to the watch running in the emulator"""
+        msg = pack('!bb', is_ble, connected);
+
+        if DEBUG_PROTOCOL:
+            log.debug('>>> ' + msg.encode('hex'))
+
+        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_BluetoothConnection)
+
 
     def dump_logs(self, generation_number):
         """Dump the saved logs from the watch.

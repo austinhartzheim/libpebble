@@ -7,8 +7,9 @@ import socket
 import select
 
 # These protocol IDs are defined in qemu_serial.h in the tintin project
-QemuProtocol_SPP = 1      # Send SPP data (used for Pebble protocol)
-QemuProtocol_Tap = 2      # Send a tap event
+QemuProtocol_SPP = 1                  # Send SPP data (used for Pebble protocol)
+QemuProtocol_Tap = 2                  # Send a tap event
+QemuProtocol_BluetoothConnection = 3  # Send a bluetooth connection event
 
 QEMU_HEADER_SIGNATURE = 0xFEED
 QEMU_FOOTER_SIGNATURE = 0xBEEF
