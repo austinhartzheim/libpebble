@@ -1057,6 +1057,17 @@ class Pebble(object):
         self._ser.write(msg, protocol=QemuPebble.QemuProtocol_BluetoothConnection)
 
 
+    def emu_compass(self, heading=0, calib=2):
+
+        """Send a compass event to the watch running in the emulator"""
+        msg = pack('!Ib', heading, calib);
+
+        if DEBUG_PROTOCOL:
+            log.debug('>>> ' + msg.encode('hex'))
+
+        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Compass)
+
+
     def dump_logs(self, generation_number):
         """Dump the saved logs from the watch.
 
