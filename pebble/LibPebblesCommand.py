@@ -357,3 +357,19 @@ class PblEmuTapCommand(LibPebbleCommand):
         self.pebble.emu_tap(axis=args.axis, direction=args.direction)
 
 
+class PblEmuBluetoothConnectionCommand(LibPebbleCommand):
+    name = 'emu_bt_connection'
+    help = 'Send a bluetooth connection/disconnection event to Pebble running in the emulator'
+
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('--ble', action='store_true',
+                            help='BLE event')
+        parser.add_argument('--disconnect', action='store_true',
+                            help='generate disconnection (instead of connection) event')
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+        self.pebble.emu_bluetooth_connection(is_ble=args.ble, connected=not args.disconnect)
+
+
