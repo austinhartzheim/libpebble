@@ -373,3 +373,19 @@ class PblEmuBluetoothConnectionCommand(LibPebbleCommand):
         self.pebble.emu_bluetooth_connection(is_ble=args.ble, connected=not args.disconnect)
 
 
+class PblEmuCompassCommand(LibPebbleCommand):
+    name = 'emu_compass'
+    help = 'Send a compass heading event to Pebble running in the emulator'
+
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('--heading', type=int, default=0,
+                            help='heading, from 0 to 360')
+        parser.add_argument('--calib', type=str, choices=['invalid', 'calibrating', 'calibrated'],
+                            default='calibrated', help='calibration status')
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+        calib_dict = {'invalid': 0, 'calibrating': 1, 'calibrated': 2}
+        self.pebble.emu_compass(heading=(args.heading * 0x10000 + 180) / 360,
+                                calib=calib_dict[args.calib])

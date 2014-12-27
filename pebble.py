@@ -48,6 +48,7 @@ class PbSDKShell:
         self.commands.append(PblCoreDumpCommand())
         self.commands.append(PblEmuTapCommand())
         self.commands.append(PblEmuBluetoothConnectionCommand())
+        self.commands.append(PblEmuCompassCommand())
 
     def _get_version(self):
         try:
