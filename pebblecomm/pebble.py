@@ -859,21 +859,36 @@ class Pebble(object):
         else:
             return self.install_app_pebble_protocol(pbw_path, launch_on_install)
 
+    def timeline_add_pin(self):
+        fmt = "<16s16sIHBHBBBB" 
+        pin_id = uuid.uuid4()
+        pin = struct.pack(fmt,
+            pin_id.get_bytes(), # UUID
+            "\x00",             # parent id
+            int(time.time()),   # timestamp
+            0,                  # duration
+            2,                  # type (pin)
+            0,                  # flags
+            0,                  # pin layout
+            0,                  # view layout
+            0,                  # num attributes
+            0)                  # num actions
+        self.blob_db_insert("PIN", pin_id.get_bytes(), pin)
 
-    def blob_db_insert(self, database_key, key, value):
-        db = BlobDB(database_key)
+    def blob_db_insert(self, db, key, value):
+        db = BlobDB(db)
         data = db.insert(key, value)
         self._send_message("BLOB_DB", data)
         return EndpointSync(self, "BLOB_DB").get_data()
 
-    def blob_db_delete(self, database_key, key):
-        db = BlobDB(database_key)
+    def blob_db_delete(self, db, key):
+        db = BlobDB(db)
         data = db.delete(key)
         self._send_message("BLOB_DB", data)
         return EndpointSync(self, "BLOB_DB").get_data()
 
-    def blob_db_clear(self, database_key):
-        db = BlobDB(database_key)
+    def blob_db_clear(self, db):
+        db = BlobDB(db)
         data = db.clear()
         self._send_message("BLOB_DB", data)
         return EndpointSync(self, "BLOB_DB").get_data()
@@ -1636,8 +1651,13 @@ class PutBytesClient(object):
 
 class BlobDB(object):
 
-    def __init__(self, db_id=0):
-        self.db_id = db_id
+    dbs = {
+            "TEST": 0,
+            "PIN": 1,
+    }
+
+    def __init__(self, db="TEST"):
+        self.db_id = self.dbs[db];
 
     def get_token(self):
         return random.randrange(1, pow(2,16) - 1, 1)
