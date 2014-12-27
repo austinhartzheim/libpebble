@@ -873,7 +873,16 @@ class Pebble(object):
             0,                  # view layout
             0,                  # num attributes
             0)                  # num actions
+        print "adding pin {}".format(pin_id.hex)
         self.blob_db_insert("PIN", pin_id.get_bytes(), pin)
+
+    def timeline_remove_pin(self, uuid, uuid_is_string=True):
+        if uuid_is_string:
+            uuid = uuid.decode('hex')
+        elif type(uuid) is uuid.UUID:
+            uuid = uuid.bytes
+        # else, assume it's a byte array
+        self.blob_db_delete("PIN", uuid)
 
     def blob_db_insert(self, db, key, value):
         db = BlobDB(db)
