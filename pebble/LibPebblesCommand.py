@@ -389,3 +389,20 @@ class PblEmuCompassCommand(LibPebbleCommand):
         calib_dict = {'invalid': 0, 'calibrating': 1, 'calibrated': 2}
         self.pebble.emu_compass(heading=(args.heading * 0x10000 + 180) / 360,
                                 calib=calib_dict[args.calib])
+
+class PblEmuBatteryCommand(LibPebbleCommand):
+    name = 'emu_battery'
+    help = 'Set battery level on the Pebble running in the emulator'
+
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('--mv', type=int, default=4000,
+                            help='battery millivolts, from 3000 to 4200')
+        parser.add_argument('--charging', action='store_true',
+                            help='set charging cable as connected')
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+        self.pebble.emu_battery(mv=args.mv, charging=args.charging)
+
+

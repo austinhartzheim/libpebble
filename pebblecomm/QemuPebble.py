@@ -11,6 +11,7 @@ QemuProtocol_SPP = 1                  # Send SPP data (used for Pebble protocol)
 QemuProtocol_Tap = 2                  # Send a tap event
 QemuProtocol_BluetoothConnection = 3  # Send a bluetooth connection event
 QemuProtocol_Compass = 4              # Send a compass event
+QemuProtocol_Battery = 5              # Send a battery info event
 
 QEMU_HEADER_SIGNATURE = 0xFEED
 QEMU_FOOTER_SIGNATURE = 0xBEEF
