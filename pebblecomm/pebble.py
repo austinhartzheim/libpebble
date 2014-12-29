@@ -1065,15 +1065,22 @@ class Pebble(object):
         if not async:
             return EndpointSync(self, "PING").get_data()
 
-    def reset(self, prf=False, coredump=False):
+    def reset(self, prf=False, coredump=False, factory_reset=False):
 
         """Reset the watch remotely."""
 
-        if prf and coredump:
-            raise Exception("prf and coredump are mutually exclusive!")
+        has_option_already = False
+        for option in [prf, coredump, factory_reset]:
+            if option:
+                if has_option_already:
+                    raise Exception("prf, coredump and factory_reset are"
+                                    " mutually exclusive!")
+                has_option_already = True
 
         if prf:
             cmd = "\xFF"  # Recovery Mode
+        elif factory_reset:  # Factory Reset
+            cmd = "\xFE"
         elif coredump:
             cmd = "\x01"  # Force coredump
         else:
