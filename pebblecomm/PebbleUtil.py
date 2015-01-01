@@ -11,11 +11,11 @@ def is_hex(s):
     try:
         int(s, 16)
         return True
-    except ValueError:
+    except:
         return False
 
 def convert_to_bytes(s):
-    s_bytes = None
+    s_bytes = s
 
     if type(s) is int:
         s_bytes = s
@@ -23,10 +23,10 @@ def convert_to_bytes(s):
         s_bytes = s.bytes
     elif is_hex(s):
         s_bytes = s.decode('hex')
-    elif is_valid_uuid_str(s):
+    elif type(s) is str and is_valid_uuid_str(s):
         s_bytes = s.replace("-", "").decode('hex')
     elif type(s) is str:
-        s_bytes = s
+        s_bytes = str.encode(s)
     # else assume bytes
 
     return s_bytes

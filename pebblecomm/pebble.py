@@ -884,6 +884,18 @@ class Pebble(object):
         # else, assume it's a byte array
         self.blob_db_delete("PIN", uuid)
 
+    def install_app_metadata(self, in_uuid):
+        rand_name = uuid.uuid4().get_hex()[0:6] # generate random name
+        fmt = "<32sHI"
+        app = struct.pack(fmt,
+            rand_name,          # random name
+            0,                  # version
+            0)                  # info_flags
+        return self.blob_db_insert("APP", in_uuid, app)
+
+    def remove_app_metadata(self, uuid):
+        return self.blob_db_delete("APP", uuid)
+
     def blob_db_insert(self, db, key, value):
         db = BlobDB(db)
         data = db.insert(key, value)
@@ -1670,6 +1682,7 @@ class BlobDB(object):
     dbs = {
             "TEST": 0,
             "PIN": 1,
+            "APP": 2,
     }
 
     def __init__(self, db="TEST"):
