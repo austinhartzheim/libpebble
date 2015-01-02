@@ -1068,10 +1068,10 @@ class Pebble(object):
         self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Compass)
 
 
-    def emu_battery(self, mv=4000, charging=True):
+    def emu_battery(self, pct=80, charging=True):
 
         """Send battery info to the watch running in the emulator"""
-        msg = pack('!Hb', mv, charging);
+        msg = pack('!bb', pct, charging);
 
         if DEBUG_PROTOCOL:
             log.debug('>>> ' + msg.encode('hex'))

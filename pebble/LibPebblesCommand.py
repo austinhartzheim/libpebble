@@ -394,13 +394,13 @@ class PblEmuBatteryCommand(LibPebbleCommand):
 
     def configure_subparser(self, parser):
         LibPebbleCommand.configure_subparser(self, parser)
-        parser.add_argument('--mv', type=int, default=4000,
-                            help='battery millivolts, from 3000 to 4200')
+        parser.add_argument('--pct', type=int, default=80,
+                            help='battery percent, from 0 to 100')
         parser.add_argument('--charging', action='store_true',
                             help='set charging cable as connected')
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
-        self.pebble.emu_battery(mv=args.mv, charging=args.charging)
+        self.pebble.emu_battery(pct=args.pct, charging=args.charging)
 
 
