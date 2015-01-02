@@ -363,14 +363,12 @@ class PblEmuBluetoothConnectionCommand(LibPebbleCommand):
 
     def configure_subparser(self, parser):
         LibPebbleCommand.configure_subparser(self, parser)
-        parser.add_argument('--ble', action='store_true',
-                            help='BLE event')
-        parser.add_argument('--disconnect', action='store_true',
-                            help='generate disconnection (instead of connection) event')
+        parser.add_argument('--connected', choices=['no', 'yes'], default='yes',
+                            help='generate a connected/disconnected event')
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
-        self.pebble.emu_bluetooth_connection(is_ble=args.ble, connected=not args.disconnect)
+        self.pebble.emu_bluetooth_connection(connected=(args.connected == 'yes'))
 
 
 class PblEmuCompassCommand(LibPebbleCommand):
