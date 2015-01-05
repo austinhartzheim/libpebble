@@ -888,11 +888,12 @@ class Pebble(object):
         rand_name = uuid.uuid4().get_hex()[0:6] # generate random name
         uuid_bytes = util.convert_to_bytes(in_uuid)
         app = struct.pack(
-            "<16s32sHI",
+            "<16s32sHIB",
             uuid_bytes,
             rand_name,          # random name
             0,                  # version
-            0)                  # info_flags
+            0,                  # info_flags
+            0)                  # install_state
         return self._raw_blob_db_insert("APP", uuid_bytes, app)
 
     def remove_app_metadata(self, uuid):
