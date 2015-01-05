@@ -347,6 +347,24 @@ class EndpointSync():
         except:
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
+class QemuEndpointSync():
+    timeout = 10
+
+    def __init__(self, pebble, endpoint_id):
+        self.marker = threading.Event()
+        pebble.register_qemu_endpoint(endpoint_id, self.callback)
+
+    def callback(self, endpoint, response):
+        self.data = response
+        self.marker.set()
+
+    def get_data(self):
+        try:
+            self.marker.wait(timeout=self.timeout)
+            return self.data
+        except:
+            raise PebbleError(None, "Timed out... Is QEMU connected?")
+
 class PebbleError(Exception):
     def __init__(self, id, message):
         self._id = id
@@ -438,6 +456,7 @@ class Pebble(object):
             self.endpoints["SCREENSHOT"]: self._screenshot_response,
             self.endpoints["COREDUMP"]: self._coredump_response,
         }
+        self._qemu_endpoint_handlers = {}
 
     def init_reader(self):
         try:
@@ -519,9 +538,9 @@ class Pebble(object):
 
                 if resp is None or source is None:
                     # ignore message
-                    continue
+                    pass
 
-                if source == 'ws':
+                elif source == 'ws':
                     if endpoint in ['status', 'phoneInfo']:
                         # phone -> sdk message
                         self._ws_client.handle_response(endpoint, resp)
@@ -531,14 +550,18 @@ class Pebble(object):
                         watch_connected = resp
                         if watch_connected and self._app_log_enabled:
                             self.app_log_enable()
-                    continue
 
-                #log.info("message for endpoint " + str(endpoint) + " resp : " + str(resp))
-                if endpoint in self._internal_endpoint_handlers:
-                    resp = self._internal_endpoint_handlers[endpoint](endpoint, resp)
+                elif source == 'qemu':
+                    if endpoint in self._qemu_endpoint_handlers and resp is not None:
+                        self._qemu_endpoint_handlers[endpoint](endpoint, resp)
 
-                if endpoint in self._endpoint_handlers and resp is not None:
-                    self._endpoint_handlers[endpoint](endpoint, resp)
+                else:
+                    #log.info("message for endpoint " + str(endpoint) + " resp : " + str(resp))
+                    if endpoint in self._internal_endpoint_handlers:
+                        resp = self._internal_endpoint_handlers[endpoint](endpoint, resp)
+
+                    if endpoint in self._endpoint_handlers and resp is not None:
+                        self._endpoint_handlers[endpoint](endpoint, resp)
 
         except Exception as e:
             if type(e) is PebbleError:
@@ -602,6 +625,9 @@ class Pebble(object):
 
         endpoint = self.endpoints[endpoint_name]
         self._endpoint_handlers[endpoint] = func
+
+    def register_qemu_endpoint(self, endpoint_id, func):
+        self._qemu_endpoint_handlers[endpoint_id] = func
 
     def notification_sms(self, sender, body):
 
@@ -1077,6 +1103,44 @@ class Pebble(object):
             log.debug('>>> ' + msg.encode('hex'))
 
         self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Battery)
+
+
+    def emu_accel(self, motion=None, filename=None):
+
+        """Accel data to the watch running in the emulator"""
+        if motion == 'tilt_left':
+            samples = [[-500, 0, -900], [-900, 0, -500], [-1000, 0, 0],]
+        elif motion == 'tilt_right':
+            samples = [[500, 0, -900], [900, 0, -500], [1000, 0, 0]]
+        elif motion == 'tilt_forward':
+            samples = [[0, 500, -900], [0, 900, -500], [0, 1000, 0],]
+        elif motion == 'tilt_back':
+            samples = [[0, -500, -900], [0, -900, -500], [0, -1000, 0],]
+        elif motion == 'custom':
+            if (filename is None):
+                raise Exception("No filename specified");
+            samples = []
+            with open(filename) as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        samples.append([int(x) for x in line.split(',')])
+        else:
+            raise Exception("Unsupported accel motion: '%s'" % (motion))
+
+        msg = pack('!b', len(samples))
+        for sample in samples:
+            sample_data = pack('!hhh', sample[0], sample[1], sample[2])
+            msg += sample_data
+
+        if DEBUG_PROTOCOL:
+            log.debug('>>> ' + msg.encode('hex'))
+
+        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Accel)
+
+        response = QemuEndpointSync(self, QemuPebble.QemuProtocol_Accel).get_data()
+        samples_avail = struct.Struct("!H").unpack(response)
+        print "Success: room for %d more samples" % (samples_avail)
 
 
     def dump_logs(self, generation_number):
