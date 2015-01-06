@@ -1107,15 +1107,34 @@ class Pebble(object):
 
     def emu_accel(self, motion=None, filename=None):
 
-        """Accel data to the watch running in the emulator"""
+        """Send accel data to the watch running in the emulator
+           The caller is responsible for validating that 'motion' is a valid string
+        """
+        MAX_ACCEL_SAMPLES = 255
         if motion == 'tilt_left':
             samples = [[-500, 0, -900], [-900, 0, -500], [-1000, 0, 0],]
+
         elif motion == 'tilt_right':
             samples = [[500, 0, -900], [900, 0, -500], [1000, 0, 0]]
+
         elif motion == 'tilt_forward':
             samples = [[0, 500, -900], [0, 900, -500], [0, 1000, 0],]
+
         elif motion == 'tilt_back':
             samples = [[0, -500, -900], [0, -900, -500], [0, -1000, 0],]
+
+        elif motion.startswith('gravity'):
+            # The format expected here is 'gravity<sign><axis>', where sign can be '-', or '+' and
+            # axis can be 'x', 'y', or 'z'
+            if motion[len('gravity')] == '+':
+                amount = 1000
+            else:
+                amount = -1000
+            axis_letter = motion[len('gravity-')]
+            axis_index = {'x':0, 'y':1, 'z':2}[axis_letter]
+            samples = [[0, 0, 0]]
+            samples[0][axis_index] = amount
+
         elif motion == 'custom':
             if (filename is None):
                 raise Exception("No filename specified");
@@ -1128,6 +1147,9 @@ class Pebble(object):
         else:
             raise Exception("Unsupported accel motion: '%s'" % (motion))
 
+        if len(samples) > MAX_ACCEL_SAMPLES:
+            raise Exception("Cannot send %d samples. The max number of accel samples that can be "
+                      "sent at a time is %d." % (len(samples), MAX_ACCEL_SAMPLES))
         msg = pack('!b', len(samples))
         for sample in samples:
             sample_data = pack('!hhh', sample[0], sample[1], sample[2])

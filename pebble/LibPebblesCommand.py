@@ -411,8 +411,9 @@ class PblEmuAccelCommand(LibPebbleCommand):
     def configure_subparser(self, parser):
         LibPebbleCommand.configure_subparser(self, parser)
         parser.add_argument('motion', choices=['tilt_left', 'tilt_right', 'tilt_forward',
-            'tilt_back', 'custom'], default=None,
-            help=('which type of motion to send. If "custom", then specify the file name using'
+            'tilt_back', 'gravity+x', 'gravity-x', 'gravity+y', 'gravity-y', 'gravity+z',
+            'gravity-z', 'custom'], default=None,
+            help=('which type of action to send. If "custom", then specify the file name using'
                   ' the --file option'))
         parser.add_argument('--file', type=str, help=('filename of file containing custom accel'
             ' data. Each line of this text file should contain the comma separated x, y, and z '
