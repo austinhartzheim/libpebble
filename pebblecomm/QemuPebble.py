@@ -8,12 +8,13 @@ import select
 import os
 
 # These protocol IDs are defined in qemu_serial.h in the tintin project
-QemuProtocol_SPP = 1                  # Send SPP data (used for Pebble protocol)
-QemuProtocol_Tap = 2                  # Send a tap event
-QemuProtocol_BluetoothConnection = 3  # Send a bluetooth connection event
-QemuProtocol_Compass = 4              # Send a compass event
-QemuProtocol_Battery = 5              # Send a battery info event
-QemuProtocol_Accel = 6                # Send a accel data event
+QemuProtocol_SPP = 1                    # Send SPP data (used for Pebble protocol)
+QemuProtocol_Tap = 2                    # Send a tap event
+QemuProtocol_BluetoothConnection = 3    # Send a bluetooth connection event
+QemuProtocol_Compass = 4                # Send a compass event
+QemuProtocol_Battery = 5                # Send a battery info event
+QemuProtocol_Accel = 6                  # Send a accel data event
+QemuProtocol_VibrationNotification = 7  # Vibration notification from Pebble
 
 QEMU_HEADER_SIGNATURE = 0xFEED
 QEMU_FOOTER_SIGNATURE = 0xBEEF
