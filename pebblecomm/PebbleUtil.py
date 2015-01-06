@@ -26,7 +26,7 @@ def convert_to_bytes(s):
     elif type(s) is str and is_valid_uuid_str(s):
         s_bytes = s.replace("-", "").decode('hex')
     elif type(s) is str:
-        s_bytes = str.encode(s)
+        s_bytes = s_bytes.encode('UTF-8')
     # else assume bytes
 
     return s_bytes
