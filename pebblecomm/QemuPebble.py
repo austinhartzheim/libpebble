@@ -15,6 +15,7 @@ QemuProtocol_Compass = 4                # Send a compass event
 QemuProtocol_Battery = 5                # Send a battery info event
 QemuProtocol_Accel = 6                  # Send a accel data event
 QemuProtocol_VibrationNotification = 7  # Vibration notification from Pebble
+QemuProtocol_Button = 8                 # Send a button state change 
 
 QEMU_HEADER_SIGNATURE = 0xFEED
 QEMU_FOOTER_SIGNATURE = 0xBEEF

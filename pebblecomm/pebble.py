@@ -1224,6 +1224,25 @@ class Pebble(object):
         print "Success: room for %d more samples" % (samples_avail)
 
 
+    def emu_button(self, button_id):
+
+        """Send a short button press to the watch running in the emulator. 
+        0: back, 1: up, 2: select, 3: down """
+
+        button_state = 1 << button_id;
+        while True:
+            # send the press immediately followed by the release
+            msg = pack('!b', button_state);
+
+            if DEBUG_PROTOCOL:
+                log.debug('>>> ' + msg.encode('hex'))
+
+            self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Button)
+            if button_state == 0:
+                break;
+            button_state = 0
+
+
     def _qemu_vibration_notification(self, endpoint, data):
         on, = unpack("!b", data)
         print "Vibration: %s" % ("on" if on else "off")
