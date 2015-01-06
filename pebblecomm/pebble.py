@@ -568,6 +568,9 @@ class Pebble(object):
                         self._endpoint_handlers[endpoint](endpoint, resp)
 
         except Exception as e:
+            import traceback
+            log.info(traceback.format_exc())
+
             if type(e) is PebbleError:
                 log.info(e)
 
@@ -1297,7 +1300,11 @@ class Pebble(object):
         return data
 
     def _ping_response(self, endpoint, data):
-        restype, retcookie = unpack("!bL", data)
+        # Ping responses can either be 5 bytes or 6 bytes long.
+        # The format is [ 1 byte command | 4 byte cookie | 1 byte idle flag (optional) ]
+
+        # We only care about the cookie, so just strip the idle flag before calling unpack
+        restype, retcookie = unpack("!bL", data[0:5])
         return retcookie
 
     def _get_time_response(self, endpoint, data):
