@@ -349,6 +349,24 @@ class EndpointSync():
         except:
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
+class QemuEndpointSync():
+    timeout = 10
+
+    def __init__(self, pebble, endpoint_id):
+        self.marker = threading.Event()
+        pebble.register_qemu_endpoint(endpoint_id, self.callback)
+
+    def callback(self, endpoint, response):
+        self.data = response
+        self.marker.set()
+
+    def get_data(self):
+        try:
+            self.marker.wait(timeout=self.timeout)
+            return self.data
+        except:
+            raise PebbleError(None, "Timed out... Is QEMU connected?")
+
 class PebbleError(Exception):
     def __init__(self, id, message):
         self._id = id
@@ -442,6 +460,7 @@ class Pebble(object):
             self.endpoints["COREDUMP"]: self._coredump_response,
             self.endpoints["BLOB_DB"]: self._blob_db_response,
         }
+        self._qemu_endpoint_handlers = {}
 
     def init_reader(self):
         try:
@@ -523,9 +542,9 @@ class Pebble(object):
 
                 if resp is None or source is None:
                     # ignore message
-                    continue
+                    pass
 
-                if source == 'ws':
+                elif source == 'ws':
                     if endpoint in ['status', 'phoneInfo']:
                         # phone -> sdk message
                         self._ws_client.handle_response(endpoint, resp)
@@ -535,14 +554,18 @@ class Pebble(object):
                         watch_connected = resp
                         if watch_connected and self._app_log_enabled:
                             self.app_log_enable()
-                    continue
 
-                #log.info("message for endpoint " + str(endpoint) + " resp : " + str(resp))
-                if endpoint in self._internal_endpoint_handlers:
-                    resp = self._internal_endpoint_handlers[endpoint](endpoint, resp)
+                elif source == 'qemu':
+                    if endpoint in self._qemu_endpoint_handlers and resp is not None:
+                        self._qemu_endpoint_handlers[endpoint](endpoint, resp)
 
-                if endpoint in self._endpoint_handlers and resp is not None:
-                    self._endpoint_handlers[endpoint](endpoint, resp)
+                else:
+                    #log.info("message for endpoint " + str(endpoint) + " resp : " + str(resp))
+                    if endpoint in self._internal_endpoint_handlers:
+                        resp = self._internal_endpoint_handlers[endpoint](endpoint, resp)
+
+                    if endpoint in self._endpoint_handlers and resp is not None:
+                        self._endpoint_handlers[endpoint](endpoint, resp)
 
         except Exception as e:
             if type(e) is PebbleError:
@@ -606,6 +629,9 @@ class Pebble(object):
 
         endpoint = self.endpoints[endpoint_name]
         self._endpoint_handlers[endpoint] = func
+
+    def register_qemu_endpoint(self, endpoint_id, func):
+        self._qemu_endpoint_handlers[endpoint_id] = func
 
     def notification_sms(self, sender, body):
 
@@ -1086,6 +1112,111 @@ class Pebble(object):
         else:
             cmd = "\x00"  # Normal reset
         self._send_message("RESET", cmd)
+
+    def emu_tap(self, axis='x', direction=1):
+
+        """Send a tap to the watch running in the emulator"""
+        axes = {'x': 0, 'y': 1, 'z': 2}
+        axis_int = axes.get(axis)
+        msg = pack('!bb', axis_int, direction);
+
+        if DEBUG_PROTOCOL:
+            log.debug('>>> ' + msg.encode('hex'))
+
+        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Tap)
+
+    def emu_bluetooth_connection(self, connected=True):
+
+        """Send a bluetooth connection event to the watch running in the emulator"""
+        msg = pack('!b', connected);
+
+        if DEBUG_PROTOCOL:
+            log.debug('>>> ' + msg.encode('hex'))
+
+        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_BluetoothConnection)
+
+
+    def emu_compass(self, heading=0, calib=2):
+
+        """Send a compass event to the watch running in the emulator"""
+        msg = pack('!Ib', heading, calib);
+
+        if DEBUG_PROTOCOL:
+            log.debug('>>> ' + msg.encode('hex'))
+
+        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Compass)
+
+
+    def emu_battery(self, pct=80, charging=True):
+
+        """Send battery info to the watch running in the emulator"""
+        msg = pack('!bb', pct, charging);
+
+        if DEBUG_PROTOCOL:
+            log.debug('>>> ' + msg.encode('hex'))
+
+        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Battery)
+
+
+    def emu_accel(self, motion=None, filename=None):
+
+        """Send accel data to the watch running in the emulator
+           The caller is responsible for validating that 'motion' is a valid string
+        """
+        MAX_ACCEL_SAMPLES = 255
+        if motion == 'tilt_left':
+            samples = [[-500, 0, -900], [-900, 0, -500], [-1000, 0, 0],]
+
+        elif motion == 'tilt_right':
+            samples = [[500, 0, -900], [900, 0, -500], [1000, 0, 0]]
+
+        elif motion == 'tilt_forward':
+            samples = [[0, 500, -900], [0, 900, -500], [0, 1000, 0],]
+
+        elif motion == 'tilt_back':
+            samples = [[0, -500, -900], [0, -900, -500], [0, -1000, 0],]
+
+        elif motion.startswith('gravity'):
+            # The format expected here is 'gravity<sign><axis>', where sign can be '-', or '+' and
+            # axis can be 'x', 'y', or 'z'
+            if motion[len('gravity')] == '+':
+                amount = 1000
+            else:
+                amount = -1000
+            axis_letter = motion[len('gravity-')]
+            axis_index = {'x':0, 'y':1, 'z':2}[axis_letter]
+            samples = [[0, 0, 0]]
+            samples[0][axis_index] = amount
+
+        elif motion == 'custom':
+            if (filename is None):
+                raise Exception("No filename specified");
+            samples = []
+            with open(filename) as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        samples.append([int(x) for x in line.split(',')])
+        else:
+            raise Exception("Unsupported accel motion: '%s'" % (motion))
+
+        if len(samples) > MAX_ACCEL_SAMPLES:
+            raise Exception("Cannot send %d samples. The max number of accel samples that can be "
+                      "sent at a time is %d." % (len(samples), MAX_ACCEL_SAMPLES))
+        msg = pack('!b', len(samples))
+        for sample in samples:
+            sample_data = pack('!hhh', sample[0], sample[1], sample[2])
+            msg += sample_data
+
+        if DEBUG_PROTOCOL:
+            log.debug('>>> ' + msg.encode('hex'))
+
+        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Accel)
+
+        response = QemuEndpointSync(self, QemuPebble.QemuProtocol_Accel).get_data()
+        samples_avail = struct.Struct("!H").unpack(response)
+        print "Success: room for %d more samples" % (samples_avail)
+
 
     def dump_logs(self, generation_number):
         """Dump the saved logs from the watch.

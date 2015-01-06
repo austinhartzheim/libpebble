@@ -339,3 +339,89 @@ class PblReplCommand(LibPebbleCommand):
     def run(self, args):
         LibPebbleCommand.run(self, args)
         self.tail(interactive=True)
+
+
+class PblEmuTapCommand(LibPebbleCommand):
+    name = 'emu_tap'
+    help = 'Send a tap event to Pebble running in the emulator'
+
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('--axis', type=str, choices=['x', 'y', 'z'], default='x',
+                help='which axis to send tap event on')
+        parser.add_argument('--direction', type=int, choices=[1, -1], default=1,
+                help='which direction')
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+        self.pebble.emu_tap(axis=args.axis, direction=args.direction)
+
+
+class PblEmuBluetoothConnectionCommand(LibPebbleCommand):
+    name = 'emu_bt_connection'
+    help = 'Send a bluetooth connection/disconnection event to Pebble running in the emulator'
+
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('--connected', choices=['no', 'yes'], default='yes',
+                            help='generate a connected/disconnected event')
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+        self.pebble.emu_bluetooth_connection(connected=(args.connected == 'yes'))
+
+
+class PblEmuCompassCommand(LibPebbleCommand):
+    name = 'emu_compass'
+    help = 'Send a compass heading event to Pebble running in the emulator'
+
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('--heading', type=int, default=0,
+                            help='heading, from 0 to 360')
+        parser.add_argument('--calib', type=str, choices=['invalid', 'calibrating', 'calibrated'],
+                            default='calibrated', help='calibration status')
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+        calib_dict = {'invalid': 0, 'calibrating': 1, 'calibrated': 2}
+        self.pebble.emu_compass(heading=(args.heading * 0x10000 + 180) / 360,
+                                calib=calib_dict[args.calib])
+
+class PblEmuBatteryCommand(LibPebbleCommand):
+    name = 'emu_battery'
+    help = 'Set battery level on the Pebble running in the emulator'
+
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('--pct', type=int, default=80,
+                            help='battery percent, from 0 to 100')
+        parser.add_argument('--charging', action='store_true',
+                            help='set charging cable as connected')
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+        self.pebble.emu_battery(pct=args.pct, charging=args.charging)
+
+
+class PblEmuAccelCommand(LibPebbleCommand):
+    name = 'emu_accel'
+    help = 'Send accel data to the emulator'
+
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('motion', choices=['tilt_left', 'tilt_right', 'tilt_forward',
+            'tilt_back', 'gravity+x', 'gravity-x', 'gravity+y', 'gravity-y', 'gravity+z',
+            'gravity-z', 'custom'], default=None,
+            help=('which type of action to send. If "custom", then specify the file name using'
+                  ' the --file option'))
+        parser.add_argument('--file', type=str, help=('filename of file containing custom accel'
+            ' data. Each line of this text file should contain the comma separated x, y, and z '
+            ' readings. For example: "-24, -88, -1032"'))
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+        self.pebble.emu_accel(motion=args.motion, filename=args.file)
+
+
+
