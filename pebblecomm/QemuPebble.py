@@ -5,6 +5,7 @@ import struct
 import time
 import socket
 import select
+import os
 
 # These protocol IDs are defined in qemu_serial.h in the tintin project
 QemuProtocol_SPP = 1                  # Send SPP data (used for Pebble protocol)
