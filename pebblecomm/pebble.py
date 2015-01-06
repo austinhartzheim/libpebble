@@ -903,7 +903,7 @@ class Pebble(object):
             0,                  # num attributes
             0)                  # num actions
         print "adding pin {}".format(pin_id.hex)
-        self.blob_db_insert("PIN", pin_id.get_bytes(), pin)
+        return self._raw_blob_db_insert("PIN", pin_id.get_bytes(), pin)
 
     def timeline_remove_pin(self, uuid, uuid_is_string=True):
         if uuid_is_string:
@@ -911,25 +911,54 @@ class Pebble(object):
         elif type(uuid) is uuid.UUID:
             uuid = uuid.bytes
         # else, assume it's a byte array
-        self.blob_db_delete("PIN", uuid)
+        return self._raw_blob_db_delete("PIN", uuid)
+
+    def install_app_metadata(self, in_uuid):
+        rand_name = uuid.uuid4().get_hex()[0:6] # generate random name
+        uuid_bytes = util.convert_to_bytes(in_uuid)
+        app = struct.pack(
+            "<16s32sHIB",
+            uuid_bytes,
+            rand_name,          # random name
+            0,                  # version
+            0,                  # info_flags
+            3)                  # install_state: INSTALLED
+        return self._raw_blob_db_insert("APP", uuid_bytes, app)
+
+    def remove_app_metadata(self, uuid):
+        uuid_bytes = util.convert_to_bytes(uuid)
+        return self._raw_blob_db_delete("APP", uuid_bytes)
 
     def blob_db_insert(self, db, key, value):
+        key_bytes = util.convert_to_bytes(key)
+        value_bytes = util.convert_to_bytes(value)
+        return self._raw_blob_db_insert(db, key_bytes, value_bytes)
+
+    def blob_db_delete(self, db, key):
+        key_bytes = util.convert_to_bytes(key)
+        return self._raw_blob_db_delete(db, key_bytes)
+
+    def blob_db_clear(self, db):
+        return self._raw_blob_db_clear(db)
+
+    def _raw_blob_db_insert(self, db, key, value):
         db = BlobDB(db)
         data = db.insert(key, value)
         self._send_message("BLOB_DB", data)
         return EndpointSync(self, "BLOB_DB").get_data()
 
-    def blob_db_delete(self, db, key):
+    def _raw_blob_db_delete(self, db, key):
         db = BlobDB(db)
         data = db.delete(key)
         self._send_message("BLOB_DB", data)
         return EndpointSync(self, "BLOB_DB").get_data()
 
-    def blob_db_clear(self, db):
+    def _raw_blob_db_clear(self, db):
         db = BlobDB(db)
         data = db.clear()
         self._send_message("BLOB_DB", data)
         return EndpointSync(self, "BLOB_DB").get_data()
+
 
     def send_file(self, file_path, name):
         data = open(file_path, 'r').read()
@@ -1808,6 +1837,7 @@ class BlobDB(object):
     dbs = {
             "TEST": 0,
             "PIN": 1,
+            "APP": 2,
     }
 
     def __init__(self, db="TEST"):
@@ -1817,17 +1847,14 @@ class BlobDB(object):
         return random.randrange(1, pow(2,16) - 1, 1)
 
     def insert(self, key, value):
-        key_bytes = util.convert_to_bytes(key)
-        value_bytes = util.convert_to_bytes(value)
         token = self.get_token()
-        data = pack("<BHBB", 0x01, token, self.db_id, len(key_bytes)) + str(key_bytes) \
-                    + pack("<H", len(value_bytes)) + str(value)
+        data = pack("<BHBB", 0x01, token, self.db_id, len(key)) + str(key) \
+                    + pack("<H", len(value)) + str(value)
         return data
 
     def delete(self, key):
-        key_bytes = util.convert_to_bytes(key)
         token = self.get_token()
-        data = pack("<BHBB", 0x04, token, self.db_id, len(key_bytes)) + str(key_bytes)
+        data = pack("<BHBB", 0x04, token, self.db_id, len(key)) + str(key)
         return data
 
     def clear(self):
