@@ -544,6 +544,7 @@ class Pebble(object):
                 log.info(e)
 
             else:
+                traceback.print_exc()
                 log.info("%s: %s" % (type(e), e))
                 log.error("Lost connection to Pebble")
                 self._alive = False
