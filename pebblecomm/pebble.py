@@ -837,7 +837,7 @@ class Pebble(object):
         time.sleep(2)
 
         if launch_on_install:
-            self.launcher_message(app_metadata['uuid'].bytes, "RUNNING", uuid_is_string=False)
+            self.launcher_message(app_metadata['uuid'].bytes, "RUNNING", uuid_is_string=False, async=True)
 
         # If we have not thrown an exception, we succeeded
         return True
