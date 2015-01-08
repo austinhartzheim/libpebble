@@ -461,6 +461,9 @@ class Pebble(object):
             self.endpoints["BLOB_DB"]: self._blob_db_response,
         }
         self._qemu_endpoint_handlers = {}
+        self._qemu_internal_endpoint_handlers = {
+            QemuPebble.QemuProtocol_VibrationNotification: self._qemu_vibration_notification,
+        }
 
     def init_reader(self):
         try:
@@ -556,6 +559,9 @@ class Pebble(object):
                             self.app_log_enable()
 
                 elif source == 'qemu':
+                    if endpoint in self._qemu_internal_endpoint_handlers:
+                        resp = self._qemu_internal_endpoint_handlers[endpoint](endpoint, resp)
+
                     if endpoint in self._qemu_endpoint_handlers and resp is not None:
                         self._qemu_endpoint_handlers[endpoint](endpoint, resp)
 
@@ -1249,6 +1255,29 @@ class Pebble(object):
         samples_avail = struct.Struct("!H").unpack(response)
         print "Success: room for %d more samples" % (samples_avail)
 
+
+    def emu_button(self, button_id):
+
+        """Send a short button press to the watch running in the emulator. 
+        0: back, 1: up, 2: select, 3: down """
+
+        button_state = 1 << button_id;
+        while True:
+            # send the press immediately followed by the release
+            msg = pack('!b', button_state);
+
+            if DEBUG_PROTOCOL:
+                log.debug('>>> ' + msg.encode('hex'))
+
+            self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Button)
+            if button_state == 0:
+                break;
+            button_state = 0
+
+
+    def _qemu_vibration_notification(self, endpoint, data):
+        on, = unpack("!b", data)
+        print "Vibration: %s" % ("on" if on else "off")
 
     def dump_logs(self, generation_number):
         """Dump the saved logs from the watch.
