@@ -30,7 +30,7 @@ from struct import pack, unpack
 
 DEFAULT_PEBBLE_ID = None #Triggers autodetection on unix-like systems
 DEFAULT_WEBSOCKET_PORT = 9000
-DEBUG_PROTOCOL = True
+DEBUG_PROTOCOL = False
 APP_ELF_PATH = 'build/pebble-app.elf'
 
 class PebbleBundle(object):
@@ -995,16 +995,6 @@ class Pebble(object):
 
     def blob_db_clear(self, db):
         return self._raw_blob_db_clear(db)
-
-    def send_dummy_message(self):
-        DUMMY_ACK = 0x1
-        data = struct.pack('<B')
-        self._send_message("DUMMY_ENDPOINT", data)
-        resp = EndpointSync(self, "DUMMY_ENDPOINT").get_data()
-        if resp == DUMMY_ACK:
-            return True
-        else:
-            return False
 
     def _raw_blob_db_insert(self, db, key, value):
         db = BlobDB(db)
