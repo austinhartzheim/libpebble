@@ -30,7 +30,7 @@ from struct import pack, unpack
 
 DEFAULT_PEBBLE_ID = None #Triggers autodetection on unix-like systems
 DEFAULT_WEBSOCKET_PORT = 9000
-DEBUG_PROTOCOL = False
+DEBUG_PROTOCOL = True
 APP_ELF_PATH = 'build/pebble-app.elf'
 
 class PebbleBundle(object):
@@ -397,6 +397,7 @@ class Pebble(object):
             "APP": 2004,
             "APP_LOGS": 2006,
             "NOTIFICATION": 3000,
+            "EXTENSIBLE_NOTIFS": 3010,
             "RESOURCE": 4000,
             "APP_MANAGER": 6000,
             "SCREENSHOT": 8000,
@@ -454,6 +455,7 @@ class Pebble(object):
             self.endpoints["LAUNCHER"]: self._application_message_response,
             self.endpoints["LOGS"]: self._log_response,
             self.endpoints["PING"]: self._ping_response,
+            self.endpoints["EXTENSIBLE_NOTIFS"]: self._notification_response,
             self.endpoints["APP_LOGS"]: self._app_log_response,
             self.endpoints["APP_MANAGER"]: self._appbank_status_response,
             self.endpoints["SCREENSHOT"]: self._screenshot_response,
@@ -651,6 +653,59 @@ class Pebble(object):
         ts = str(int(time.time())*1000)
         parts = [sender, body, ts, subject]
         self._send_message("NOTIFICATION", self._pack_message_data(0, parts))
+
+    def test_add_notification(self, title = "notification!"):
+        attributes = [
+            {"id": 0x01, "content": title},]
+        action = {"id": 0x01, "type": 0x02, "attributes": [
+            {"id": 0x01, "content": "action!"}]}
+        dismiss_action = {"id": 0x02, "type": 0x04, "attributes": [
+            {"id": 0x01, "content": "Dismiss"}]}
+        actions = [action, dismiss_action]
+        notif_id = self.add_notification(attributes, actions)
+        return notif_id
+
+    def add_notification(self, attributes, actions):
+
+        # For example:
+        # ONE attribute = {"id": 0x01, "content": "abcd"}
+        # ONE action = {"id": 0x01, "type": 0x01, "attributes": [attribute, ]}
+
+        notif_id = random.randint(0, 0xFFFFFFFE)
+
+        header_fmt = "<BBIIIIBBB" # header
+        header_data = pack(header_fmt, 
+            0x00,
+            0x01, # add notif
+            0x00000002, # flags (UTC, not silent)
+            notif_id, # notif ID
+            0x00000000, # ANCS ID
+            int(time.time()), # timestamp
+            0x01, # layout
+            len(attributes),
+            len(actions))
+
+        attributes_data = ""
+        for attribute in attributes:
+            attribute_fmt = "<BH" + str(len(attribute["content"])) + "s"
+            attributes_data += pack(attribute_fmt, attribute["id"], len(attribute["content"]), attribute["content"])
+
+        actions_data = ""
+        for action in actions:
+            action_header_fmt = "<BBB"
+            actions_data += pack(action_header_fmt, action["id"], action["type"], len(action["attributes"]))
+            for attribute in action["attributes"]:
+                fmt = "<BH" + str(len(attribute["content"])) + "s"
+                actions_data += pack(fmt, attribute["id"], len(attribute["content"]), attribute["content"])
+
+        data = header_data + attributes_data + actions_data
+        self._send_message("EXTENSIBLE_NOTIFS", data)
+        return notif_id
+
+    # not implemented on the watch
+    def remove_notification(self, notification_id):
+        data = pack("<BI", 0x01, notification_id)
+        self._send_message("EXTENSIBLE_NOTIFS", data)
 
     def set_nowplaying_metadata(self, track, album, artist):
 
@@ -940,6 +995,16 @@ class Pebble(object):
 
     def blob_db_clear(self, db):
         return self._raw_blob_db_clear(db)
+
+    def send_dummy_message(self):
+        DUMMY_ACK = 0x1
+        data = struct.pack('<B')
+        self._send_message("DUMMY_ENDPOINT", data)
+        resp = EndpointSync(self, "DUMMY_ENDPOINT").get_data()
+        if resp == DUMMY_ACK:
+            return True
+        else:
+            return False
 
     def _raw_blob_db_insert(self, db, key, value):
         db = BlobDB(db)
@@ -1335,6 +1400,23 @@ class Pebble(object):
         # We only care about the cookie, so just strip the idle flag before calling unpack
         restype, retcookie = unpack("!bL", data[0:5])
         return retcookie
+
+    def _notification_response(self, endpoint, data):
+        command, = unpack("<B", data[:1])
+        log.debug("notification command 0x%x" % command)
+        if command == 0x02: # invoke notification action
+            # always respond with ACK
+            _, notif_id, action_id = unpack("<BIB", data[:6])
+            log.debug("Invoked action 0x%x on notification 0x%x" % (action_id, notif_id))
+            # no attributes sent back
+            ack_response = pack("<BIBBB", 0x11, notif_id, action_id, 0x00, 0)
+            self._send_message("EXTENSIBLE_NOTIFS", ack_response)
+        elif command == 0x10: # ACK / NACK
+            _, notif_id, resp = unpack("<BIB", data[:6])
+            resp_type = "ACK" if resp == 0x00 else "NACK"
+            log.debug("%s'd for notification 0x%x" % (resp_type, notif_id))
+        else:
+            log.debug("notification command 0x%x not recognized" % command)
 
     def _get_time_response(self, endpoint, data):
         restype, timestamp = unpack("!bL", data)
