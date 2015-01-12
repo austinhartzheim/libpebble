@@ -656,54 +656,105 @@ class Pebble(object):
 
     def test_add_notification(self, title = "notification!"):
         attributes = [
-            {"id": 0x01, "content": title},]
-        action = {"id": 0x01, "type": 0x02, "attributes": [
-            {"id": 0x01, "content": "action!"}]}
-        dismiss_action = {"id": 0x02, "type": 0x04, "attributes": [
-            {"id": 0x01, "content": "Dismiss"}]}
+            {"id": "TITLE", "content": title},]
+        action = {"id": 0x01, "type": "PEBBLE_PROTOCOL", "attributes": [
+            {"id": "TITLE", "content": "action!"}]}
+        dismiss_action = {"id": 0x02, "type": "DISMISS", "attributes": [
+            {"id": "TITLE", "content": "Dismiss"}]}
         actions = [action, dismiss_action]
         notif_id = self.add_notification(attributes, actions)
         return notif_id
 
-    def add_notification(self, attributes, actions):
+    def add_notification(self, attributes, actions, silent=False, utc=True, layout=0x01):
 
-        # For example:
-        # ONE attribute = {"id": 0x01, "content": "abcd"}
-        # ONE action = {"id": 0x01, "type": 0x01, "attributes": [attribute, ]}
+        """
+        Send a custom notification to the watch.
+
+        A list of attributes and actions are required.
+        For example:
+        ONE attribute = {"id": "TITLE", "content": "abcd"}
+        ONE action = {"id": 0x01, "type": "PEBBLE_PROTOCOL", "attributes": [attribute, ]}
+        Each notification must have a title attribute and each action
+        must have its own title attribute.
+
+        Possible attributes are:
+            - TITLE
+            - SUBTITLE
+            - BODY
+            - TINY_ICON
+            - SMALL_ICON
+            - TBD_ICON
+            - ANCS_ID
+            - ACTION_CANNED_RESPONSE
+
+        Possible action types are:
+            - ANCS_DISMISS
+            - PEBBLE_PROTOCOL
+            - TEXT_ACTION
+            - DISMISS
+
+        Confusingly, the ID of an action must be unique per notification
+        and does not correspond to its type. The ID of an attribute
+        corresponds to its type.
+        """
 
         notif_id = random.randint(0, 0xFFFFFFFE)
 
+        attribute_table = {
+            "TITLE": 0x01,
+            "SUBTITLE": 0x02,
+            "BODY": 0x03,
+            "TINY_ICON": 0x04,
+            "SMALL_ICON": 0x05,
+            "TBD_ICON": 0x06,
+            "ANCS_ID": 0x07,
+            "ACTION_CANNED_RESPONSE": 0x08
+        }
+
+        action_table = {
+            "ANCS_DISMISS": 0x01,
+            "PEBBLE_PROTOCOL": 0x02,
+            "TEXT_ACTION": 0x03,
+            "DISMISS": 0x04
+        }
+
+        def pack_attributes(attributes):
+            attributes_data = ""
+            for attribute in attributes:
+                attribute_fmt = "<BH" + str(len(attribute["content"])) + "s"
+                attributes_data += pack(attribute_fmt, attribute_table[attribute["id"]], len(attribute["content"]), attribute["content"])
+            return attributes_data
+
+        def pack_actions(actions):
+            actions_data = ""
+            for action in actions:
+                action_header_fmt = "<BBB"
+                actions_data += pack(action_header_fmt, action["id"], action_table[action["type"]], len(action["attributes"]))
+                actions_data += pack_attributes(action["attributes"])
+            return actions_data
+
         header_fmt = "<BBIIIIBBB" # header
+        flags = (2 * utc) + silent
         header_data = pack(header_fmt, 
             0x00,
             0x01, # add notif
-            0x00000002, # flags (UTC, not silent)
+            flags, # flags
             notif_id, # notif ID
             0x00000000, # ANCS ID
             int(time.time()), # timestamp
-            0x01, # layout
+            layout, # layout
             len(attributes),
             len(actions))
 
-        attributes_data = ""
-        for attribute in attributes:
-            attribute_fmt = "<BH" + str(len(attribute["content"])) + "s"
-            attributes_data += pack(attribute_fmt, attribute["id"], len(attribute["content"]), attribute["content"])
-
-        actions_data = ""
-        for action in actions:
-            action_header_fmt = "<BBB"
-            actions_data += pack(action_header_fmt, action["id"], action["type"], len(action["attributes"]))
-            for attribute in action["attributes"]:
-                fmt = "<BH" + str(len(attribute["content"])) + "s"
-                actions_data += pack(fmt, attribute["id"], len(attribute["content"]), attribute["content"])
-
-        data = header_data + attributes_data + actions_data
+        data = header_data + pack_attributes(attributes) + pack_actions(actions)
         self._send_message("EXTENSIBLE_NOTIFS", data)
         return notif_id
 
-    # not implemented on the watch
     def remove_notification(self, notification_id):
+
+        """Remove a notification from the watch. Currently not implemented watch-side."""
+
+        # 0x01 is the "remove notification" command
         data = pack("<BI", 0x01, notification_id)
         self._send_message("EXTENSIBLE_NOTIFS", data)
 
@@ -1392,16 +1443,28 @@ class Pebble(object):
         return retcookie
 
     def _notification_response(self, endpoint, data):
+
+        commands = {
+            "INVOKE_NOTIFICATION_ACTION": 0x02,
+            "WATCH_ACK_NACK": 0x10,
+            "PHONE_ACK_NACK": 0x11,
+        }
+
+        phone_action = {
+            "ACK": 0x00,
+            "NACK": 0x01
+        }
+
         command, = unpack("<B", data[:1])
         log.debug("notification command 0x%x" % command)
-        if command == 0x02: # invoke notification action
+        if command == commands["INVOKE_NOTIFICATION_ACTION"]:
             # always respond with ACK
             _, notif_id, action_id = unpack("<BIB", data[:6])
             log.debug("Invoked action 0x%x on notification 0x%x" % (action_id, notif_id))
             # no attributes sent back
-            ack_response = pack("<BIBBB", 0x11, notif_id, action_id, 0x00, 0)
+            ack_response = pack("<BIBBB", commands["PHONE_ACK_NACK"], notif_id, action_id, phone_action["ACK"], 0)
             self._send_message("EXTENSIBLE_NOTIFS", ack_response)
-        elif command == 0x10: # ACK / NACK
+        elif command == commands["WATCH_ACK_NACK"]:
             _, notif_id, resp = unpack("<BIB", data[:6])
             resp_type = "ACK" if resp == 0x00 else "NACK"
             log.debug("%s'd for notification 0x%x" % (resp_type, notif_id))
