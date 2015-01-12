@@ -397,6 +397,7 @@ class Pebble(object):
             "APP": 2004,
             "APP_LOGS": 2006,
             "NOTIFICATION": 3000,
+            "EXTENSIBLE_NOTIFS": 3010,
             "RESOURCE": 4000,
             "APP_MANAGER": 6000,
             "SCREENSHOT": 8000,
@@ -454,6 +455,7 @@ class Pebble(object):
             self.endpoints["LAUNCHER"]: self._application_message_response,
             self.endpoints["LOGS"]: self._log_response,
             self.endpoints["PING"]: self._ping_response,
+            self.endpoints["EXTENSIBLE_NOTIFS"]: self._notification_response,
             self.endpoints["APP_LOGS"]: self._app_log_response,
             self.endpoints["APP_MANAGER"]: self._appbank_status_response,
             self.endpoints["SCREENSHOT"]: self._screenshot_response,
@@ -657,6 +659,14 @@ class Pebble(object):
         ts = str(int(time.time())*1000)
         parts = [sender, body, ts, subject]
         self._send_message("NOTIFICATION", self._pack_message_data(0, parts))
+
+    def test_add_notification(self, title = "notification!"):
+
+        notification = Notification(self, title)
+        notification.actions.append(Notification.Action(0x01, "PEBBLE_PROTOCOL", "action!"))
+        notification.actions.append(Notification.Action(0x02, "DISMISS", "Dismiss!"))
+        notification.send()
+        return notification
 
     def set_nowplaying_metadata(self, track, album, artist):
 
@@ -1365,6 +1375,10 @@ class Pebble(object):
         restype, retcookie = unpack("!bL", data[0:5])
         return retcookie
 
+    def _notification_response(self, endpoint, data):
+        # pass in the "pebble" object
+        Notification.response(self, endpoint, data)
+
     def _get_time_response(self, endpoint, data):
         restype, timestamp = unpack("!bL", data)
         return timestamp
@@ -1860,6 +1874,163 @@ class PutBytesClient(object):
             self.handle_commit(resp)
         elif self._state == self.states["COMPLETE"]:
             self.handle_complete(resp)
+
+class Notification(object):
+
+    """A custom notification to send to the watch.
+    """
+
+    commands = {
+        "INVOKE_NOTIFICATION_ACTION": 0x02,
+        "WATCH_ACK_NACK": 0x10,
+        "PHONE_ACK_NACK": 0x11,
+    }
+
+    phone_action = {
+        "ACK": 0x00,
+        "NACK": 0x01
+    }
+
+    class Attribute(object):
+
+        """
+        An attribute for a Notification or an Action.
+
+        Possible attribute IDs are:
+            - TITLE
+            - SUBTITLE
+            - BODY
+            - TINY_ICON
+            - SMALL_ICON
+            - TBD_ICON
+            - ANCS_ID
+            - ACTION_CANNED_RESPONSE
+        """
+
+        attribute_table = {
+            "TITLE": 0x01,
+            "SUBTITLE": 0x02,
+            "BODY": 0x03,
+            "TINY_ICON": 0x04,
+            "SMALL_ICON": 0x05,
+            "TBD_ICON": 0x06,
+            "ANCS_ID": 0x07,
+            "ACTION_CANNED_RESPONSE": 0x08
+        }
+
+        def __init__(self, id, content):
+            self.id = id
+            self.content = content
+
+        def pack(self):
+            fmt = "<BH" + str(len(self.content)) + "s"
+            return pack(fmt, self.attribute_table[self.id], len(self.content), self.content)
+
+    class Action(object):
+
+        """An Action that can be added to a notification.
+
+        Possible action types are:
+            - ANCS_DISMISS
+            - PEBBLE_PROTOCOL
+            - TEXT_ACTION
+            - DISMISS
+        """
+
+        action_table = {
+            "ANCS_DISMISS": 0x01,
+            "PEBBLE_PROTOCOL": 0x02,
+            "TEXT_ACTION": 0x03,
+            "DISMISS": 0x04
+        }
+
+        def __init__(self, id, type, title, attributes=None):
+            """
+            Create an Action object.
+
+            id is a number that must be unique for the notification.
+            type is one of the action types listed in the class docstring.
+            """
+
+            self.id = id
+            self.type = type
+            self.title = title
+            if attributes:
+                self.attributes = attributes
+            else:
+                self.attributes = []
+
+        def pack(self):
+            fmt = "<BBB"
+            attributes = [Notification.Attribute("TITLE", self.title)]
+            data = pack(fmt, self.id, self.action_table[self.type], len(attributes))
+            for attribute in attributes:
+                data += attribute.pack()
+            return data
+
+    def __init__(self, pebble, title, attributes=None, actions=None):
+
+        """Create a Notification object.
+
+        The title argument is provided for convenience. It is simply added to the attribute
+        list later.
+        """
+
+        self.pebble = pebble
+        self.title = title
+        self.attributes = attributes if attributes else []
+        self.actions = actions if actions else []
+        self.notif_id = random.randint(0, 0xFFFFFFFE)
+
+
+    def send(self, silent=False, utc=True, layout=0x01):
+
+        attributes = [Notification.Attribute("TITLE", self.title)] + self.attributes
+        header_fmt = "<BBIIIIBBB" # header
+        flags = (2 * utc) + silent
+        header_data = pack(header_fmt, 
+            0x00,
+            0x01, # add notif
+            flags, # flags
+            self.notif_id, # notif ID
+            0x00000000, # ANCS ID
+            int(time.time()), # timestamp
+            layout, # layout
+            len(attributes),
+            len(self.actions))
+
+        attributes_data = "".join([x.pack() for x in attributes])
+        actions_data = "".join([x.pack() for x in self.actions])
+
+        data = header_data + attributes_data + actions_data
+        self.pebble._send_message("EXTENSIBLE_NOTIFS", data)
+
+    def remove(self):
+
+        """Remove a notification from the watch. Currently not implemented watch-side."""
+
+        # 0x01 is the "remove notification" command
+        data = pack("<BI", 0x01, self.notif_id)
+        self.pebble._send_message("EXTENSIBLE_NOTIFS", data)
+
+    @classmethod
+    def response(cls, pebble, endpoint, data):
+        command, = unpack("<B", data[:1])
+        log.debug("notification command 0x%x" % command)
+        if command == cls.commands["INVOKE_NOTIFICATION_ACTION"]:
+            # always respond with ACK
+            _, notif_id, action_id = unpack("<BIB", data[:6])
+            log.debug("Invoked action 0x%x on notification 0x%x" % (action_id, notif_id))
+            # no attributes sent back
+            ack_response = pack("<BIBBB", cls.commands["PHONE_ACK_NACK"], notif_id, action_id, cls.phone_action["ACK"], 0)
+            pebble._send_message("EXTENSIBLE_NOTIFS", ack_response)
+        elif command == cls.commands["WATCH_ACK_NACK"]:
+            _, notif_id, resp = unpack("<BIB", data[:6])
+            resp_type = "ACK" if resp == 0x00 else "NACK"
+            log.debug("%s'd for notification 0x%x" % (resp_type, notif_id))
+        else:
+            log.debug("notification command 0x%x not recognized" % command)
+
 
 class BlobDB(object):
 
