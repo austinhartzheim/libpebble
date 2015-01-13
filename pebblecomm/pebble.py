@@ -780,6 +780,7 @@ class Pebble(object):
 
         app_metadata = bundle.get_app_metadata()
         self.remove_app_by_uuid(app_metadata['uuid'].bytes, uuid_is_string=False)
+        time.sleep(1)  # If this isn't here then the next operation may timeout if the app is already installed.
 
         apps = self.get_appbank_status()
         if not apps:
