@@ -7,6 +7,7 @@ import time
 from pebblecomm import pebble as libpebble
 
 from PblCommand import PblCommand
+from PebbleEmulator import PebbleEmulator
 import PblAnalytics
 
 PEBBLE_PHONE_ENVVAR='PEBBLE_PHONE'
@@ -37,8 +38,8 @@ class LibPebbleCommand(PblCommand):
                 help='When using Developer Connection, the IP address or hostname of your phone. Can also be provided through %s environment variable.' % PEBBLE_PHONE_ENVVAR)
         parser.add_argument('--pebble_id', type=str,
                 help='When using a direct BT connection, the watch\'s Bluetooth ID (e.g. DF38 or 01:23:45:67:DF:38). Can also be provided through %s environment variable.' % PEBBLE_BTID_ENVVAR)
-        parser.add_argument('--qemu', type=str,
-                help='When connecting to the emulator, the hostname:port of the emulator. Can also be provided through %s environment variable.' % PEBBLE_QEMU_ENVVAR)
+        parser.add_argument('--qemu', type=str, const="auto", nargs="?",
+                help='When connecting to the emulator. You can optionaly provide the hostname:port of the emulator, if you don\'t the emulator will be managed automatically. Can also be provided through %s environment variable.' % PEBBLE_QEMU_ENVVAR)
         parser.add_argument('--pair', action="store_true", help="When using a direct BT connection, attempt to pair the watch automatically")
         parser.add_argument('--verbose', action="store_true", default=False,
                             help='Prints received system logs in addition to APP_LOG')
@@ -76,7 +77,12 @@ class LibPebbleCommand(PblCommand):
         elif args.pebble_id:
             self.pebble.connect_via_lightblue(pair_first=args.pair)
         elif args.qemu:
-            self.pebble.connect_via_qemu(args.qemu)
+            if args.qemu == 'auto':
+                emulator = PebbleEmulator(self.sdk_path(args))
+                emulator.start()
+                self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
+            else:
+                self.pebble.connect_via_qemu(args.qemu)
 
     def tail(self, interactive=False, skip_enable_app_log=False):
         if not skip_enable_app_log:
