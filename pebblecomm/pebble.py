@@ -1114,7 +1114,11 @@ class Pebble(object):
         return data
 
     def _ping_response(self, endpoint, data):
-        restype, retcookie = unpack("!bL", data)
+        try:
+            restype, retcookie = unpack("!bL", data)
+        except struct.error as e:
+            log.warn(str(e))
+            return 0
         return retcookie
 
     def _get_time_response(self, endpoint, data):
