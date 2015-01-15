@@ -6,7 +6,15 @@ import select
 import os
 
 # These protocol IDs are defined in qemu_serial.h in the tintin project
-QemuProtocol_SPP = 1
+QemuProtocol_SPP = 1                    # Send SPP data (used for Pebble protocol)
+QemuProtocol_Tap = 2                    # Send a tap event
+QemuProtocol_BluetoothConnection = 3    # Send a bluetooth connection event
+QemuProtocol_Compass = 4                # Send a compass event
+QemuProtocol_Battery = 5                # Send a battery info event
+QemuProtocol_Accel = 6                  # Send a accel data event
+QemuProtocol_VibrationNotification = 7  # Vibration notification from Pebble
+QemuProtocol_Button = 8                 # Send a button state change 
+
 QEMU_HEADER_SIGNATURE = 0xFEED
 QEMU_FOOTER_SIGNATURE = 0xBEEF
 QEMU_MAX_DATA_LEN = 2048
@@ -44,7 +52,7 @@ class QemuPebble(object):
                 time.sleep(0.1)
 
         if not connected:
-            logging.error("Unable to connect to emuator at %s:%s. Is it running?" % (self.host,
+            logging.error("Unable to connect to emulator at %s:%s. Is it running?" % (self.host,
                             self.port))
             os._exit(-1)
 
@@ -66,9 +74,11 @@ class QemuPebble(object):
         """
         retval:   (source, topic, response, data)
             source can be either 'ws' or 'watch'
-            if source is 'watch', then topic is the endpoint identifier
-            if source is 'ws', then topic is either 'status','phoneInfo','watchConnectionStatusUpdate'
-                    or 'log'
+            if source is 'watch', then this is a pebble protocol packet and topic is the endpoint
+                      identifier
+            if source is 'ws', then topic is either 'status','phoneInfo',
+                      'watchConnectionStatusUpdate' or 'log'
+            if source is 'qemu', then topic is the QemuProtocol_.* enum
 
         """
         # socket timeouts for asynchronous operation is normal.  In this
@@ -112,12 +122,11 @@ class QemuPebble(object):
             self.assembled_data = self.assembled_data[self.hdr_size + data_len + self.footer_size:]
 
             # Ignore everything but SPP protocol for now
-            if protocol != QemuProtocol_SPP:
-                logging.error("Received unsupported protocol: %d" % (protocol))
-                continue
-
-            size, endpoint = struct.unpack("!HH", data[0:4])
-            return ('watch', endpoint, data[4:], data)
+            if protocol == QemuProtocol_SPP:
+                size, endpoint = struct.unpack("!HH", data[0:4])
+                return ('watch', endpoint, data[4:], data)
+            else:
+                return ('qemu', protocol, data, data)
 
         # If we broke out, we don't have a complete packet yet
         return (None, None, None, None)
