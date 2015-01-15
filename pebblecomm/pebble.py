@@ -13,7 +13,7 @@ import re
 import sh
 import signal
 import socket
-import siren
+import speex
 import stm32_crc
 import struct
 import threading
@@ -330,9 +330,8 @@ class CoreDumpSync():
         return None
 
 class AudioSync():
-    timeout = 60
-
-    def __init__(self, pebble, endpoint):
+    def __init__(self, pebble, endpoint, timeout=60):
+        self.timeout = timeout
         self.marker = threading.Event()
         self.recording = False
         pebble.register_endpoint(endpoint, self.packet_callback)
@@ -370,7 +369,7 @@ class AudioSync():
     def save(self, name):
         try:
             self.marker.wait(self.timeout)
-            return siren.save((1, 2, self.sample_rate, 0, 'NONE', 'UNCOMPRESSED'), self.frames, name)
+            return speex.store_data(self.frames, name, self.sample_rate)
         except:
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
