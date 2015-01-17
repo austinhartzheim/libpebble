@@ -25,6 +25,7 @@ import WebSocketPebble
 import QemuPebble
 import zipfile
 
+
 from collections import OrderedDict
 from struct import pack, unpack
 
@@ -400,6 +401,7 @@ class Pebble(object):
             "EXTENSIBLE_NOTIFS": 3010,
             "RESOURCE": 4000,
             "APP_MANAGER": 6000,
+            "APP_FETCH": 6001,
             "SCREENSHOT": 8000,
             "COREDUMP": 9000,
             "BLOB_DB": 45531,
@@ -458,6 +460,7 @@ class Pebble(object):
             self.endpoints["EXTENSIBLE_NOTIFS"]: self._notification_response,
             self.endpoints["APP_LOGS"]: self._app_log_response,
             self.endpoints["APP_MANAGER"]: self._appbank_status_response,
+            self.endpoints["APP_FETCH"]: self._app_fetch_response,
             self.endpoints["SCREENSHOT"]: self._screenshot_response,
             self.endpoints["COREDUMP"]: self._coredump_response,
             self.endpoints["BLOB_DB"]: self._blob_db_response,
@@ -891,6 +894,58 @@ class Pebble(object):
         # If we have not thrown an exception, we succeeded
         return True
 
+    def install_app_binaries_pebble_protocol(self, pbw_path, app_id):
+
+        bundle = PebbleBundle(pbw_path)
+        if not bundle.is_app_bundle():
+            raise PebbleError(self.id, "This is not an app bundle")
+
+        # remove app by uuid
+
+        # Install the app code
+        app_info = bundle.get_application_info()
+        binary = bundle.zip.read(app_info['name'])
+        if bundle.has_resources():
+            resources = bundle.zip.read(bundle.get_resources_info()['name'])
+        else:
+            resources = None
+
+        client = PutBytesClient(self, app_id, "BINARY", binary, has_cookie=True)
+        self.register_endpoint("PUTBYTES", client.handle_message)
+        client.init()
+        while not client._done and not client._error:
+            time.sleep(0.5)
+        if client._error:
+            raise PebbleError(self.id, "Failed to send application binary %s/pebble-app.bin" % pbw_path)
+
+        # Install the resources
+        if resources:
+            client = PutBytesClient(self, app_id, "RESOURCES", resources, has_cookie=True)
+            self.register_endpoint("PUTBYTES", client.handle_message)
+            client.init()
+            while not client._done and not client._error:
+                time.sleep(0.5)
+            if client._error:
+                raise PebbleError(self.id, "Failed to send application resources %s/app_resources.pbpack" % pbw_path)
+
+        # Is there a worker to install?
+        worker_info = bundle.get_worker_info()
+        if worker_info is not None:
+          binary = bundle.zip.read(worker_info['name'])
+          client = PutBytesClient(self, app_id, "WORKER", binary, has_cookie=True)
+          self.register_endpoint("PUTBYTES", client.handle_message)
+          client.init()
+          while not client._done and not client._error:
+              time.sleep(0.5)
+          if client._error:
+              raise PebbleError(self.id, "Failed to send worker binary %s/%s" % (pbw_path, worker_info['name']))
+
+        # launch app is we should
+
+        # If we have not thrown an exception, we succeeded
+        return True
+
+
 
     def install_app(self, pbw_path, launch_on_install=True, direct=False):
 
@@ -929,16 +984,15 @@ class Pebble(object):
         # else, assume it's a byte array
         return self._raw_blob_db_delete("PIN", uuid)
 
-    def install_app_metadata(self, in_uuid):
+    def install_app_metadata(self, in_uuid, flags):
         rand_name = uuid.uuid4().get_hex()[0:6] # generate random name
         uuid_bytes = util.convert_to_bytes(in_uuid)
         app = struct.pack(
-            "<16s32sHIB",
+            "<16s32sHI",
             uuid_bytes,
             rand_name,          # random name
             0,                  # version
-            0,                  # info_flags
-            3)                  # install_state: INSTALLED
+            flags)              # info_flags
         return self._raw_blob_db_insert("APP", uuid_bytes, app)
 
     def remove_app_metadata(self, uuid):
@@ -1568,6 +1622,45 @@ class Pebble(object):
         else:
             return restype
 
+    def _app_fetch_response(self, endpoint, data):
+        import urllib
+        import urllib2
+        import threading
+
+        def internet_on():
+            try:
+                response=urllib2.urlopen('http://74.125.228.100',timeout=1)
+                return True
+            except urllib2.URLError as err: pass
+            return False
+
+
+        command, app_uuid, app_id = unpack("<B16sI", data)
+
+        uuid_str = str(uuid.UUID(bytes=app_uuid))
+
+        # send ACK
+        resp = pack("BB", 1, 1) # APP_FETCH_INSTALL_RESPONSE, SUCCESS
+        self._send_message("APP_FETCH", resp)
+
+        print "Got fetch request for uuid: %s, app_id: %d" % (uuid.UUID(bytes=app_uuid), app_id)
+
+        print "Trying to download pbw and install"
+
+        if (internet_on()):
+            id_fetch_url = 'https://dev-portal.getpebble.com/api/applications/uuid/%s' % uuid_str
+            appstoreid = json.load(urllib2.urlopen(id_fetch_url))['applications'][0]['id']
+            print appstoreid
+
+            pbw_link_fetch_url = 'https://appstore-api.getpebble.com/v2/apps/id/%s' % appstoreid
+            pbw_link = json.load(urllib2.urlopen(pbw_link_fetch_url))['data'][0]['latest_release']['pbw_file']
+            print pbw_link
+
+            # download
+            urllib.urlretrieve(pbw_link, "/tmp/app.pbw")
+            print "Finished downloading"
+            threading.Timer(1.0, self.install_app_binaries_pebble_protocol, ["/tmp/app.pbw", app_id]).start()
+
     def _version_response(self, endpoint, data):
         fw_names = {
                 0: "normal_fw",
@@ -1788,7 +1881,7 @@ class PutBytesClient(object):
             "WORKER": 7,
     }
 
-    def __init__(self, pebble, index, transfer_type, buffer, filename=""):
+    def __init__(self, pebble, index, transfer_type, buffer, filename="", has_cookie=False):
         if len(filename) > 255:
             raise Exception("Filename too long (>255 chars) " + filename)
 
@@ -1800,9 +1893,15 @@ class PutBytesClient(object):
         self._done = False
         self._error = False
         self._filename = filename + '\0'
+        self._has_cookie = has_cookie
 
     def init(self):
-        data = pack("!bIbb%ds" % (len(self._filename)), 1, len(self._buffer), self._transfer_type, self._index, self._filename)
+        if self._has_cookie:
+            self._transfer_type = self._transfer_type | (1 << 7)
+            data = pack("!BIBI", 1, len(self._buffer), self._transfer_type, self._index)
+        else:
+            data = pack("!BIBB%ds" % (len(self._filename)), 1, len(self._buffer), self._transfer_type, self._index, self._filename)
+
         self._pebble._send_message("PUTBYTES", data)
         self._state = self.states["WAIT_FOR_TOKEN"]
 
