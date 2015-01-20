@@ -905,7 +905,7 @@ class Pebble(object):
             return self.install_app_pebble_protocol(pbw_path, launch_on_install)
 
     def timeline_add_pin(self):
-        fmt = "<16s16sIHBHBBBB" 
+        fmt = "<16s16sIHBHBBBB"
         pin_id = uuid.uuid4()
         pin = struct.pack(fmt,
             pin_id.get_bytes(), # UUID
@@ -956,6 +956,13 @@ class Pebble(object):
 
     def blob_db_clear(self, db):
         return self._raw_blob_db_clear(db)
+
+    def test_reminder_db(self, timedelta=20):
+        reminder = TimelineItem(self, "Reminder", int(time.time()) - (8 * 3600) + timedelta,
+            type="REMINDER")
+        reminder.send()
+        print reminder.id
+        return reminder
 
     def _raw_blob_db_insert(self, db, key, value):
         db = BlobDB(db)
@@ -1268,7 +1275,7 @@ class Pebble(object):
 
     def emu_button(self, button_id):
 
-        """Send a short button press to the watch running in the emulator. 
+        """Send a short button press to the watch running in the emulator.
         0: back, 1: up, 2: select, 3: down """
 
         button_state = 1 << button_id;
@@ -1875,6 +1882,83 @@ class PutBytesClient(object):
         elif self._state == self.states["COMPLETE"]:
             self.handle_complete(resp)
 
+class Attribute(object):
+
+    """
+    An attribute for a Notification or an Action.
+
+    Possible attribute IDs are:
+        - TITLE
+        - SUBTITLE
+        - BODY
+        - TINY_ICON
+        - SMALL_ICON
+        - TBD_ICON
+        - ANCS_ID
+        - ACTION_CANNED_RESPONSE
+    """
+
+    attribute_table = {
+        "TITLE": 0x01,
+        "SUBTITLE": 0x02,
+        "BODY": 0x03,
+        "TINY_ICON": 0x04,
+        "SMALL_ICON": 0x05,
+        "TBD_ICON": 0x06,
+        "ANCS_ID": 0x07,
+        "ACTION_CANNED_RESPONSE": 0x08
+    }
+
+    def __init__(self, id, content):
+        self.id = id
+        self.content = content
+
+    def pack(self):
+        fmt = "<BH" + str(len(self.content)) + "s"
+        return pack(fmt, self.attribute_table[self.id], len(self.content), self.content)
+
+class Action(object):
+
+    """An Action that can be added to a notification.
+
+    Possible action types are:
+        - ANCS_DISMISS
+        - PEBBLE_PROTOCOL
+        - TEXT_ACTION
+        - DISMISS
+    """
+
+    action_table = {
+        "ANCS_DISMISS": 0x01,
+        "PEBBLE_PROTOCOL": 0x02,
+        "TEXT_ACTION": 0x03,
+        "DISMISS": 0x04
+    }
+
+    def __init__(self, id, type, title, attributes=None):
+        """
+        Create an Action object.
+
+        id is a number that must be unique for the notification.
+        type is one of the action types listed in the class docstring.
+        """
+
+        self.id = id
+        self.type = type
+        self.title = title
+        if attributes:
+            self.attributes = attributes
+        else:
+            self.attributes = []
+
+    def pack(self):
+        fmt = "<BBB"
+        attributes = [Attribute("TITLE", self.title)]
+        data = pack(fmt, self.id, self.action_table[self.type], len(attributes))
+        for attribute in attributes:
+            data += attribute.pack()
+        return data
+
 class Notification(object):
 
     """A custom notification to send to the watch.
@@ -1890,83 +1974,6 @@ class Notification(object):
         "ACK": 0x00,
         "NACK": 0x01
     }
-
-    class Attribute(object):
-
-        """
-        An attribute for a Notification or an Action.
-
-        Possible attribute IDs are:
-            - TITLE
-            - SUBTITLE
-            - BODY
-            - TINY_ICON
-            - SMALL_ICON
-            - TBD_ICON
-            - ANCS_ID
-            - ACTION_CANNED_RESPONSE
-        """
-
-        attribute_table = {
-            "TITLE": 0x01,
-            "SUBTITLE": 0x02,
-            "BODY": 0x03,
-            "TINY_ICON": 0x04,
-            "SMALL_ICON": 0x05,
-            "TBD_ICON": 0x06,
-            "ANCS_ID": 0x07,
-            "ACTION_CANNED_RESPONSE": 0x08
-        }
-
-        def __init__(self, id, content):
-            self.id = id
-            self.content = content
-
-        def pack(self):
-            fmt = "<BH" + str(len(self.content)) + "s"
-            return pack(fmt, self.attribute_table[self.id], len(self.content), self.content)
-
-    class Action(object):
-
-        """An Action that can be added to a notification.
-
-        Possible action types are:
-            - ANCS_DISMISS
-            - PEBBLE_PROTOCOL
-            - TEXT_ACTION
-            - DISMISS
-        """
-
-        action_table = {
-            "ANCS_DISMISS": 0x01,
-            "PEBBLE_PROTOCOL": 0x02,
-            "TEXT_ACTION": 0x03,
-            "DISMISS": 0x04
-        }
-
-        def __init__(self, id, type, title, attributes=None):
-            """
-            Create an Action object.
-
-            id is a number that must be unique for the notification.
-            type is one of the action types listed in the class docstring.
-            """
-
-            self.id = id
-            self.type = type
-            self.title = title
-            if attributes:
-                self.attributes = attributes
-            else:
-                self.attributes = []
-
-        def pack(self):
-            fmt = "<BBB"
-            attributes = [Notification.Attribute("TITLE", self.title)]
-            data = pack(fmt, self.id, self.action_table[self.type], len(attributes))
-            for attribute in attributes:
-                data += attribute.pack()
-            return data
 
     def __init__(self, pebble, title, attributes=None, actions=None):
 
@@ -1985,10 +1992,10 @@ class Notification(object):
 
     def send(self, silent=False, utc=True, layout=0x01):
 
-        attributes = [Notification.Attribute("TITLE", self.title)] + self.attributes
+        attributes = [Attribute("TITLE", self.title)] + self.attributes
         header_fmt = "<BBIIIIBBB" # header
         flags = (2 * utc) + silent
-        header_data = pack(header_fmt, 
+        header_data = pack(header_fmt,
             0x00,
             0x01, # add notif
             flags, # flags
@@ -2031,6 +2038,74 @@ class Notification(object):
         else:
             log.debug("notification command 0x%x not recognized" % command)
 
+class TimelineItem(object):
+
+    """A timeline item to send to the watch.
+    Timeline items can be reminders, pins, or notifications.
+    """
+
+    # ensure these match with the TimelineItemType enum
+    # in tintin/src/fw/services/normal/timeline/item.h
+    item_type = {
+        "NOTIFICATION": 1,
+        "PIN": 2,
+        "REMINDER": 3,
+    }
+
+    def __init__(self, pebble, title, timestamp=int(time.time()), duration=0, type="PIN", parent=None, attributes=None, actions=None):
+
+        """Create a TimelineItem object.
+
+        The title is provided for convenience. It is simply added to the attribute
+        list later.
+        """
+
+        self.pebble = pebble
+        self.title = title
+        self.timestamp = timestamp
+        self.duration = duration
+        self.type = type
+        self.attributes = attributes if attributes else []
+        self.actions = actions if actions else []
+        self.parent = parent if parent else uuid.UUID(int=0)
+        self.id = uuid.uuid4()
+
+    def send(self, is_floating=False, visible=False, reminded=False, actioned=False,
+        read=False, layout=0x01):
+        attributes = [Attribute("TITLE", self.title)] + self.attributes
+        header_fmt = "<16s16sIHBHBHBB"
+        flags = (
+            1 << 0 * is_floating +
+            1 << 1 * visible +
+            1 << 2 * reminded +
+            1 << 3 * actioned +
+            1 << 4 * read
+            )
+
+        attributes_data = "".join([x.pack() for x in attributes])
+        actions_data = "".join([x.pack() for x in self.actions])
+
+        header_data = pack(header_fmt,
+            self.id.bytes,
+            self.parent.bytes,
+            self.timestamp,
+            self.duration,
+            self.item_type[self.type],
+            flags,
+            layout,
+            len(attributes_data) + len(actions_data),
+            len(attributes),
+            len(self.actions))
+
+        data = header_data + attributes_data + actions_data
+
+        if self.type == "NOTIFICATION":
+            self.pebble._send_message("EXTENSIBLE_NOTIFS", data)
+        else:
+            blobdb = BlobDB(self.type)
+            blobdb_data = blobdb.insert(self.id.bytes, data)
+            self.pebble._send_message("BLOB_DB", blobdb_data)
+            return EndpointSync(self.pebble, "BLOB_DB").get_data()
 
 class BlobDB(object):
 
@@ -2038,6 +2113,7 @@ class BlobDB(object):
             "TEST": 0,
             "PIN": 1,
             "APP": 2,
+            "REMINDER": 3
     }
 
     def __init__(self, db="TEST"):
