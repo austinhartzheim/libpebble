@@ -958,8 +958,7 @@ class Pebble(object):
         return self._raw_blob_db_clear(db)
 
     def test_reminder_db(self, timedelta=20):
-        reminder = TimelineItem(self, "Reminder", int(time.time()) - (8 * 3600) + timedelta,
-            type="REMINDER")
+        reminder = Reminder(self, "Reminder", int(time.time()) - (8 * 3600) + timedelta)
         reminder.send()
         print reminder.id
         return reminder
@@ -1885,7 +1884,7 @@ class PutBytesClient(object):
 class Attribute(object):
 
     """
-    An attribute for a Notification or an Action.
+    An attribute for a Notification, TimelineItem or an Action.
 
     Possible attribute IDs are:
         - TITLE
@@ -1896,6 +1895,8 @@ class Attribute(object):
         - TBD_ICON
         - ANCS_ID
         - ACTION_CANNED_RESPONSE
+        - PIN_ICON (TimelineItem only)
+        - SHORT_TITLE (TimelineItem only)
     """
 
     attribute_table = {
@@ -1906,7 +1907,9 @@ class Attribute(object):
         "SMALL_ICON": 0x05,
         "TBD_ICON": 0x06,
         "ANCS_ID": 0x07,
-        "ACTION_CANNED_RESPONSE": 0x08
+        "ACTION_CANNED_RESPONSE": 0x08,
+        "PIN_ICON": 0x09,
+        "SHORT_TITLE": 0x0a
     }
 
     def __init__(self, id, content):
@@ -1919,20 +1922,29 @@ class Attribute(object):
 
 class Action(object):
 
-    """An Action that can be added to a notification.
+    """An Action that can be added to a notification or timeline item.
 
     Possible action types are:
         - ANCS_DISMISS
         - PEBBLE_PROTOCOL
         - TEXT_ACTION
         - DISMISS
+    The following action types are available for timeline items:
+        - HTTP
+        - SNOOZE
+        - OPEN_WATCHAPP
+        - EMPTY (no actions)
     """
 
     action_table = {
         "ANCS_DISMISS": 0x01,
         "PEBBLE_PROTOCOL": 0x02,
         "TEXT_ACTION": 0x03,
-        "DISMISS": 0x04
+        "DISMISS": 0x04,
+        "HTTP": 0x05,
+        "SNOOZE": 0x06,
+        "OPEN_WATCHAPP": 0x07,
+        "EMPTY": 0x08
     }
 
     def __init__(self, id, type, title, attributes=None):
@@ -2038,6 +2050,7 @@ class Notification(object):
         else:
             log.debug("notification command 0x%x not recognized" % command)
 
+
 class TimelineItem(object):
 
     """A timeline item to send to the watch.
@@ -2106,6 +2119,17 @@ class TimelineItem(object):
             blobdb_data = blobdb.insert(self.id.bytes, data)
             self.pebble._send_message("BLOB_DB", blobdb_data)
             return EndpointSync(self.pebble, "BLOB_DB").get_data()
+
+
+class Reminder(TimelineItem):
+
+    """A reminder to pop up on the watch, implemented as a specific type of TimelineItem.
+    """
+
+    def __init__(self, pebble, title, timestamp, parent=None, attributes=None, actions=None):
+        super(Reminder, self).__init__(pebble, title, timestamp,
+            0, "REMINDER", parent, attributes, actions)
+
 
 class BlobDB(object):
 
