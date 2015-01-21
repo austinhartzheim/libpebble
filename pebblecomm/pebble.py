@@ -1881,6 +1881,8 @@ class PutBytesClient(object):
         elif self._state == self.states["COMPLETE"]:
             self.handle_complete(resp)
 
+# Attributes and Actions are currently defined outside of Notifications
+# and TimelineItems because they're common to both
 class Attribute(object):
 
     """
@@ -2065,7 +2067,9 @@ class TimelineItem(object):
         "REMINDER": 3,
     }
 
-    def __init__(self, pebble, title, timestamp=int(time.time()), duration=0, type="PIN", parent=None, attributes=None, actions=None):
+    def __init__(self, pebble, title, timestamp=int(time.time()), duration=0, type="PIN",
+        parent=None, attributes=None, actions=None, is_floating=False, visible=False,
+        reminded=False, actioned=False, read=False, layout=0x01):
 
         """Create a TimelineItem object.
 
@@ -2082,17 +2086,22 @@ class TimelineItem(object):
         self.actions = actions if actions else []
         self.parent = parent if parent else uuid.UUID(int=0)
         self.id = uuid.uuid4()
+        self.is_floating = is_floating
+        self.visible = visible
+        self.reminded = reminded
+        self.actioned = actioned
+        self.read = read
+        self.layout = layout
 
-    def send(self, is_floating=False, visible=False, reminded=False, actioned=False,
-        read=False, layout=0x01):
+    def send(self):
         attributes = [Attribute("TITLE", self.title)] + self.attributes
         header_fmt = "<16s16sIHBHBHBB"
         flags = (
-            1 << 0 * is_floating +
-            1 << 1 * visible +
-            1 << 2 * reminded +
-            1 << 3 * actioned +
-            1 << 4 * read
+            1 << 0 * self.is_floating +
+            1 << 1 * self.visible +
+            1 << 2 * self.reminded +
+            1 << 3 * self.actioned +
+            1 << 4 * self.read
             )
 
         attributes_data = "".join([x.pack() for x in attributes])
@@ -2105,7 +2114,7 @@ class TimelineItem(object):
             self.duration,
             self.item_type[self.type],
             flags,
-            layout,
+            self.layout,
             len(attributes_data) + len(actions_data),
             len(attributes),
             len(self.actions))
@@ -2126,9 +2135,9 @@ class Reminder(TimelineItem):
     """A reminder to pop up on the watch, implemented as a specific type of TimelineItem.
     """
 
-    def __init__(self, pebble, title, timestamp, parent=None, attributes=None, actions=None):
+    def __init__(self, pebble, title, timestamp, **kwargs):
         super(Reminder, self).__init__(pebble, title, timestamp,
-            0, "REMINDER", parent, attributes, actions)
+            0, "REMINDER", **kwargs)
 
 
 class BlobDB(object):
