@@ -663,7 +663,7 @@ class Pebble(object):
     def test_add_notification(self, title = "notification!"):
 
         notification = Notification(self, title)
-        notification.actions.append(Notification.Action(0x01, "PEBBLE_PROTOCOL", "action!"))
+        notification.actions.append(Notification.Action(0x01, "GENERIC", "action!"))
         notification.actions.append(Notification.Action(0x02, "DISMISS", "Dismiss!"))
         notification.send()
         return notification
@@ -958,7 +958,7 @@ class Pebble(object):
         return self._raw_blob_db_clear(db)
 
     def test_reminder_db(self, timedelta=20):
-        reminder = Reminder(self, "Reminder", int(time.time()) - (8 * 3600) + timedelta)
+        reminder = Reminder(self, "Reminder", int(time.time()) - time.timezone + timedelta)
         reminder.send()
         print reminder.id
         return reminder
@@ -1910,8 +1910,8 @@ class Attribute(object):
         "TBD_ICON": 0x06,
         "ANCS_ID": 0x07,
         "ACTION_CANNED_RESPONSE": 0x08,
-        "PIN_ICON": 0x09,
-        "SHORT_TITLE": 0x0a
+        "SHORT_TITLE": 0x09,
+        "PIN_ICON": 0x0a
     }
 
     def __init__(self, id, content):
@@ -1928,8 +1928,8 @@ class Action(object):
 
     Possible action types are:
         - ANCS_DISMISS
-        - PEBBLE_PROTOCOL
-        - TEXT_ACTION
+        - GENERIC
+        - RESPONSE
         - DISMISS
     The following action types are available for timeline items:
         - HTTP
@@ -1940,8 +1940,8 @@ class Action(object):
 
     action_table = {
         "ANCS_DISMISS": 0x01,
-        "PEBBLE_PROTOCOL": 0x02,
-        "TEXT_ACTION": 0x03,
+        "GENERIC": 0x02,
+        "RESPONSE": 0x03,
         "DISMISS": 0x04,
         "HTTP": 0x05,
         "SNOOZE": 0x06,
