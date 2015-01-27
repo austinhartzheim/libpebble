@@ -988,7 +988,7 @@ class Pebble(object):
         rand_name = uuid.uuid4().get_hex()[0:6] # generate random name
         uuid_bytes = util.convert_to_bytes(in_uuid)
         app = struct.pack(
-            "<16s32sHI",
+            "<16s96sHI",
             uuid_bytes,
             rand_name,          # random name
             0,                  # version
