@@ -25,7 +25,7 @@ import WebSocketPebble
 import QemuPebble
 import zipfile
 
-
+from AppStore import AppStoreClient
 from collections import OrderedDict
 from struct import pack, unpack
 
@@ -1623,18 +1623,6 @@ class Pebble(object):
             return restype
 
     def _app_fetch_response(self, endpoint, data):
-        import urllib
-        import urllib2
-        import threading
-
-        def internet_on():
-            try:
-                response=urllib2.urlopen('http://74.125.228.100',timeout=1)
-                return True
-            except urllib2.URLError as err: pass
-            return False
-
-
         command, app_uuid, app_id = unpack("<B16sI", data)
 
         uuid_str = str(uuid.UUID(bytes=app_uuid))
@@ -1647,19 +1635,10 @@ class Pebble(object):
 
         print "Trying to download pbw and install"
 
-        if (internet_on()):
-            id_fetch_url = 'https://dev-portal.getpebble.com/api/applications/uuid/%s' % uuid_str
-            appstoreid = json.load(urllib2.urlopen(id_fetch_url))['applications'][0]['id']
-            print appstoreid
+        client = AppStoreClient()
+        pbw_path = client.download_pbw(uuid_str)
 
-            pbw_link_fetch_url = 'https://appstore-api.getpebble.com/v2/apps/id/%s' % appstoreid
-            pbw_link = json.load(urllib2.urlopen(pbw_link_fetch_url))['data'][0]['latest_release']['pbw_file']
-            print pbw_link
-
-            # download
-            urllib.urlretrieve(pbw_link, "/tmp/app.pbw")
-            print "Finished downloading"
-            threading.Timer(1.0, self.install_app_binaries_pebble_protocol, ["/tmp/app.pbw", app_id]).start()
+        threading.Timer(1.0, self.install_app_binaries_pebble_protocol, [pbw_path, app_id]).start()
 
     def _version_response(self, endpoint, data):
         fw_names = {
