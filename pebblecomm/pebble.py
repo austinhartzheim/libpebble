@@ -334,6 +334,11 @@ class CoreDumpSync():
         return None
 
 class AudioSync():
+
+    MSG_ID_START = 0x01
+    MSG_ID_DATA = 0x02
+    MSG_ID_STOP = 0x03
+
     def __init__(self, pebble, endpoint, timeout=60):
         self.timeout = timeout
         self.marker = threading.Event()
@@ -342,12 +347,12 @@ class AudioSync():
 
     def packet_callback(self, endpoint, data):
         packet_id, = unpack('B', data[0])
-        if packet_id == 0x01:
+        if packet_id == AudioSync.MSG_ID_START:
             self.process_start_packet(data)
-        elif packet_id == 0x02:
+        elif packet_id == AudioSync.MSG_ID_DATA:
             self.process_data_packet(data)
-        elif packet_id == 0x03:
-            self.process_end_packet(data)
+        elif packet_id == AudioSync.MSG_ID_STOP:
+            self.process_stop_packet(data)
 
     def process_start_packet(self, data):
         _, _, encoder_id, self.sample_rate, _ = unpack('<BHBIH', data[:10])
@@ -366,14 +371,14 @@ class AudioSync():
                 self.frames.append(data[index:index + frame_length])
             index += frame_length
 
-    def process_end_packet(self, data):
+    def process_stop_packet(self, data):
         self.marker.set()
         self.recording = False
 
-    def save(self, name):
+    def get_data(self):
         try:
             self.marker.wait(self.timeout)
-            return speex.store_data(self.frames, name, self.sample_rate)
+            return self.frames, self.sample_rate
         except:
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
@@ -828,9 +833,12 @@ class Pebble(object):
 
         """Decode and store audio data streamed from Pebble"""
 
-        name = AudioSync(self, "AUDIO").save(name)
-
-        print "Recording stored in", name
+        try:
+            frames, sample_rate = AudioSync(self, "AUDIO").get_data()
+            speex.store_data(frames, name, sample_rate)
+            print "Recording stored in", name
+        except PebbleError as e:
+            print e
 
     def set_time(self, timestamp):
 
