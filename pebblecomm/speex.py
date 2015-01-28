@@ -7,9 +7,6 @@ import binascii
 MAX_FRAME_LEN = 255
 MAX_FRAME_COUNT = 255
 
-def decode(in_file, out_file):
-    call(["speexdec", in_file, out_file])
-
 bitswap = b''.join(chr(sum(((val >> i) & 1) << (7 - i) for i in range(8))) for val in range(256))
 to_uint_be = lambda data: struct.pack('>I', data)
 
