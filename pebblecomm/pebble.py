@@ -900,8 +900,6 @@ class Pebble(object):
         if not bundle.is_app_bundle():
             raise PebbleError(self.id, "This is not an app bundle")
 
-        # remove app by uuid
-
         # Install the app code
         app_info = bundle.get_application_info()
         binary = bundle.zip.read(app_info['name'])
@@ -939,8 +937,6 @@ class Pebble(object):
               time.sleep(0.5)
           if client._error:
               raise PebbleError(self.id, "Failed to send worker binary %s/%s" % (pbw_path, worker_info['name']))
-
-        # launch app is we should
 
         # If we have not thrown an exception, we succeeded
         return True
