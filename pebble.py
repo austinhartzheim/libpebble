@@ -46,6 +46,11 @@ class PbSDKShell:
         self.commands.append(PblReplCommand())
         self.commands.append(PblScreenshotCommand())
         self.commands.append(PblCoreDumpCommand())
+        self.commands.append(PblEmuTapCommand())
+        self.commands.append(PblEmuBluetoothConnectionCommand())
+        self.commands.append(PblEmuCompassCommand())
+        self.commands.append(PblEmuBatteryCommand())
+        self.commands.append(PblEmuAccelCommand())
 
     def _get_version(self):
         try:
@@ -55,7 +60,8 @@ class PbSDKShell:
             return "Development"
 
     def main(self):
-        parser = argparse.ArgumentParser(description = 'Pebble SDK Shell')
+        parser = argparse.ArgumentParser(description = 'Pebble SDK Shell',
+                                formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.add_argument('--debug', action="store_true",
                             help="Enable debugging output")
         parser.add_argument('--version', action='version',
