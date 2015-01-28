@@ -1,4 +1,3 @@
-
 import uuid
 
 def str_comprisedOnlyOf(s, chars):
