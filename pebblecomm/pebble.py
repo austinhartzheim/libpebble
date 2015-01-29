@@ -469,6 +469,10 @@ class Pebble(object):
         self._qemu_internal_endpoint_handlers = {
             QemuPebble.QemuProtocol_VibrationNotification: self._qemu_vibration_notification,
         }
+        self._qemu_endpoint_handlers = {}
+        self._qemu_internal_endpoint_handlers = {
+            QemuPebble.QemuProtocol_VibrationNotification: self._qemu_vibration_notification,
+        }
 
     def init_reader(self):
         try:
@@ -1324,7 +1328,7 @@ class Pebble(object):
 
     def emu_button(self, button_id):
 
-        """Send a short button press to the watch running in the emulator.
+        """Send a short button press to the watch running in the emulator. 
         0: back, 1: up, 2: select, 3: down """
 
         button_state = 1 << button_id;
