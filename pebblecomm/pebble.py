@@ -362,7 +362,6 @@ class AudioSync():
         self.recording = True
 
     def process_data_packet(self, data):
-        _, _, _ = unpack('<BHB', data[:4])
         index = 4
         while index < len(data):
             frame_length, = unpack('B', data[index])
