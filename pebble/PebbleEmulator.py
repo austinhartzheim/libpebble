@@ -31,7 +31,7 @@ class PebbleEmulator(object):
             need_wait = True
 
         if need_wait:
-            time.sleep(2)
+            time.sleep(10)
 
     def is_running(self, pidfile):
         if pidfile == None:
