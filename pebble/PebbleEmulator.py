@@ -4,16 +4,18 @@ import logging
 import time
 import os
 import subprocess
+import tempfile
 import platform
 
 QEMU_DEFAULT_BT_PORT = 12344
 QEMU_DEFAULT_CONSOLE_PORT = 12345
 PHONESIM_PORT = 12342
+TEMP_DIR = tempfile.gettempdir()
 
 class PebbleEmulator(object):
     def __init__(self, sdk_path):
-        self.qemu_pid = "/tmp/pebble-qemu.pid"
-        self.phonesim_pid = "/tmp/pebble-phonesim.pid"
+        self.qemu_pid = os.path.join(TEMP_DIR, 'pebble-qemu.pid')
+        self.phonesim_pid = os.path.join(TEMP_DIR, 'pebble-phonesim.pid')
         self.port = PHONESIM_PORT
         self.sdk_path = sdk_path
 
