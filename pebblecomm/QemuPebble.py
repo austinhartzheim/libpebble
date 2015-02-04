@@ -15,7 +15,7 @@ QemuProtocol_Compass = 4                # Send a compass event
 QemuProtocol_Battery = 5                # Send a battery info event
 QemuProtocol_Accel = 6                  # Send a accel data event
 QemuProtocol_VibrationNotification = 7  # Vibration notification from Pebble
-QemuProtocol_Button = 8                 # Send a button state change 
+QemuProtocol_Button = 8                 # Send a button state change
 
 QEMU_HEADER_SIGNATURE = 0xFEED
 QEMU_FOOTER_SIGNATURE = 0xBEEF
@@ -96,7 +96,7 @@ class QemuPebble(object):
 
         if self.trace_enabled:
             logging.debug('rcv<<< ' + data.encode('hex'))
-            
+
         self.assembled_data += data
 
         # Look for a complete packet
@@ -125,8 +125,7 @@ class QemuPebble(object):
 
             # Ignore everything but SPP protocol for now
             if protocol == QemuProtocol_SPP:
-                size, endpoint = struct.unpack("!HH", data[0:4])
-                return ('watch', endpoint, data[4:], data)
+                return ('watch', 'Pebble Protocol', data, data)
             else:
                 return ('qemu', protocol, data, data)
 

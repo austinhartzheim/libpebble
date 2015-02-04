@@ -94,9 +94,8 @@ class WebSocketPebble(WebSocket):
             logging.debug("Phone ==> Watch: %s" % data[1:].encode("hex"))
         elif ws_cmd==WS_CMD_WATCH_TO_PHONE:
             logging.debug("Watch ==> Phone: %s" % data[1:].encode("hex"))
-            size, endpoint = unpack("!HH", data[1:5])
-            resp = data[5:]
-            return ('watch', endpoint, resp, data[1:5])
+            pp_data = data[1:]
+            return ('watch', 'Pebble Protocol', pp_data, pp_data)
         elif ws_cmd==WS_CMD_STATUS:
             logging.debug("Status: %s" % repr(data[1:]))
             status = unpack("I", data[1:5])[0]

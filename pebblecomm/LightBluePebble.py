@@ -160,9 +160,8 @@ class LightBluePebble(object):
                         # TODO: Should probably have some kind of timeout here
                         pass
                 try:
-                    if self.debug_protocol:
-                        log.debug("{}: {} {} ".format(endpoint, resp, rec_data))
-                    self.rec_queue.put(("watch", endpoint, resp, rec_data))
+                    resp = rec_data + resp
+                    self.rec_queue.put(("watch", 'Pebble Protocol', resp, resp))
 
                 except (IOError, EOFError):
                     self.BT_TEARDOWN.set()
