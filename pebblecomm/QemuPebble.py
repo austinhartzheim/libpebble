@@ -132,3 +132,7 @@ class QemuPebble(object):
         # If we broke out, we don't have a complete packet yet
         return (None, None, None, None)
 
+    def close(self):
+        """ Closes the socket connection. """
+        self.socket.close()
+
