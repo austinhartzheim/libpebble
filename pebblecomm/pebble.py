@@ -519,6 +519,7 @@ class Pebble(object):
         self._qemu_internal_endpoint_handlers = {
             QemuPebble.QemuProtocol_VibrationNotification: self._qemu_vibration_notification,
         }
+        self.pebble_protocol_reassembly_buffer = ''
 
     def init_reader(self):
         try:
@@ -592,6 +593,24 @@ class Pebble(object):
         except:
             pass
 
+    def _parse_received_pebble_protocol_data(self):
+        while True:
+            if len(self.pebble_protocol_reassembly_buffer) < 4:
+                return
+            header = self.pebble_protocol_reassembly_buffer[0:4]
+            tail = self.pebble_protocol_reassembly_buffer[4:]
+            size, endpoint = unpack("!HH", header)
+            if len(tail) < size:
+                return
+            payload = tail[0:size]
+            self.pebble_protocol_reassembly_buffer = self.pebble_protocol_reassembly_buffer[4 + size:]
+
+            if endpoint in self._internal_endpoint_handlers:
+                payload = self._internal_endpoint_handlers[endpoint](endpoint, payload)
+
+            if endpoint in self._endpoint_handlers:
+                self._endpoint_handlers[endpoint](endpoint, payload)
+
     def _reader(self):
         try:
             while self._alive:
@@ -620,13 +639,12 @@ class Pebble(object):
                     if endpoint in self._qemu_endpoint_handlers and resp is not None:
                         self._qemu_endpoint_handlers[endpoint](endpoint, resp)
 
-                else:
-                    #log.info("message for endpoint " + str(endpoint) + " resp : " + str(resp))
-                    if endpoint in self._internal_endpoint_handlers:
-                        resp = self._internal_endpoint_handlers[endpoint](endpoint, resp)
+                elif source == 'watch':
+                    self.pebble_protocol_reassembly_buffer += resp
+                    self._parse_received_pebble_protocol_data()
 
-                    if endpoint in self._endpoint_handlers and resp is not None:
-                        self._endpoint_handlers[endpoint](endpoint, resp)
+                else:
+                    raise ValueError('Unknown source "%s"' % source)
 
         except Exception as e:
             import traceback
@@ -679,12 +697,13 @@ class Pebble(object):
                 return (None, None, None)
             elif len(data) < 4:
                 raise PebbleError(self.id, "Malformed response with length "+str(len(data)))
-            size, endpoint = unpack("!HH", data)
-            resp = self._ser.read(size)
+            size, _ = unpack("!HH", data)
+            resp = data + self._ser.read(size)
+            endpoint = 'Pebble Protocol'
+            source = 'watch'
         if DEBUG_PROTOCOL:
             log.debug("Got message for endpoint %s of length %d" % (endpoint, len(resp)))
             log.debug('<<< ' + (data + resp).encode('hex'))
-
         return (source, endpoint, resp)
 
     def register_endpoint(self, endpoint_name, func):
