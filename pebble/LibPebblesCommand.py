@@ -58,12 +58,7 @@ class LibPebbleCommand(PblCommand):
             args.qemu = os.getenv(PEBBLE_QEMU_ENVVAR)
 
         if not args.phone and not args.pebble_id and not args.emulator and not args.qemu:
-            raise ConfigurationException("No method specified to connect to watch\n- To use "
-                  "Developer Connection, argument --phone is required (or set the %s environment "
-                  "variable)\n- To use a direct BT connection, argument --pebble_id is required "
-                  "(or set the %s environment variable)\n- To use a QEMU connection, argument "
-                  "--qemu is required (or set the %s environment variable)" % (PEBBLE_PHONE_ENVVAR,
-                   PEBBLE_BTID_ENVVAR, PEBBLE_QEMU_ENVVAR))
+            args.emulator = True
 
         num_args = bool(args.phone) + bool(args.pebble_id) + bool(args.qemu)
         if num_args > 1:
