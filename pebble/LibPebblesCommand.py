@@ -426,4 +426,12 @@ class PblEmuAccelCommand(LibPebbleCommand):
         self.pebble.emu_accel(motion=args.motion, filename=args.file)
 
 
+class PblKillCommand(LibPebbleCommand):
+    name = 'kill'
+    help = 'Kill the pebble emulator and phone simulator'
+
+    def run(self, args):
+        emulator = PebbleEmulator(self.sdk_path(args))
+        emulator.kill_qemu()
+        emulator.kill_phonesim()
 
