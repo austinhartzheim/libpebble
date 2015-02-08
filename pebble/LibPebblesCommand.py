@@ -39,9 +39,9 @@ class LibPebbleCommand(PblCommand):
         parser.add_argument('--pebble_id', type=str,
                 help='When using a direct BT connection, the watch\'s Bluetooth ID (e.g. DF38 or 01:23:45:67:DF:38). Can also be provided through %s environment variable.' % PEBBLE_BTID_ENVVAR)
         parser.add_argument('--emulator', action="store_true", default=False,
-                help='This will automatically connect to the QEMU emulator. If you\'re running your own emulator, you can use --qemu host:port')
+                help='Use this option to talk to a Pebble Emulator on your computer. The emulator is automatically started if needed.')
         parser.add_argument('--qemu', type=str,
-                help='When connecting to the emulator. You can optionaly provide the hostname:port of the emulator, if you don\'t the emulator will be managed automatically. Can also be provided through %s environment variable.' % PEBBLE_QEMU_ENVVAR)
+                help='Use this option to connect directly to a qemu instance. You must provide the hostname:port.')
         parser.add_argument('--pair', action="store_true", help="When using a direct BT connection, attempt to pair the watch automatically")
         parser.add_argument('--verbose', action="store_true", default=False,
                             help='Prints received system logs in addition to APP_LOG')
