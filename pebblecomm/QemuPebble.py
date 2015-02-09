@@ -85,7 +85,11 @@ class QemuPebble(object):
         """
         # socket timeouts for asynchronous operation is normal.  In this
         # case we shall return all None to let the caller know.
-        readable, writable, errored = select.select([self.socket], [], [], self.timeout)
+        try:
+            readable, writable, errored = select.select([self.socket], [], [], self.timeout)
+        except select.error:
+            return (None, None, None, None)
+
         if not readable:
             return (None, None, None, None)
 
