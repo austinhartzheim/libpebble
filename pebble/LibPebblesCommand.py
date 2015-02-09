@@ -41,7 +41,7 @@ class LibPebbleCommand(PblCommand):
         parser.add_argument('--emulator', action="store_true", default=False,
                 help='Use this option to talk to a Pebble Emulator on your computer. The emulator is automatically started if needed.')
         parser.add_argument('--qemu', type=str,
-                help='Use this option to connect directly to a qemu instance. You must provide the hostname:port.')
+                help='Use this option to connect directly to a qemu instance. You must provide the hostname:port. This can also be provided through %s environment variable.' % PEBBLE_QEMU_ENVVAR)
         parser.add_argument('--pair', action="store_true", help="When using a direct BT connection, attempt to pair the watch automatically")
         parser.add_argument('--verbose', action="store_true", default=False,
                             help='Prints received system logs in addition to APP_LOG')
