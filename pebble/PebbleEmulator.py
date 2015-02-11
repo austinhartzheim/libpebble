@@ -4,16 +4,18 @@ import logging
 import time
 import os
 import subprocess
+import tempfile
 import platform
 
 QEMU_DEFAULT_BT_PORT = 12344
 QEMU_DEFAULT_CONSOLE_PORT = 12345
 PHONESIM_PORT = 12342
+TEMP_DIR = tempfile.gettempdir()
 
 class PebbleEmulator(object):
     def __init__(self, sdk_path):
-        self.qemu_pid = "/tmp/pebble-qemu.pid"
-        self.phonesim_pid = "/tmp/pebble-phonesim.pid"
+        self.qemu_pid = os.path.join(TEMP_DIR, 'pebble-qemu.pid')
+        self.phonesim_pid = os.path.join(TEMP_DIR, 'pebble-phonesim.pid')
         self.port = PHONESIM_PORT
         self.sdk_path = sdk_path
 
@@ -37,14 +39,7 @@ class PebbleEmulator(object):
         if pidfile == None:
             return False
 
-        pid = None
-        try:
-            with open(pidfile, 'r') as pf:
-                pid = int(pf.read())
-        except IOError:
-            return False
-        except ValueError:
-            return False
+        pid = self.read_pid(pidfile)
 
         if pid:
             try:
@@ -58,6 +53,15 @@ class PebbleEmulator(object):
             else:
                 return True
         else:
+            return False
+
+    def read_pid(self, pidfile):
+        try:
+            with open(pidfile, 'r') as pf:
+                return int(pf.read())
+        except IOError:
+            return False
+        except ValueError:
             return False
 
     def is_qemu_running(self):
@@ -110,3 +114,27 @@ class PebbleEmulator(object):
         # Save the PID
         with open(self.phonesim_pid, 'w') as pf:
             pf.write(str(process.pid))
+
+    def kill_qemu(self):
+        if self.is_qemu_running():
+            pid = self.read_pid(self.qemu_pid);
+            try:
+                os.kill(pid, 9)
+                print 'Killed the pebble emulator'
+            except:
+                print "Unexpected error:", sys.exc_info()[0]
+                raise
+        else:
+            print 'The pebble emulator isn\'t running'
+
+    def kill_phonesim(self):
+        if self.is_phonesim_running():
+            pid = self.read_pid(self.phonesim_pid);
+            try:
+                os.kill(pid, 9)
+                print 'Killed the phone simulator'
+            except:
+                print "Unexpected error:", sys.exc_info()[0]
+                raise
+        else:
+            print 'The phone simulator isn\'t running'
