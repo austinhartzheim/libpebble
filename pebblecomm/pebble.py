@@ -15,6 +15,7 @@ import re
 import sh
 import signal
 import socket
+import speex
 import stm32_crc
 import struct
 import threading
@@ -25,6 +26,7 @@ import WebSocketPebble
 import QemuPebble
 import zipfile
 
+from AppStore import AppStoreClient
 from collections import OrderedDict
 from struct import pack, unpack
 
@@ -331,11 +333,58 @@ class CoreDumpSync():
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
         return None
 
-class EndpointSync():
-    timeout = 10
+class AudioSync():
 
-    def __init__(self, pebble, endpoint):
+    MSG_ID_START = 0x01
+    MSG_ID_DATA = 0x02
+    MSG_ID_STOP = 0x03
+
+    def __init__(self, pebble, endpoint, timeout=60):
+        self.timeout = timeout
         self.marker = threading.Event()
+        self.recording = False
+        pebble.register_endpoint(endpoint, self.packet_callback)
+
+    def packet_callback(self, endpoint, data):
+        packet_id, = unpack('B', data[0])
+        if packet_id == AudioSync.MSG_ID_START:
+            self.process_start_packet(data)
+        elif packet_id == AudioSync.MSG_ID_DATA:
+            self.process_data_packet(data)
+        elif packet_id == AudioSync.MSG_ID_STOP:
+            self.process_stop_packet(data)
+
+    def process_start_packet(self, data):
+        _, _, encoder_id, self.sample_rate, _ = unpack('<BHBIH', data[:10])
+        if encoder_id == 1:
+            print 'Receiving audio data... Encoded with Speex {}'.format(data[10:30].strip())
+        self.frames = []
+        self.recording = True
+
+    def process_data_packet(self, data):
+        index = 4
+        while index < len(data):
+            frame_length, = unpack('B', data[index])
+            index += 1
+            if self.recording:
+                self.frames.append(data[index:index + frame_length])
+            index += frame_length
+
+    def process_stop_packet(self, data):
+        self.marker.set()
+        self.recording = False
+
+    def get_data(self):
+        try:
+            self.marker.wait(self.timeout)
+            return self.frames, self.sample_rate
+        except:
+            raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
+
+class EndpointSync():
+    def __init__(self, pebble, endpoint, timeout=10):
+        self.marker = threading.Event()
+        self.timeout = timeout
         pebble.register_endpoint(endpoint, self.callback)
 
     def callback(self, endpoint, response):
@@ -401,10 +450,12 @@ class Pebble(object):
             "EXTENSIBLE_NOTIFS": 3010,
             "RESOURCE": 4000,
             "APP_MANAGER": 6000,
+            "APP_FETCH": 6001,
             "SCREENSHOT": 8000,
             "COREDUMP": 9000,
             "BLOB_DB": 45531,
             "PUTBYTES": 48879,
+            "AUDIO": 10000,
     }
 
     log_levels = {
@@ -457,14 +508,17 @@ class Pebble(object):
             self.endpoints["EXTENSIBLE_NOTIFS"]: self._notification_response,
             self.endpoints["APP_LOGS"]: self._app_log_response,
             self.endpoints["APP_MANAGER"]: self._appbank_status_response,
+            self.endpoints["APP_FETCH"]: self._app_fetch_response,
             self.endpoints["SCREENSHOT"]: self._screenshot_response,
             self.endpoints["COREDUMP"]: self._coredump_response,
+            self.endpoints["AUDIO"]: self._audio_response,
             self.endpoints["BLOB_DB"]: self._blob_db_response,
         }
         self._qemu_endpoint_handlers = {}
         self._qemu_internal_endpoint_handlers = {
             QemuPebble.QemuProtocol_VibrationNotification: self._qemu_vibration_notification,
         }
+        self.pebble_protocol_reassembly_buffer = ''
 
     def init_reader(self):
         try:
@@ -538,6 +592,24 @@ class Pebble(object):
         except:
             pass
 
+    def _parse_received_pebble_protocol_data(self):
+        while True:
+            if len(self.pebble_protocol_reassembly_buffer) < 4:
+                return
+            header = self.pebble_protocol_reassembly_buffer[0:4]
+            tail = self.pebble_protocol_reassembly_buffer[4:]
+            size, endpoint = unpack("!HH", header)
+            if len(tail) < size:
+                return
+            payload = tail[0:size]
+            self.pebble_protocol_reassembly_buffer = self.pebble_protocol_reassembly_buffer[4 + size:]
+
+            if endpoint in self._internal_endpoint_handlers:
+                payload = self._internal_endpoint_handlers[endpoint](endpoint, payload)
+
+            if endpoint in self._endpoint_handlers:
+                self._endpoint_handlers[endpoint](endpoint, payload)
+
     def _reader(self):
         try:
             while self._alive:
@@ -566,13 +638,12 @@ class Pebble(object):
                     if endpoint in self._qemu_endpoint_handlers and resp is not None:
                         self._qemu_endpoint_handlers[endpoint](endpoint, resp)
 
-                else:
-                    #log.info("message for endpoint " + str(endpoint) + " resp : " + str(resp))
-                    if endpoint in self._internal_endpoint_handlers:
-                        resp = self._internal_endpoint_handlers[endpoint](endpoint, resp)
+                elif source == 'watch':
+                    self.pebble_protocol_reassembly_buffer += resp
+                    self._parse_received_pebble_protocol_data()
 
-                    if endpoint in self._endpoint_handlers and resp is not None:
-                        self._endpoint_handlers[endpoint](endpoint, resp)
+                else:
+                    raise ValueError('Unknown source "%s"' % source)
 
         except Exception as e:
             import traceback
@@ -626,12 +697,13 @@ class Pebble(object):
                 return (None, None, None)
             elif len(data) < 4:
                 raise PebbleError(self.id, "Malformed response with length "+str(len(data)))
-            size, endpoint = unpack("!HH", data)
-            resp = self._ser.read(size)
+            size, _ = unpack("!HH", data)
+            resp = data + self._ser.read(size)
+            endpoint = 'Pebble Protocol'
+            source = 'watch'
         if DEBUG_PROTOCOL:
             log.debug("Got message for endpoint %s of length %d" % (endpoint, len(resp)))
             log.debug('<<< ' + (data + resp).encode('hex'))
-
         return (source, endpoint, resp)
 
     def register_endpoint(self, endpoint_name, func):
@@ -663,7 +735,7 @@ class Pebble(object):
     def test_add_notification(self, title = "notification!"):
 
         notification = Notification(self, title)
-        notification.actions.append(Notification.Action(0x01, "PEBBLE_PROTOCOL", "action!"))
+        notification.actions.append(Notification.Action(0x01, "GENERIC", "action!"))
         notification.actions.append(Notification.Action(0x02, "DISMISS", "Dismiss!"))
         notification.send()
         return notification
@@ -774,6 +846,17 @@ class Pebble(object):
 
         if not async:
             return EndpointSync(self, "TIME").get_data()
+
+    def record(self, name="recording"):
+
+        """Decode and store audio data streamed from Pebble"""
+
+        try:
+            frames, sample_rate = AudioSync(self, "AUDIO").get_data()
+            speex.store_data(frames, name, sample_rate)
+            print "Recording stored in", name
+        except PebbleError as e:
+            print e
 
     def set_time(self, timestamp):
 
@@ -892,6 +975,54 @@ class Pebble(object):
         # If we have not thrown an exception, we succeeded
         return True
 
+    def install_app_binaries_pebble_protocol(self, pbw_path, app_id):
+
+        bundle = PebbleBundle(pbw_path)
+        if not bundle.is_app_bundle():
+            raise PebbleError(self.id, "This is not an app bundle")
+
+        # Install the app code
+        app_info = bundle.get_application_info()
+        binary = bundle.zip.read(app_info['name'])
+        if bundle.has_resources():
+            resources = bundle.zip.read(bundle.get_resources_info()['name'])
+        else:
+            resources = None
+
+        client = PutBytesClient(self, app_id, "BINARY", binary, has_cookie=True)
+        self.register_endpoint("PUTBYTES", client.handle_message)
+        client.init()
+        while not client._done and not client._error:
+            time.sleep(0.5)
+        if client._error:
+            raise PebbleError(self.id, "Failed to send application binary %s/pebble-app.bin" % pbw_path)
+
+        # Install the resources
+        if resources:
+            client = PutBytesClient(self, app_id, "RESOURCES", resources, has_cookie=True)
+            self.register_endpoint("PUTBYTES", client.handle_message)
+            client.init()
+            while not client._done and not client._error:
+                time.sleep(0.5)
+            if client._error:
+                raise PebbleError(self.id, "Failed to send application resources %s/app_resources.pbpack" % pbw_path)
+
+        # Is there a worker to install?
+        worker_info = bundle.get_worker_info()
+        if worker_info is not None:
+          binary = bundle.zip.read(worker_info['name'])
+          client = PutBytesClient(self, app_id, "WORKER", binary, has_cookie=True)
+          self.register_endpoint("PUTBYTES", client.handle_message)
+          client.init()
+          while not client._done and not client._error:
+              time.sleep(0.5)
+          if client._error:
+              raise PebbleError(self.id, "Failed to send worker binary %s/%s" % (pbw_path, worker_info['name']))
+
+        # If we have not thrown an exception, we succeeded
+        return True
+
+
 
     def install_app(self, pbw_path, launch_on_install=True, direct=False):
 
@@ -906,7 +1037,7 @@ class Pebble(object):
             return self.install_app_pebble_protocol(pbw_path, launch_on_install)
 
     def timeline_add_pin(self):
-        fmt = "<16s16sIHBHBBBB" 
+        fmt = "<16s16sIHBHBBBB"
         pin_id = uuid.uuid4()
         pin = struct.pack(fmt,
             pin_id.get_bytes(), # UUID
@@ -930,16 +1061,19 @@ class Pebble(object):
         # else, assume it's a byte array
         return self._raw_blob_db_delete("PIN", uuid)
 
-    def install_app_metadata(self, in_uuid):
+    def install_app_metadata(self, in_uuid, flags):
         rand_name = uuid.uuid4().get_hex()[0:6] # generate random name
         uuid_bytes = util.convert_to_bytes(in_uuid)
         app = struct.pack(
-            "<16s32sHIB",
+            "<16sIIHHBB96s",
             uuid_bytes,
-            rand_name,          # random name
-            0,                  # version
-            0,                  # info_flags
-            3)                  # install_state: INSTALLED
+            flags,              # info_flags
+            17,                 # total_size
+            0,                  # app_version
+            0,                  # sdk_version
+            0,                  # app_face_bg_color
+            0,                  # app_face_template_id
+            rand_name)          # random name
         return self._raw_blob_db_insert("APP", uuid_bytes, app)
 
     def remove_app_metadata(self, uuid):
@@ -957,6 +1091,12 @@ class Pebble(object):
 
     def blob_db_clear(self, db):
         return self._raw_blob_db_clear(db)
+
+    def test_reminder_db(self, timedelta=20):
+        reminder = Reminder(self, "Reminder", int(time.time()) - time.timezone + timedelta)
+        reminder.send()
+        print reminder.id
+        return reminder
 
     def _raw_blob_db_insert(self, db, key, value):
         db = BlobDB(db)
@@ -1269,7 +1409,7 @@ class Pebble(object):
 
     def emu_button(self, button_id):
 
-        """Send a short button press to the watch running in the emulator. 
+        """Send a short button press to the watch running in the emulator.
         0: back, 1: up, 2: select, 3: down """
 
         button_state = 1 << button_id;
@@ -1366,6 +1506,9 @@ class Pebble(object):
         return data
 
     def _coredump_response(self, endpoint, data):
+        return data
+
+    def _audio_response(self, endpoint, data):
         return data
 
     def _ping_response(self, endpoint, data):
@@ -1568,6 +1711,24 @@ class Pebble(object):
 
         else:
             return restype
+
+    def _app_fetch_response(self, endpoint, data):
+        command, app_uuid, app_id = unpack("<B16sI", data)
+
+        uuid_str = str(uuid.UUID(bytes=app_uuid))
+
+        # send ACK
+        resp = pack("BB", 1, 1) # APP_FETCH_INSTALL_RESPONSE, SUCCESS
+        self._send_message("APP_FETCH", resp)
+
+        print "Got fetch request for uuid: %s, app_id: %d" % (uuid.UUID(bytes=app_uuid), app_id)
+
+        print "Trying to download pbw and install"
+
+        client = AppStoreClient()
+        pbw_path = client.download_pbw(uuid_str)
+
+        threading.Timer(1.0, self.install_app_binaries_pebble_protocol, [pbw_path, app_id]).start()
 
     def _version_response(self, endpoint, data):
         fw_names = {
@@ -1773,7 +1934,7 @@ class PutBytesClient(object):
             "WORKER": 7,
     }
 
-    def __init__(self, pebble, index, transfer_type, buffer, filename=""):
+    def __init__(self, pebble, index, transfer_type, buffer, filename="", has_cookie=False):
         if len(filename) > 255:
             raise Exception("Filename too long (>255 chars) " + filename)
 
@@ -1785,9 +1946,15 @@ class PutBytesClient(object):
         self._done = False
         self._error = False
         self._filename = filename + '\0'
+        self._has_cookie = has_cookie
 
     def init(self):
-        data = pack("!bIbb%ds" % (len(self._filename)), 1, len(self._buffer), self._transfer_type, self._index, self._filename)
+        if self._has_cookie:
+            self._transfer_type = self._transfer_type | (1 << 7)
+            data = pack("!BIBI", 1, len(self._buffer), self._transfer_type, self._index)
+        else:
+            data = pack("!BIBB%ds" % (len(self._filename)), 1, len(self._buffer), self._transfer_type, self._index, self._filename)
+
         self._pebble._send_message("PUTBYTES", data)
         self._state = self.states["WAIT_FOR_TOKEN"]
 
@@ -1860,6 +2027,98 @@ class PutBytesClient(object):
         elif self._state == self.states["COMPLETE"]:
             self.handle_complete(resp)
 
+# Attributes and Actions are currently defined outside of Notifications
+# and TimelineItems because they're common to both
+class Attribute(object):
+
+    """
+    An attribute for a Notification, TimelineItem or an Action.
+
+    Possible attribute IDs are:
+        - TITLE
+        - SUBTITLE
+        - BODY
+        - TINY_ICON
+        - SMALL_ICON
+        - TBD_ICON
+        - ANCS_ID
+        - ACTION_CANNED_RESPONSE
+        - PIN_ICON (TimelineItem only)
+        - SHORT_TITLE (TimelineItem only)
+    """
+
+    attribute_table = {
+        "TITLE": 0x01,
+        "SUBTITLE": 0x02,
+        "BODY": 0x03,
+        "TINY_ICON": 0x04,
+        "SMALL_ICON": 0x05,
+        "TBD_ICON": 0x06,
+        "ANCS_ID": 0x07,
+        "ACTION_CANNED_RESPONSE": 0x08,
+        "SHORT_TITLE": 0x09,
+        "PIN_ICON": 0x0a
+    }
+
+    def __init__(self, id, content):
+        self.id = id
+        self.content = content
+
+    def pack(self):
+        fmt = "<BH" + str(len(self.content)) + "s"
+        return pack(fmt, self.attribute_table[self.id], len(self.content), self.content)
+
+class Action(object):
+
+    """An Action that can be added to a notification or timeline item.
+
+    Possible action types are:
+        - ANCS_DISMISS
+        - GENERIC
+        - RESPONSE
+        - DISMISS
+    The following action types are available for timeline items:
+        - HTTP
+        - SNOOZE
+        - OPEN_WATCHAPP
+        - EMPTY (no actions)
+    """
+
+    action_table = {
+        "ANCS_DISMISS": 0x01,
+        "GENERIC": 0x02,
+        "RESPONSE": 0x03,
+        "DISMISS": 0x04,
+        "HTTP": 0x05,
+        "SNOOZE": 0x06,
+        "OPEN_WATCHAPP": 0x07,
+        "EMPTY": 0x08
+    }
+
+    def __init__(self, id, type, title, attributes=None):
+        """
+        Create an Action object.
+
+        id is a number that must be unique for the notification.
+        type is one of the action types listed in the class docstring.
+        """
+
+        self.id = id
+        self.type = type
+        self.title = title
+        if attributes:
+            self.attributes = attributes
+        else:
+            self.attributes = []
+
+    def pack(self):
+        fmt = "<BBB"
+        attributes = [Attribute("TITLE", self.title)]
+        data = pack(fmt, self.id, self.action_table[self.type], len(attributes))
+        for attribute in attributes:
+            data += attribute.pack()
+        return data
+
 class Notification(object):
 
     """A custom notification to send to the watch.
@@ -1875,83 +2134,6 @@ class Notification(object):
         "ACK": 0x00,
         "NACK": 0x01
     }
-
-    class Attribute(object):
-
-        """
-        An attribute for a Notification or an Action.
-
-        Possible attribute IDs are:
-            - TITLE
-            - SUBTITLE
-            - BODY
-            - TINY_ICON
-            - SMALL_ICON
-            - TBD_ICON
-            - ANCS_ID
-            - ACTION_CANNED_RESPONSE
-        """
-
-        attribute_table = {
-            "TITLE": 0x01,
-            "SUBTITLE": 0x02,
-            "BODY": 0x03,
-            "TINY_ICON": 0x04,
-            "SMALL_ICON": 0x05,
-            "TBD_ICON": 0x06,
-            "ANCS_ID": 0x07,
-            "ACTION_CANNED_RESPONSE": 0x08
-        }
-
-        def __init__(self, id, content):
-            self.id = id
-            self.content = content
-
-        def pack(self):
-            fmt = "<BH" + str(len(self.content)) + "s"
-            return pack(fmt, self.attribute_table[self.id], len(self.content), self.content)
-
-    class Action(object):
-
-        """An Action that can be added to a notification.
-
-        Possible action types are:
-            - ANCS_DISMISS
-            - PEBBLE_PROTOCOL
-            - TEXT_ACTION
-            - DISMISS
-        """
-
-        action_table = {
-            "ANCS_DISMISS": 0x01,
-            "PEBBLE_PROTOCOL": 0x02,
-            "TEXT_ACTION": 0x03,
-            "DISMISS": 0x04
-        }
-
-        def __init__(self, id, type, title, attributes=None):
-            """
-            Create an Action object.
-
-            id is a number that must be unique for the notification.
-            type is one of the action types listed in the class docstring.
-            """
-
-            self.id = id
-            self.type = type
-            self.title = title
-            if attributes:
-                self.attributes = attributes
-            else:
-                self.attributes = []
-
-        def pack(self):
-            fmt = "<BBB"
-            attributes = [Notification.Attribute("TITLE", self.title)]
-            data = pack(fmt, self.id, self.action_table[self.type], len(attributes))
-            for attribute in attributes:
-                data += attribute.pack()
-            return data
 
     def __init__(self, pebble, title, attributes=None, actions=None):
 
@@ -1970,10 +2152,10 @@ class Notification(object):
 
     def send(self, silent=False, utc=True, layout=0x01):
 
-        attributes = [Notification.Attribute("TITLE", self.title)] + self.attributes
+        attributes = [Attribute("TITLE", self.title)] + self.attributes
         header_fmt = "<BBIIIIBBB" # header
         flags = (2 * utc) + silent
-        header_data = pack(header_fmt, 
+        header_data = pack(header_fmt,
             0x00,
             0x01, # add notif
             flags, # flags
@@ -2017,12 +2199,100 @@ class Notification(object):
             log.debug("notification command 0x%x not recognized" % command)
 
 
+class TimelineItem(object):
+
+    """A timeline item to send to the watch.
+    Timeline items can be reminders, pins, or notifications.
+    """
+
+    # ensure these match with the TimelineItemType enum
+    # in tintin/src/fw/services/normal/timeline/item.h
+    item_type = {
+        "NOTIFICATION": 1,
+        "PIN": 2,
+        "REMINDER": 3,
+    }
+
+    def __init__(self, pebble, title, timestamp=int(time.time()), duration=0, type="PIN",
+        parent=None, attributes=None, actions=None, is_floating=False, visible=False,
+        reminded=False, actioned=False, read=False, layout=0x01):
+
+        """Create a TimelineItem object.
+
+        The title is provided for convenience. It is simply added to the attribute
+        list later.
+        """
+
+        self.pebble = pebble
+        self.title = title
+        self.timestamp = timestamp
+        self.duration = duration
+        self.type = type
+        self.attributes = attributes if attributes else []
+        self.actions = actions if actions else []
+        self.parent = parent if parent else uuid.UUID(int=0)
+        self.id = uuid.uuid4()
+        self.is_floating = is_floating
+        self.visible = visible
+        self.reminded = reminded
+        self.actioned = actioned
+        self.read = read
+        self.layout = layout
+
+    def send(self):
+        attributes = [Attribute("TITLE", self.title)] + self.attributes
+        header_fmt = "<16s16sIHBHBHBB"
+        flags = (
+            1 << 0 * self.is_floating +
+            1 << 1 * self.visible +
+            1 << 2 * self.reminded +
+            1 << 3 * self.actioned +
+            1 << 4 * self.read
+            )
+
+        attributes_data = "".join([x.pack() for x in attributes])
+        actions_data = "".join([x.pack() for x in self.actions])
+
+        header_data = pack(header_fmt,
+            self.id.bytes,
+            self.parent.bytes,
+            self.timestamp,
+            self.duration,
+            self.item_type[self.type],
+            flags,
+            self.layout,
+            len(attributes_data) + len(actions_data),
+            len(attributes),
+            len(self.actions))
+
+        data = header_data + attributes_data + actions_data
+
+        if self.type == "NOTIFICATION":
+            self.pebble._send_message("EXTENSIBLE_NOTIFS", data)
+        else:
+            blobdb = BlobDB(self.type)
+            blobdb_data = blobdb.insert(self.id.bytes, data)
+            self.pebble._send_message("BLOB_DB", blobdb_data)
+            return EndpointSync(self.pebble, "BLOB_DB").get_data()
+
+
+class Reminder(TimelineItem):
+
+    """A reminder to pop up on the watch, implemented as a specific type of TimelineItem.
+    """
+
+    def __init__(self, pebble, title, timestamp, **kwargs):
+        super(Reminder, self).__init__(pebble, title, timestamp,
+            0, "REMINDER", **kwargs)
+
+
 class BlobDB(object):
 
     dbs = {
             "TEST": 0,
             "PIN": 1,
             "APP": 2,
+            "REMINDER": 3
     }
 
     def __init__(self, db="TEST"):
