@@ -535,7 +535,7 @@ class Pebble(object):
 
     def get_watch_fw_version(self):
         if (self.watch_fw_version is not None):
-            return
+            return self.watch_fw_version
 
         version_info = self.get_versions()
         cur_version = version_info['normal_fw']['version']
