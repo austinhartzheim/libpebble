@@ -519,7 +519,7 @@ class Pebble(object):
             QemuPebble.QemuProtocol_VibrationNotification: self._qemu_vibration_notification,
         }
         self.pebble_protocol_reassembly_buffer = ''
-        self.watch_version = None
+        self.watch_fw_version = None
 
     def init_reader(self):
         try:
@@ -533,8 +533,8 @@ class Pebble(object):
         except:
             raise
 
-    def retrieve_version(self):
-        if (self.watch_version is not None):
+    def get_watch_fw_version(self):
+        if (self.watch_fw_version is not None):
             return
 
         version_info = self.get_versions()
@@ -545,9 +545,9 @@ class Pebble(object):
         major = pieces[0]
         minor = pieces[1]
 
-        self.watch_version = [int(major), int(minor)]
+        self.watch_fw_version = [int(major), int(minor)]
 
-        return self.watch_version
+        return self.watch_fw_version
 
     def connect_via_serial(self, id = None):
         self._connection_type = 'serial'
@@ -1036,10 +1036,9 @@ class Pebble(object):
     def install_app_pebble_protocol(self, pbw_path, launch_on_install=True):
 
         # determine if 2.x or 3.x
-        watch_version = self.retrieve_version()
+        watch_fw_version = self.get_watch_fw_version()
         # print "tyler"
-        print watch_version
-        if (watch_version[0] >= 3):
+        if (watch_fw_version[0] >= 3):
             self.install_app_pebble_protocol_3_x(pbw_path, launch_on_install)
         else:
             self.install_app_pebble_protocol_2_x(pbw_path, launch_on_install)
