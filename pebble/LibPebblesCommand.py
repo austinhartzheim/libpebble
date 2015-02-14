@@ -52,7 +52,7 @@ class LibPebbleCommand(PblCommand):
 
         # Only use the envrionment variables as defaults if no command-line arguments were specified
         # ...allowing you to leave the envrionment var(s) set at all times
-        if not args.phone and not args.pebble_id and not args.qemu:
+        if not args.phone and not args.pebble_id and not args.qemu and not args.emulator:
             args.phone = os.getenv(PEBBLE_PHONE_ENVVAR)
             args.pebble_id = os.getenv(PEBBLE_BTID_ENVVAR)
             args.qemu = os.getenv(PEBBLE_QEMU_ENVVAR)
@@ -434,4 +434,3 @@ class PblKillCommand(LibPebbleCommand):
         emulator = PebbleEmulator(self.sdk_path(args))
         emulator.kill_qemu()
         emulator.kill_phonesim()
-
