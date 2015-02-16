@@ -51,7 +51,7 @@ class PebbleHardware(object):
     SNOWY_BB = 0xFD
     SNOWY_BB2 = 0xFC
 
-    PLATFROMS = {
+    PLATFORMS = {
         UNKNOWN: 'unknown',
         TINTIN_EV1: 'aplite',
         TINTIN_EV2: 'aplite',
@@ -75,7 +75,7 @@ class PebbleHardware(object):
 
     @classmethod
     def prefixes_for_hardware(cls, hardware):
-        platform = cls.PLATFROMS.get(hardware, 'unknown')
+        platform = cls.PLATFORMS.get(hardware, 'unknown')
         return cls.PATHS[platform]
 
 
