@@ -75,9 +75,7 @@ class PebbleHardware(object):
 
     @classmethod
     def prefixes_for_hardware(cls, hardware):
-        platform = cls.PLATFROMS.get(hardware, None)
-        if platform is None:
-            platform = 'unknown'
+        platform = cls.PLATFROMS.get(hardware, 'unknown')
         return cls.PATHS[platform]
 
 
