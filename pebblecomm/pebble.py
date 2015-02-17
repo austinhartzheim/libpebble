@@ -35,8 +35,53 @@ DEFAULT_WEBSOCKET_PORT = 9000
 DEBUG_PROTOCOL = False
 APP_ELF_PATH = 'build/pebble-app.elf'
 
+class PebbleHardware(object):
+    UNKNOWN = 0
+    TINTIN_EV1 = 1
+    TINTIN_EV2 = 2
+    TINTIN_EV2_3 = 3
+    TINTIN_EV2_4 = 4
+    TINTIN_V1_5 = 5
+    BIANCA = 6
+    SNOWY_EVT2 = 7
+    SNOWY_DVT = 8
+
+    TINTIN_BB = 0xFF
+    TINTIN_BB2 = 0xFE
+    SNOWY_BB = 0xFD
+    SNOWY_BB2 = 0xFC
+
+    PLATFORMS = {
+        UNKNOWN: 'unknown',
+        TINTIN_EV1: 'aplite',
+        TINTIN_EV2: 'aplite',
+        TINTIN_EV2_3: 'aplite',
+        TINTIN_EV2_4: 'aplite',
+        TINTIN_V1_5: 'aplite',
+        BIANCA: 'aplite',
+        SNOWY_EVT2: 'basalt',
+        SNOWY_DVT: 'basalt',
+        TINTIN_BB: 'aplite',
+        TINTIN_BB2: 'aplite',
+        SNOWY_BB: 'basalt',
+        SNOWY_BB2: 'basalt',
+    }
+
+    PATHS = {
+        'unknown': ('',),
+        'aplite': ('',),
+        'basalt': ('basalt/', ''),
+    }
+
+    @classmethod
+    def prefixes_for_hardware(cls, hardware):
+        platform = cls.PLATFORMS.get(hardware, 'unknown')
+        return cls.PATHS[platform]
+
+
 class PebbleBundle(object):
     MANIFEST_FILENAME = 'manifest.json'
+    UNIVERSAL_FILES = {'appinfo.json', 'pebble-js-app.js'}
 
     STRUCT_DEFINITION = [
             '8s',   # header
@@ -55,7 +100,8 @@ class PebbleBundle(object):
             '16s'   # uuid
     ]
 
-    def __init__(self, bundle_path):
+    def __init__(self, bundle_path, hardware=PebbleHardware.UNKNOWN):
+        self.hardware = hardware
         bundle_abs_path = os.path.abspath(bundle_path)
         if not os.path.exists(bundle_abs_path):
             raise Exception("Bundle does not exist: " + bundle_path)
@@ -64,11 +110,24 @@ class PebbleBundle(object):
         self.path = bundle_abs_path
         self.manifest = None
         self.header = None
+        self._zip_contents = set(self.zip.namelist())
 
         self.app_metadata_struct = struct.Struct(''.join(self.STRUCT_DEFINITION))
         self.app_metadata_length_bytes = self.app_metadata_struct.size
 
         self.print_pbl_logs = False
+
+    def get_real_path(self, path):
+        if path in self.UNIVERSAL_FILES:
+            return path
+        else:
+            prefixes = PebbleHardware.prefixes_for_hardware(self.hardware)
+            for prefix in prefixes:
+                real_path = prefix + path
+                if real_path in self._zip_contents:
+                    return real_path
+            return None
+
 
     def get_manifest(self):
         if (self.manifest):
@@ -77,7 +136,7 @@ class PebbleBundle(object):
         if self.MANIFEST_FILENAME not in self.zip.namelist():
             raise Exception("Could not find {}; are you sure this is a PebbleBundle?".format(self.MANIFEST_FILENAME))
 
-        self.manifest = json.loads(self.zip.read(self.MANIFEST_FILENAME))
+        self.manifest = json.loads(self.zip.read(self.get_real_path(self.MANIFEST_FILENAME)))
         return self.manifest
 
     def get_app_metadata(self):
@@ -152,6 +211,15 @@ class PebbleBundle(object):
             return None
 
         return self.get_manifest()['worker']
+
+    def get_app_path(self):
+        return self.get_real_path(self.get_application_info()['name'])
+
+    def get_resource_path(self):
+        return self.get_real_path(self.get_resources_info()['name'])
+
+    def get_worker_path(self):
+        return self.get_real_path(self.get_worker_info()['name'])
 
 
 class ScreenshotSync():
@@ -508,7 +576,6 @@ class Pebble(object):
             self.endpoints["EXTENSIBLE_NOTIFS"]: self._notification_response,
             self.endpoints["APP_LOGS"]: self._app_log_response,
             self.endpoints["APP_MANAGER"]: self._appbank_status_response,
-            self.endpoints["APP_FETCH"]: self._app_fetch_response,
             self.endpoints["SCREENSHOT"]: self._screenshot_response,
             self.endpoints["COREDUMP"]: self._coredump_response,
             self.endpoints["AUDIO"]: self._audio_response,
@@ -519,6 +586,7 @@ class Pebble(object):
             QemuPebble.QemuProtocol_VibrationNotification: self._qemu_vibration_notification,
         }
         self.pebble_protocol_reassembly_buffer = ''
+        self.watch_fw_version = None
 
     def init_reader(self):
         try:
@@ -531,6 +599,22 @@ class Pebble(object):
             raise PebbleError(id, "Failed to connect to Pebble")
         except:
             raise
+
+    def get_watch_fw_version(self):
+        if (self.watch_fw_version is not None):
+            return self.watch_fw_version
+
+        version_info = self.get_versions()
+        cur_version = version_info['normal_fw']['version']
+
+        # remove the v and split on '.' and '-'
+        pieces = re.split("[\.-]", cur_version[1:])
+        major = pieces[0]
+        minor = pieces[1]
+
+        self.watch_fw_version = [int(major), int(minor)]
+
+        return self.watch_fw_version
 
     def connect_via_serial(self, id = None):
         self._connection_type = 'serial'
@@ -904,9 +988,11 @@ class Pebble(object):
           log.error('get_phone_info: Unexpected response to "%s"' % self._ws_client._topic)
           return 'Unknown'
 
-    def install_app_pebble_protocol(self, pbw_path, launch_on_install=True):
+    def install_app_pebble_protocol_2_x(self, pbw_path, launch_on_install=True):
+        device_version = self.get_versions()
+        hardware_version = device_version['normal_fw']['hardware_platform']
 
-        bundle = PebbleBundle(pbw_path)
+        bundle = PebbleBundle(pbw_path, hardware_version)
         if not bundle.is_app_bundle():
             raise PebbleError(self.id, "This is not an app bundle")
 
@@ -928,9 +1014,9 @@ class Pebble(object):
 
         # Install the app code
         app_info = bundle.get_application_info()
-        binary = bundle.zip.read(app_info['name'])
+        binary = bundle.zip.read(bundle.get_app_path())
         if bundle.has_resources():
-            resources = bundle.zip.read(bundle.get_resources_info()['name'])
+            resources = bundle.zip.read(bundle.get_resource_path())
         else:
             resources = None
 
@@ -955,7 +1041,7 @@ class Pebble(object):
         # Is there a worker to install?
         worker_info = bundle.get_worker_info()
         if worker_info is not None:
-          binary = bundle.zip.read(worker_info['name'])
+          binary = bundle.zip.read(bundle.get_worker_path())
           client = PutBytesClient(self, first_free, "WORKER", binary)
           self.register_endpoint("PUTBYTES", client.handle_message)
           client.init()
@@ -975,17 +1061,74 @@ class Pebble(object):
         # If we have not thrown an exception, we succeeded
         return True
 
-    def install_app_binaries_pebble_protocol(self, pbw_path, app_id):
+    def install_app_pebble_protocol_3_x(self, pbw_path, launch_on_install=True):
 
         bundle = PebbleBundle(pbw_path)
         if not bundle.is_app_bundle():
             raise PebbleError(self.id, "This is not an app bundle")
 
+        app_metadata = bundle.get_app_metadata()
+
+        metadata_blob = AppMetadata(
+            self,
+            app_metadata['uuid'],
+            app_metadata['flags'],
+            0,
+            app_metadata['app_version_major'],
+            app_metadata['app_version_minor'],
+            app_metadata['sdk_version_major'],
+            app_metadata['sdk_version_minor'],
+            0,
+            0,
+            app_metadata['app_name']
+        )
+
+        resp = metadata_blob.send()
+        if resp is not "SUCCESS":
+            print "Error: " + resp
+
+        # launch application
+        self.launcher_message(app_metadata['uuid'].bytes, "RUNNING", uuid_is_string=False, async = True)
+
+        # listen for app fetch
+        app_fetch = EndpointSync(self, "APP_FETCH").get_data()
+
+        command, app_uuid, app_id = unpack("<B16sI", app_fetch)
+        uuid_str = str(uuid.UUID(bytes=app_uuid))
+
+        # send ACK, no response comes back
+        resp = pack("BB", 1, 1) # APP_FETCH_INSTALL_RESPONSE, SUCCESS
+        self._send_message("APP_FETCH", resp)
+
+        time.sleep(1)
+
+        self.install_app_binaries_pebble_protocol(pbw_path, app_id)
+
+    def install_app_pebble_protocol(self, pbw_path, launch_on_install=True):
+
+        # determine if 2.x or 3.x
+        watch_fw_version = self.get_watch_fw_version()
+        # print "tyler"
+        if (watch_fw_version[0] >= 3):
+            self.install_app_pebble_protocol_3_x(pbw_path, launch_on_install)
+        else:
+            self.install_app_pebble_protocol_2_x(pbw_path, launch_on_install)
+
+        # If we have not thrown an exception, we succeeded
+        return True
+
+    def install_app_binaries_pebble_protocol(self, pbw_path, app_id):
+        device_version = self.get_versions()
+        hardware_version = device_version['normal_fw']['hardware_platform']
+
+        bundle = PebbleBundle(pbw_path, hardware_version)
+        if not bundle.is_app_bundle():
+            raise PebbleError(self.id, "This is not an app bundle")
+
         # Install the app code
-        app_info = bundle.get_application_info()
-        binary = bundle.zip.read(app_info['name'])
+        binary = bundle.zip.read(bundle.get_app_path())
         if bundle.has_resources():
-            resources = bundle.zip.read(bundle.get_resources_info()['name'])
+            resources = bundle.zip.read(bundle.get_resource_path())
         else:
             resources = None
 
@@ -1010,19 +1153,17 @@ class Pebble(object):
         # Is there a worker to install?
         worker_info = bundle.get_worker_info()
         if worker_info is not None:
-          binary = bundle.zip.read(worker_info['name'])
+          binary = bundle.zip.read(bundle.get_worker_path())
           client = PutBytesClient(self, app_id, "WORKER", binary, has_cookie=True)
           self.register_endpoint("PUTBYTES", client.handle_message)
           client.init()
           while not client._done and not client._error:
               time.sleep(0.5)
           if client._error:
-              raise PebbleError(self.id, "Failed to send worker binary %s/%s" % (pbw_path, worker_info['name']))
+              raise PebbleError(self.id, "Failed to send worker binary %s/%s" % (pbw_path, bundle.get_worker_path()))
 
         # If we have not thrown an exception, we succeeded
         return True
-
-
 
     def install_app(self, pbw_path, launch_on_install=True, direct=False):
 
@@ -1712,24 +1853,6 @@ class Pebble(object):
         else:
             return restype
 
-    def _app_fetch_response(self, endpoint, data):
-        command, app_uuid, app_id = unpack("<B16sI", data)
-
-        uuid_str = str(uuid.UUID(bytes=app_uuid))
-
-        # send ACK
-        resp = pack("BB", 1, 1) # APP_FETCH_INSTALL_RESPONSE, SUCCESS
-        self._send_message("APP_FETCH", resp)
-
-        print "Got fetch request for uuid: %s, app_id: %d" % (uuid.UUID(bytes=app_uuid), app_id)
-
-        print "Trying to download pbw and install"
-
-        client = AppStoreClient()
-        pbw_path = client.download_pbw(uuid_str)
-
-        threading.Timer(1.0, self.install_app_binaries_pebble_protocol, [pbw_path, app_id]).start()
-
     def _version_response(self, endpoint, data):
         fw_names = {
                 0: "normal_fw",
@@ -1743,7 +1866,7 @@ class Pebble(object):
             fw = {}
             fw["timestamp"],fw["version"],fw["commit"],fw["is_recovery"], \
                     fw["hardware_platform"],fw["metadata_ver"] = \
-                    unpack("!i32s8s?bb", data[offset:offset+fwver_size])
+                    unpack("!i32s8s?Bb", data[offset:offset+fwver_size])
 
             fw["version"] = fw["version"].replace("\x00", "")
             fw["commit"] = fw["commit"].replace("\x00", "")
@@ -2275,6 +2398,43 @@ class TimelineItem(object):
             self.pebble._send_message("BLOB_DB", blobdb_data)
             return EndpointSync(self.pebble, "BLOB_DB").get_data()
 
+
+class AppMetadata(object):
+
+    def __init__(self, pebble, in_uuid, flags, total_size, app_version_major,
+        app_version_minor, sdk_version_major, sdk_version_minor, app_face_bg_color,
+        app_face_template_id, app_name):
+
+        self.pebble = pebble
+        self.in_uuid = in_uuid
+        self.flags = flags
+        self.total_size = total_size
+        self.app_version_major = app_version_major
+        self.app_version_minor = app_version_minor
+        self.sdk_version_major = sdk_version_major
+        self.sdk_version_minor = sdk_version_minor
+        self.app_face_bg_color = app_face_bg_color
+        self.app_face_template_id = app_face_template_id
+        self.app_name = app_name
+
+    def send(self):
+        uuid_bytes = util.convert_to_bytes(self.in_uuid)
+
+        data = struct.pack(
+            "<16sIIBBBBBB96s",
+            uuid_bytes,
+            self.flags,
+            self.total_size,
+            self.app_version_major,
+            self.app_version_minor,
+            self.sdk_version_major,
+            self.sdk_version_minor,
+            self.app_face_bg_color,
+            self.app_face_template_id,
+            self.app_name
+        )
+
+        return self.pebble._raw_blob_db_insert("APP", uuid_bytes, data)
 
 class Reminder(TimelineItem):
 
