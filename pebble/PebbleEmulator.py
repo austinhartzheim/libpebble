@@ -18,6 +18,7 @@ class PebbleEmulator(object):
         self.phonesim_pid = os.path.join(TEMP_DIR, 'pebble-phonesim.pid')
         self.port = PHONESIM_PORT
         self.sdk_path = sdk_path
+        self.platform_path = args.emulator
 
     def start(self):
         need_wait = False
@@ -77,9 +78,9 @@ class PebbleEmulator(object):
         return PHONESIM_PORT
 
     def start_qemu(self):
-        qemu_bin = os.path.join(self.sdk_path, 'Pebble', 'qemu', 'qemu-system-arm' + "_" + platform.machine())
-        qemu_micro_flash = os.path.join(self.sdk_path, 'Pebble', 'qemu', "qemu_micro_flash.bin")
-        qemu_spi_flash = os.path.join(self.sdk_path, 'Pebble', 'qemu', "qemu_spi_flash.bin")
+        qemu_bin = os.path.join(self.sdk_path, 'Pebble', 'common', 'qemu', 'qemu-system-arm' + "_" + platform.machine())
+        qemu_micro_flash = os.path.join(self.sdk_path, 'Pebble', self.platform_path, 'qemu', "qemu_micro_flash.bin")
+        qemu_spi_flash = os.path.join(self.sdk_path, 'Pebble', self.platform_path, 'qemu', "qemu_spi_flash.bin")
 
         for f in [qemu_bin, qemu_micro_flash, qemu_spi_flash]:
             if not os.path.exists(f):
@@ -99,7 +100,7 @@ class PebbleEmulator(object):
         subprocess.Popen(cmdline)
 
     def start_phonesim(self):
-        phonesim_bin = os.path.join(self.sdk_path, 'Pebble', 'phonesim', 'phonesim.py')
+        phonesim_bin = os.path.join(self.sdk_path, 'Pebble', 'common', 'phonesim', 'phonesim.py')
 
         if not os.path.exists(phonesim_bin):
             logging.debug("phone simulator not found: {}".format(phonesim_bin))
