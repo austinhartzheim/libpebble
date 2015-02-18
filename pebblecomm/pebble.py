@@ -222,20 +222,19 @@ class ScreenshotSync():
         # pack 1-d bit array of size w*h into h arrays of size w, pad w/ zeros
         output_bitmap = []
         if self.version == 1:
-            subpixels_per_row = 1
+            subpixels_per_pixel = 1
         else:
-            subpixels_per_row = 3
+            subpixels_per_pixel = 3
         while True:
             try:
                 new_row = []
-                for _ in xrange(self.width * subpixels_per_row):
+                for _ in xrange(self.width * subpixels_per_pixel):
                     new_row.append(data_pixels_iter.next())
                 output_bitmap.append(new_row)
             except StopIteration:
                 # add part of the last row anyway
                 if new_row:
                     output_bitmap.append(new_row)
-                print output_bitmap
                 return output_bitmap
 
     def get_data(self):
