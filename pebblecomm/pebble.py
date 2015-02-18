@@ -234,6 +234,7 @@ class ScreenshotSync():
         self.have_read_header = False
         self.length_received = 0
         self.progress_callback = progress_callback
+        self.version = None
         pebble.register_endpoint(endpoint, self.message_callback)
 
     # Received a reply message from the watch. We expect several of these...
@@ -243,7 +244,10 @@ class ScreenshotSync():
             self.have_read_header = True
 
         self.data += data
-        self.length_received += len(data) * 8 # in bits
+        if self.version == 1:
+            self.length_received += len(data) * 8 # in bits
+        else:
+            self.length_received += len(data)
         self.progress_callback(float(self.length_received)/self.total_length)
         if self.length_received >= self.total_length:
             self.marker.set()
@@ -261,30 +265,39 @@ class ScreenshotSync():
                 "code %d, signaling an error on the watch side." %
                 response_code)
 
-        if version is not 1:
+        if not 1 <= version <= 2:
             raise PebbleError(None, "Received unrecognized image format "
                 "version %d from watch. Maybe your libpebble is out of "
                 "sync with your firmware version?" % version)
+        self.version = version
 
         self.total_length = self.width * self.height
         return data
 
     def get_data_array(self):
-        """ splits data in pure binary into a 2D array of bits of length N """
+        """ splits data in pure binary into a 2D array of pixels of length N """
         # break data into bytes
         data_bytes_iter = (ord(ch) for ch in self.data)
 
-        # separate each byte into 8 one-bit entries - IE, 0xf0 --> [1,1,1,1,0,0,0,0]
-        data_bits_iter = (byte >> bit_order & 0x01
-            for byte in data_bytes_iter for bit_order in xrange(8))
+        if self.version == 1:
+            # separate each byte into 8 one-bit entries - IE, 0xf0 --> [1,1,1,1,0,0,0,0]
+            data_pixels_iter = (byte >> bit_order & 0b1
+                for byte in data_bytes_iter for bit_order in xrange(8))
+        else:
+            data_pixels_iter = itertools.chain(*(((byte >> 4) & 0b11, (byte >> 2) & 0b11, (byte) & 0b11)
+                for byte in data_bytes_iter))
 
         # pack 1-d bit array of size w*h into h arrays of size w, pad w/ zeros
         output_bitmap = []
+        if self.version == 1:
+            subpixels_per_pixel = 1
+        else:
+            subpixels_per_pixel = 3
         while True:
             try:
                 new_row = []
-                for _ in xrange(self.width):
-                    new_row.append(data_bits_iter.next())
+                for _ in xrange(self.width * subpixels_per_pixel):
+                    new_row.append(data_pixels_iter.next())
                 output_bitmap.append(new_row)
             except StopIteration:
                 # add part of the last row anyway
@@ -295,8 +308,13 @@ class ScreenshotSync():
     def get_data(self):
         try:
             self.marker.wait(timeout=self.timeout)
-            return png.from_array(self.get_data_array(), mode='L;1')
+            if self.version == 1:
+                mode = 'L;1'
+            else:
+                mode = 'RGB;2'
+            return png.from_array(self.get_data_array(), mode=mode)
         except:
+            traceback.print_exc()
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
 
 
