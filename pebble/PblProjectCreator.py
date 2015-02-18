@@ -94,13 +94,13 @@ def build(ctx):
     binaries = []
 
     for p in ctx.env.target_platforms:
-        app_elf='{}/pebble-app.elf'.format(p.BUILD_DIR)
+        app_elf='{}/pebble-app.elf'.format(p)
         ctx.pbl_program(source=ctx.path.ant_glob('src/**/*.c'),
         target=app_elf,
         platform=p)
 
         if build_worker:
-            worker_elf='{}/pebble-worker.elf'.format(p.BUILD_DIR)
+            worker_elf='{}/pebble-worker.elf'.format(p)
             binaries.append({'platform': p, 'app_elf': app_elf, 'worker_elf': worker_elf})
             ctx.pbl_worker(source=ctx.path.ant_glob('worker_src/**/*.c'),
             target=worker_elf,
