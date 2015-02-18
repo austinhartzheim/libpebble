@@ -40,7 +40,7 @@ class LibPebbleCommand(PblCommand):
         parser.add_argument('--pebble_id', type=str,
                 help='When using a direct BT connection, the watch\'s Bluetooth ID (e.g. DF38 or 01:23:45:67:DF:38). Can also be provided through %s environment variable.' % PEBBLE_BTID_ENVVAR)
         parser.add_argument('--emulator', type=str,
-                help='Use this option to talk to a Pebble Emulator on your computer. The emulator is automatically started if needed.' % PEBBLE_PLATFORM_ENVVAR)
+                help='Use this option to talk to a Pebble Emulator on your computer. The emulator is automatically started if needed. Basalt is the default emulator, but you can specify another through %s environment variable.' % PEBBLE_PLATFORM_ENVVAR)
         parser.add_argument('--qemu', type=str,
                 help='Use this option to connect directly to a qemu instance. You must provide the hostname:port. This can also be provided through %s environment variable.' % PEBBLE_QEMU_ENVVAR)
         parser.add_argument('--pair', action="store_true", help="When using a direct BT connection, attempt to pair the watch automatically")
@@ -76,7 +76,7 @@ class LibPebbleCommand(PblCommand):
         elif args.pebble_id:
             self.pebble.connect_via_lightblue(pair_first=args.pair)
         elif args.emulator:
-            emulator = PebbleEmulator(self.sdk_path(args))
+            emulator = PebbleEmulator(self.sdk_path(args), args.emulator)
             emulator.start()
             self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
         elif args.qemu:

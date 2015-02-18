@@ -13,12 +13,12 @@ PHONESIM_PORT = 12342
 TEMP_DIR = tempfile.gettempdir()
 
 class PebbleEmulator(object):
-    def __init__(self, sdk_path):
+    def __init__(self, sdk_path, platform):
         self.qemu_pid = os.path.join(TEMP_DIR, 'pebble-qemu.pid')
         self.phonesim_pid = os.path.join(TEMP_DIR, 'pebble-phonesim.pid')
         self.port = PHONESIM_PORT
         self.sdk_path = sdk_path
-        self.platform_path = args.emulator
+        self.platform = platform
 
     def start(self):
         need_wait = False
@@ -79,8 +79,8 @@ class PebbleEmulator(object):
 
     def start_qemu(self):
         qemu_bin = os.path.join(self.sdk_path, 'Pebble', 'common', 'qemu', 'qemu-system-arm' + "_" + platform.machine())
-        qemu_micro_flash = os.path.join(self.sdk_path, 'Pebble', self.platform_path, 'qemu', "qemu_micro_flash.bin")
-        qemu_spi_flash = os.path.join(self.sdk_path, 'Pebble', self.platform_path, 'qemu', "qemu_spi_flash.bin")
+        qemu_micro_flash = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', "qemu_micro_flash.bin")
+        qemu_spi_flash = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', "qemu_spi_flash.bin")
 
         for f in [qemu_bin, qemu_micro_flash, qemu_spi_flash]:
             if not os.path.exists(f):
