@@ -191,7 +191,7 @@ DICT_DUMMY_APPINFO = {
     'company_name': 'MakeAwesomeHappen',
     'version_code': 1,
     'version_label': '1.0',
-    'target_platform': ['aplite', 'basalt'],
+    'target_platform': ["aplite", "basalt"],
     'is_watchface': 'false',
     'app_keys': """{
     "dummy": 0
