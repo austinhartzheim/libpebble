@@ -433,6 +433,6 @@ class PblKillCommand(LibPebbleCommand):
     help = 'Kill the pebble emulator and phone simulator'
 
     def run(self, args):
-        emulator = PebbleEmulator(self.sdk_path(args))
+        emulator = PebbleEmulator(self.sdk_path(args), args.emulator)
         emulator.kill_qemu()
         emulator.kill_phonesim()
