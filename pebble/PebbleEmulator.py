@@ -11,6 +11,7 @@ QEMU_DEFAULT_BT_PORT = 12344
 QEMU_DEFAULT_CONSOLE_PORT = 12345
 PHONESIM_PORT = 12342
 TEMP_DIR = tempfile.gettempdir()
+FNULL = open(os.devnull, 'w')
 
 class PebbleEmulator(object):
     def __init__(self, sdk_path):
@@ -96,7 +97,7 @@ class PebbleEmulator(object):
         cmdline.extend(["-pidfile", self.qemu_pid])
 
         logging.debug("QEMU command: " + " ".join(cmdline))
-        subprocess.Popen(cmdline)
+        subprocess.Popen(cmdline, stdout=FNULL, stderr=FNULL)
 
     def start_phonesim(self):
         phonesim_bin = os.path.join(self.sdk_path, 'Pebble', 'phonesim', 'phonesim.py')
@@ -109,7 +110,7 @@ class PebbleEmulator(object):
         cmdline.extend(["--qemu", "localhost:{}".format(QEMU_DEFAULT_BT_PORT)])
         cmdline.extend(["--port", str(PHONESIM_PORT)])
 
-        process = subprocess.Popen(cmdline)
+        process = subprocess.Popen(cmdline, stdout=FNULL, stderr=FNULL)
 
         # Save the PID
         with open(self.phonesim_pid, 'w') as pf:
