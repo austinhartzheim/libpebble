@@ -1567,7 +1567,7 @@ class Pebble(object):
 
     def emu_button(self, button_id):
 
-        """Send a short button press to the watch running in the emulator.
+        """Send a short button press to the watch running in the emulator. 
         0: back, 1: up, 2: select, 3: down """
 
         button_state = 1 << button_id;
