@@ -79,7 +79,7 @@ class PebbleEmulator(object):
         return PHONESIM_PORT
 
     def start_qemu(self):
-        qemu_bin = os.path.join(self.sdk_path, 'Pebble', 'common', 'qemu', 'qemu-system-arm' + "_" + platform.machine() + '_' + platform.system())
+        qemu_bin = os.path.join(self.sdk_path, 'Pebble', 'common', 'qemu', 'qemu-system-arm' + "_" + platform.system() + '_' + platform.machine())
         qemu_micro_flash = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', "qemu_micro_flash.bin")
         qemu_spi_flash = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', "qemu_spi_flash.bin")
 
