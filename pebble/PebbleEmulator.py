@@ -92,9 +92,15 @@ class PebbleEmulator(object):
         cmdline.extend(["-rtc", "base=localtime", "-s", "-serial", "file:/dev/null"])
         cmdline.extend(["-serial", "tcp::{},server,nowait".format(QEMU_DEFAULT_BT_PORT)])
         cmdline.extend(["-serial", "tcp::{},server,nowait".format(QEMU_DEFAULT_CONSOLE_PORT)])
-        cmdline.extend(["-machine", "pebble-snowy-bb", "-cpu", "cortex-m4"])
-        cmdline.extend(["-pflash", qemu_micro_flash])
-        cmdline.extend(["-pflash", qemu_spi_flash])
+        if self.platform == "basalt":
+            cmdline.extend(["-machine", "pebble-snowy-bb", "-cpu", "cortex-m4"])
+            cmdline.extend(["-pflash", qemu_micro_flash])
+            cmdline.extend(["-pflash", qemu_spi_flash])
+        else:
+            cmdline.extend(["-machine", "pebble-bb2", "-cpu", "cortex-m3"])
+            cmdline.extend(["-pflash", qemu_micro_flash])
+            cmdline.extend(["-mtdblock", qemu_spi_flash])
+
         cmdline.extend(["-pidfile", self.qemu_pid])
 
         logging.debug("QEMU command: " + " ".join(cmdline))
