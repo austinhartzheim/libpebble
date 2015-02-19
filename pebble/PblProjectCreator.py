@@ -90,18 +90,25 @@ def configure(ctx):
 def build(ctx):
     ctx.load('pebble_sdk')
 
-    ctx.pbl_program(source=ctx.path.ant_glob('src/**/*.c'),
-                    target='pebble-app.elf')
+    build_worker = os.path.exists('worker_src')
+    binaries = []
 
-    if os.path.exists('worker_src'):
-        ctx.pbl_worker(source=ctx.path.ant_glob('worker_src/**/*.c'),
-                        target='pebble-worker.elf')
-        ctx.pbl_bundle(elf='pebble-app.elf',
-                        worker_elf='pebble-worker.elf',
-                        js=ctx.path.ant_glob('src/js/**/*.js'))
-    else:
-        ctx.pbl_bundle(elf='pebble-app.elf',
-                        js=ctx.path.ant_glob('src/js/**/*.js'))
+    for p in ctx.env.target_platforms:
+        app_elf='{}/pebble-app.elf'.format(p)
+        ctx.pbl_program(source=ctx.path.ant_glob('src/**/*.c'),
+        target=app_elf,
+        platform=p)
+
+        if build_worker:
+            worker_elf='{}/pebble-worker.elf'.format(p)
+            binaries.append({'platform': p, 'app_elf': app_elf, 'worker_elf': worker_elf})
+            ctx.pbl_worker(source=ctx.path.ant_glob('worker_src/**/*.c'),
+            target=worker_elf,
+            platform=p)
+        else:
+            binaries.append({'platform': p, 'app_elf': app_elf})
+
+    ctx.pbl_bundle(binaries=binaries, js=ctx.path.ant_glob('src/js/**/*.js'))
 """
 
 FILE_SIMPLE_MAIN = """#include <pebble.h>
@@ -184,6 +191,7 @@ DICT_DUMMY_APPINFO = {
     'company_name': 'MakeAwesomeHappen',
     'version_code': 1,
     'version_label': '1.0',
+    'target_platform': '["aplite", "basalt"]',
     'is_watchface': 'false',
     'app_keys': """{
     "dummy": 0
@@ -198,6 +206,7 @@ FILE_DUMMY_APPINFO = string.Template("""{
   "companyName": "${company_name}",
   "versionCode": ${version_code},
   "versionLabel": "${version_label}",
+  "targetPlatform": ${target_platform},
   "watchapp": {
     "watchface": ${is_watchface}
   },
@@ -226,7 +235,7 @@ class OutdatedProjectException(PebbleProjectException):
     pass
 
 def check_project_directory():
-    """Check to see if the current directly matches what is created by PblProjectCreator.run.
+    """Check to see if the current directory matches what is created by PblProjectCreator.run.
 
     Raises an InvalidProjectException or an OutdatedProjectException if everything isn't quite right.
     """
@@ -236,7 +245,8 @@ def check_project_directory():
 
     if os.path.islink('pebble_app.ld') \
             or os.path.exists('resources/src/resource_map.json') \
-            or not os.path.exists('wscript'):
+            or not os.path.exists('wscript') \
+            or 'ctx.env.target_platforms' not in open('wscript').read():
         raise OutdatedProjectException
 
 def requires_project_dir(func):
