@@ -2387,13 +2387,14 @@ class Notification(TimelineItem):
         # determine if 2.x or 3.x
         watch_fw_version = pebble.get_watch_fw_version()
         if (watch_fw_version[0] >= 3):
-            return TimelineItem(pebble, title, type="NOTIFICATION",
+            return super(Notification, cls).__new__(cls, pebble, title, type="NOTIFICATION",
                 attributes=attributes, actions=actions, layout=layout)
         else:
             return cls.Notification2_x(pebble, title, attributes=attributes, actions=actions)
 
     def __init__(self, pebble, title, attributes=None, actions=None, layout=0x01):
-        pass
+       super(Notification, self).__init__(pebble, title, type="NOTIFICATION",
+            attributes=attributes, actions=actions, layout=layout)
 
 class AppMetadata(object):
 
