@@ -531,6 +531,7 @@ class Pebble(object):
             "RESET": 2003,
             "APP": 2004,
             "APP_LOGS": 2006,
+            "EXTENSIBLE_NOTIFS": 3010,
             "RESOURCE": 4000,
             "APP_MANAGER": 6000,
             "APP_FETCH": 6001,
@@ -2329,7 +2330,7 @@ class Notification(TimelineItem):
     """A custom notification to send to the watch.
     """
 
-    class Notification2.x(object):
+    class Notification2_x(object):
 
        """A 2.x notification to send to a 2.x watch
        """
@@ -2382,9 +2383,17 @@ class Notification(TimelineItem):
            data = header_data + attributes_data + actions_data
            self.pebble._send_message("EXTENSIBLE_NOTIFS", data)
 
+    def __new__(cls, pebble, title, attributes=None, actions=None, layout=0x01):
+        # determine if 2.x or 3.x
+        watch_fw_version = pebble.get_watch_fw_version()
+        if (watch_fw_version[0] >= 8):
+            return TimelineItem(pebble, title, type="NOTIFICATION",
+                attributes=attributes, actions=actions, layout=layout)
+        else:
+            return cls.Notification2_x(pebble, title, attributes=attributes, actions=actions)
+
     def __init__(self, pebble, title, attributes=None, actions=None, layout=0x01):
-        super(Notification, self).__init__(pebble, title, type="NOTIFICATION",
-              attributes=attributes, actions=actions, layout=layout)
+        pass
 
 class AppMetadata(object):
 
