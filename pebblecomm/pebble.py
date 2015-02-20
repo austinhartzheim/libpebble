@@ -524,22 +524,22 @@ class Pebble(object):
             "MUSIC_CONTROL": 32,
             "PHONE_CONTROL": 33,
             "APPLICATION_MESSAGE": 48,
-            "LAUNCHER": 49,
+            "LAUNCHER": 49, # Deprecated in 3.x
             "LOGS": 2000,
             "PING": 2001,
             "LOG_DUMP": 2002,
             "RESET": 2003,
             "APP": 2004,
             "APP_LOGS": 2006,
-            "EXTENSIBLE_NOTIFS": 3010,
+            "EXTENSIBLE_NOTIFS": 3010, # Deprecated in 3.x
             "RESOURCE": 4000,
-            "APP_MANAGER": 6000,
-            "APP_FETCH": 6001,
+            "APP_MANAGER": 6000, # Deprecated in 3.x
+            "APP_FETCH": 6001, # New in 3.x
             "SCREENSHOT": 8000,
             "COREDUMP": 9000,
-            "BLOB_DB": 45531,
+            "BLOB_DB": 45531, # New in 3.x
             "PUTBYTES": 48879,
-            "AUDIO": 10000,
+            "AUDIO": 10000, # New in 3.x
     }
 
     log_levels = {
