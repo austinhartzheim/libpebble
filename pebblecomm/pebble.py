@@ -67,16 +67,9 @@ class PebbleHardware(object):
         SNOWY_BB2: 'basalt',
     }
 
-    PATHS = {
-        'unknown': ('',),
-        'aplite': ('',),
-        'basalt': ('basalt/', ''),
-    }
-
     @classmethod
-    def prefixes_for_hardware(cls, hardware):
-        platform = cls.PLATFORMS.get(hardware, 'unknown')
-        return cls.PATHS[platform]
+    def hardware_platform(cls, hardware):
+        return cls.PLATFORMS.get(hardware, 'unknown')
 
 
 class PebbleBundle(object):
@@ -100,6 +93,12 @@ class PebbleBundle(object):
             '16s'   # uuid
     ]
 
+    PLATFORM_PATHS = {
+        'unknown': ('',),
+        'aplite': ('',),
+        'basalt': ('basalt/', ''),
+    }
+
     def __init__(self, bundle_path, hardware=PebbleHardware.UNKNOWN):
         self.hardware = hardware
         bundle_abs_path = os.path.abspath(bundle_path)
@@ -117,11 +116,16 @@ class PebbleBundle(object):
 
         self.print_pbl_logs = False
 
+    @classmethod
+    def prefixes_for_hardware(cls, hardware):
+        platform = PebbleHardware.hardware_platform(hardware)
+        return cls.PLATFORM_PATHS[platform]
+
     def get_real_path(self, path):
         if path in self.UNIVERSAL_FILES:
             return path
         else:
-            prefixes = PebbleHardware.prefixes_for_hardware(self.hardware)
+            prefixes = self.prefixes_for_hardware(self.hardware)
             for prefix in prefixes:
                 real_path = prefix + path
                 if real_path in self._zip_contents:
@@ -604,6 +608,7 @@ class Pebble(object):
         }
         self.pebble_protocol_reassembly_buffer = ''
         self.watch_fw_version = None
+        self.watch_hardware = None
 
     def init_reader(self):
         try:
@@ -632,6 +637,20 @@ class Pebble(object):
         self.watch_fw_version = [int(major), int(minor)]
 
         return self.watch_fw_version
+
+    def get_watch_hardware(self):
+        if self.watch_hardware is not None:
+            return self.watch_hardware
+
+        version_info = self.get_versions()
+        hardware = version_info['normal_fw']['hardware_platform']
+
+        self.watch_hardware = hardware
+
+        return hardware
+
+    def get_watch_platform(self):
+        return PebbleHardware.hardware_platform(self.get_watch_hardware())
 
     def connect_via_serial(self, id = None):
         self._connection_type = 'serial'
@@ -989,10 +1008,8 @@ class Pebble(object):
           return 'Unknown'
 
     def install_app_pebble_protocol_2_x(self, pbw_path, launch_on_install=True):
-        device_version = self.get_versions()
-        hardware_version = device_version['normal_fw']['hardware_platform']
 
-        bundle = PebbleBundle(pbw_path, hardware_version)
+        bundle = PebbleBundle(pbw_path, self.get_watch_hardware())
         if not bundle.is_app_bundle():
             raise PebbleError(self.id, "This is not an app bundle")
 
@@ -1062,7 +1079,7 @@ class Pebble(object):
 
     def install_app_pebble_protocol_3_x(self, pbw_path, launch_on_install=True):
 
-        bundle = PebbleBundle(pbw_path)
+        bundle = PebbleBundle(pbw_path, self.get_watch_hardware())
         if not bundle.is_app_bundle():
             raise PebbleError(self.id, "This is not an app bundle")
 
@@ -1117,10 +1134,7 @@ class Pebble(object):
         return True
 
     def install_app_binaries_pebble_protocol(self, pbw_path, app_id):
-        device_version = self.get_versions()
-        hardware_version = device_version['normal_fw']['hardware_platform']
-
-        bundle = PebbleBundle(pbw_path, hardware_version)
+        bundle = PebbleBundle(pbw_path, self.get_watch_hardware())
         if not bundle.is_app_bundle():
             raise PebbleError(self.id, "This is not an app bundle")
 
