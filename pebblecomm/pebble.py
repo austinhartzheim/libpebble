@@ -397,8 +397,6 @@ class Pebble(object):
             "RESET": 2003,
             "APP": 2004,
             "APP_LOGS": 2006,
-            "NOTIFICATION": 3000,
-            "EXTENSIBLE_NOTIFS": 3010,
             "RESOURCE": 4000,
             "APP_MANAGER": 6000,
             "APP_FETCH": 6001,
@@ -457,7 +455,6 @@ class Pebble(object):
             self.endpoints["LAUNCHER"]: self._application_message_response,
             self.endpoints["LOGS"]: self._log_response,
             self.endpoints["PING"]: self._ping_response,
-            self.endpoints["EXTENSIBLE_NOTIFS"]: self._notification_response,
             self.endpoints["APP_LOGS"]: self._app_log_response,
             self.endpoints["APP_MANAGER"]: self._appbank_status_response,
             self.endpoints["APP_FETCH"]: self._app_fetch_response,
@@ -647,27 +644,11 @@ class Pebble(object):
     def register_qemu_endpoint(self, endpoint_id, func):
         self._qemu_endpoint_handlers[endpoint_id] = func
 
-    def notification_sms(self, sender, body):
-
-        """Send a 'SMS Notification' to the displayed on the watch."""
-
-        ts = str(int(time.time())*1000)
-        parts = [sender, body, ts]
-        self._send_message("NOTIFICATION", self._pack_message_data(1, parts))
-
-    def notification_email(self, sender, subject, body):
-
-        """Send an 'Email Notification' to the displayed on the watch."""
-
-        ts = str(int(time.time())*1000)
-        parts = [sender, body, ts, subject]
-        self._send_message("NOTIFICATION", self._pack_message_data(0, parts))
-
     def test_add_notification(self, title = "notification!"):
 
         notification = Notification(self, title)
-        notification.actions.append(Notification.Action(0x01, "GENERIC", "action!"))
-        notification.actions.append(Notification.Action(0x02, "DISMISS", "Dismiss!"))
+        notification.actions.append(Action(0x01, "GENERIC", "action!"))
+        notification.actions.append(Action(0x03, "DISMISS", "Dismiss!"))
         notification.send()
         return notification
 
@@ -1431,10 +1412,6 @@ class Pebble(object):
         restype, retcookie = unpack("!bL", data[0:5])
         return retcookie
 
-    def _notification_response(self, endpoint, data):
-        # pass in the "pebble" object
-        Notification.response(self, endpoint, data)
-
     def _get_time_response(self, endpoint, data):
         restype, timestamp = unpack("!bL", data)
         return timestamp
@@ -2047,86 +2024,6 @@ class Action(object):
             data += attribute.pack()
         return data
 
-class Notification(object):
-
-    """A custom notification to send to the watch.
-    """
-
-    commands = {
-        "INVOKE_NOTIFICATION_ACTION": 0x02,
-        "WATCH_ACK_NACK": 0x10,
-        "PHONE_ACK_NACK": 0x11,
-    }
-
-    phone_action = {
-        "ACK": 0x00,
-        "NACK": 0x01
-    }
-
-    def __init__(self, pebble, title, attributes=None, actions=None):
-
-        """Create a Notification object.
-
-        The title argument is provided for convenience. It is simply added to the attribute
-        list later.
-        """
-
-        self.pebble = pebble
-        self.title = title
-        self.attributes = attributes if attributes else []
-        self.actions = actions if actions else []
-        self.notif_id = random.randint(0, 0xFFFFFFFE)
-
-
-    def send(self, silent=False, utc=True, layout=0x01):
-
-        attributes = [Attribute("TITLE", self.title)] + self.attributes
-        header_fmt = "<BBIIIIBBB" # header
-        flags = (2 * utc) + silent
-        header_data = pack(header_fmt,
-            0x00,
-            0x01, # add notif
-            flags, # flags
-            self.notif_id, # notif ID
-            0x00000000, # ANCS ID
-            int(time.time()), # timestamp
-            layout, # layout
-            len(attributes),
-            len(self.actions))
-
-        attributes_data = "".join([x.pack() for x in attributes])
-        actions_data = "".join([x.pack() for x in self.actions])
-
-        data = header_data + attributes_data + actions_data
-        self.pebble._send_message("EXTENSIBLE_NOTIFS", data)
-
-    def remove(self):
-
-        """Remove a notification from the watch. Currently not implemented watch-side."""
-
-        # 0x01 is the "remove notification" command
-        data = pack("<BI", 0x01, self.notif_id)
-        self.pebble._send_message("EXTENSIBLE_NOTIFS", data)
-
-    @classmethod
-    def response(cls, pebble, endpoint, data):
-        command, = unpack("<B", data[:1])
-        log.debug("notification command 0x%x" % command)
-        if command == cls.commands["INVOKE_NOTIFICATION_ACTION"]:
-            # always respond with ACK
-            _, notif_id, action_id = unpack("<BIB", data[:6])
-            log.debug("Invoked action 0x%x on notification 0x%x" % (action_id, notif_id))
-            # no attributes sent back
-            ack_response = pack("<BIBBB", cls.commands["PHONE_ACK_NACK"], notif_id, action_id, cls.phone_action["ACK"], 0)
-            pebble._send_message("EXTENSIBLE_NOTIFS", ack_response)
-        elif command == cls.commands["WATCH_ACK_NACK"]:
-            _, notif_id, resp = unpack("<BIB", data[:6])
-            resp_type = "ACK" if resp == 0x00 else "NACK"
-            log.debug("%s'd for notification 0x%x" % (resp_type, notif_id))
-        else:
-            log.debug("notification command 0x%x not recognized" % command)
-
-
 class TimelineItem(object):
 
     """A timeline item to send to the watch.
@@ -2195,14 +2092,18 @@ class TimelineItem(object):
 
         data = header_data + attributes_data + actions_data
 
-        if self.type == "NOTIFICATION":
-            self.pebble._send_message("EXTENSIBLE_NOTIFS", data)
-        else:
-            blobdb = BlobDB(self.type)
-            blobdb_data = blobdb.insert(self.id.bytes, data)
-            self.pebble._send_message("BLOB_DB", blobdb_data)
-            return EndpointSync(self.pebble, "BLOB_DB").get_data()
+        blobdb = BlobDB(self.type)
+        blobdb_data = blobdb.insert(self.id.bytes, data)
+        self.pebble._send_message("BLOB_DB", blobdb_data)
+        return EndpointSync(self.pebble, "BLOB_DB").get_data()
 
+class Notification(TimelineItem):
+    """A custom notification to send to the watch.
+    """
+
+    def __init__(self, pebble, title, attributes=None, actions=None, layout=0x01):
+        super(Notification, self).__init__(pebble, title, type="NOTIFICATION",
+              attributes=attributes, actions=actions, layout=layout)
 
 class Reminder(TimelineItem):
 
@@ -2220,7 +2121,8 @@ class BlobDB(object):
             "TEST": 0,
             "PIN": 1,
             "APP": 2,
-            "REMINDER": 3
+            "REMINDER": 3,
+            "NOTIFICATION": 4
     }
 
     def __init__(self, db="TEST"):
