@@ -2101,6 +2101,59 @@ class Notification(TimelineItem):
     """A custom notification to send to the watch.
     """
 
+    class Notification2.x(object):
+
+       """A 2.x notification to send to a 2.x watch
+       """
+
+       commands = {
+           "INVOKE_NOTIFICATION_ACTION": 0x02,
+           "WATCH_ACK_NACK": 0x10,
+           "PHONE_ACK_NACK": 0x11,
+       }
+
+       phone_action = {
+           "ACK": 0x00,
+           "NACK": 0x01
+       }
+
+       def __init__(self, pebble, title, attributes=None, actions=None):
+
+           """Create a Notification object.
+
+           The title argument is provided for convenience. It is simply added to the attribute
+           list later.
+           """
+
+           self.pebble = pebble
+           self.title = title
+           self.attributes = attributes if attributes else []
+           self.actions = actions if actions else []
+           self.notif_id = random.randint(0, 0xFFFFFFFE)
+
+
+       def send(self, silent=False, utc=True, layout=0x01):
+
+           attributes = [Attribute("TITLE", self.title)] + self.attributes
+           header_fmt = "<BBIIIIBBB" # header
+           flags = (2 * utc) + silent
+           header_data = pack(header_fmt,
+               0x00,
+               0x01, # add notif
+               flags, # flags
+               self.notif_id, # notif ID
+               0x00000000, # ANCS ID
+               int(time.time()), # timestamp
+               layout, # layout
+               len(attributes),
+               len(self.actions))
+
+           attributes_data = "".join([x.pack() for x in attributes])
+           actions_data = "".join([x.pack() for x in self.actions])
+
+           data = header_data + attributes_data + actions_data
+           self.pebble._send_message("EXTENSIBLE_NOTIFS", data)
+
     def __init__(self, pebble, title, attributes=None, actions=None, layout=0x01):
         super(Notification, self).__init__(pebble, title, type="NOTIFICATION",
               attributes=attributes, actions=actions, layout=layout)
