@@ -2386,7 +2386,7 @@ class Notification(TimelineItem):
     def __new__(cls, pebble, title, attributes=None, actions=None, layout=0x01):
         # determine if 2.x or 3.x
         watch_fw_version = pebble.get_watch_fw_version()
-        if (watch_fw_version[0] >= 8):
+        if (watch_fw_version[0] >= 3):
             return TimelineItem(pebble, title, type="NOTIFICATION",
                 attributes=attributes, actions=actions, layout=layout)
         else:
