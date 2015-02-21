@@ -13,6 +13,7 @@ import PblAnalytics
 PEBBLE_PHONE_ENVVAR='PEBBLE_PHONE'
 PEBBLE_BTID_ENVVAR='PEBBLE_BTID'
 PEBBLE_QEMU_ENVVAR='PEBBLE_QEMU'
+PEBBLE_PLATFORM_ENVVAR='PEBBLE_PLATFORM'
 
 class ConfigurationException(Exception):
     pass
@@ -38,8 +39,8 @@ class LibPebbleCommand(PblCommand):
                 help='When using Developer Connection, the IP address or hostname of your phone. Can also be provided through %s environment variable.' % PEBBLE_PHONE_ENVVAR)
         parser.add_argument('--pebble_id', type=str,
                 help='When using a direct BT connection, the watch\'s Bluetooth ID (e.g. DF38 or 01:23:45:67:DF:38). Can also be provided through %s environment variable.' % PEBBLE_BTID_ENVVAR)
-        parser.add_argument('--emulator', action="store_true", default=False,
-                help='Use this option to talk to a Pebble Emulator on your computer. The emulator is automatically started if needed.')
+        parser.add_argument('--emulator', type=str,
+                help='Use this option to talk to a Pebble Emulator on your computer. The emulator is automatically started if needed. Basalt is the default emulator, but you can specify another through %s environment variable.' % PEBBLE_PLATFORM_ENVVAR)
         parser.add_argument('--qemu', type=str,
                 help='Use this option to connect directly to a qemu instance. You must provide the hostname:port. This can also be provided through %s environment variable.' % PEBBLE_QEMU_ENVVAR)
         parser.add_argument('--pair', action="store_true", help="When using a direct BT connection, attempt to pair the watch automatically")
@@ -52,20 +53,21 @@ class LibPebbleCommand(PblCommand):
 
         # Only use the envrionment variables as defaults if no command-line arguments were specified
         # ...allowing you to leave the envrionment var(s) set at all times
-        if not args.phone and not args.pebble_id and not args.qemu:
+        if not args.phone and not args.pebble_id and not args.qemu and not args.emulator:
             args.phone = os.getenv(PEBBLE_PHONE_ENVVAR)
             args.pebble_id = os.getenv(PEBBLE_BTID_ENVVAR)
             args.qemu = os.getenv(PEBBLE_QEMU_ENVVAR)
+            args.emulator = os.getenv(PEBBLE_PLATFORM_ENVVAR)
 
         if not args.phone and not args.pebble_id and not args.emulator and not args.qemu:
-            args.emulator = True
+            args.emulator = 'basalt'
 
-        num_args = bool(args.phone) + bool(args.pebble_id) + bool(args.qemu)
+        num_args = bool(args.phone) + bool(args.pebble_id) + bool(args.qemu) + bool(args.emulator)
         if num_args > 1:
             raise ConfigurationException("You must specify only one method to connect to the watch "
                  " - either Developer Connection (with --phone/%s), direct via Bluetooth (with "
-                 "--pebble_id/%s), or via QEMU (with --qemu/%s)" % (PEBBLE_PHONE_ENVVAR,
-                 PEBBLE_BTID_ENVVAR, PEBBLE_QEMU_ENVVAR))
+                 "--pebble_id/%s), via QEMU (with --qemu/%s) or via emulator (with --emulator%s" 
+                 % (PEBBLE_PHONE_ENVVAR, PEBBLE_BTID_ENVVAR, PEBBLE_QEMU_ENVVAR, PEBBLE_PLATFORM_ENVVAR))
 
         self.pebble = libpebble.Pebble(args.pebble_id)
         self.pebble.set_print_pbl_logs(args.verbose)
@@ -74,7 +76,7 @@ class LibPebbleCommand(PblCommand):
         elif args.pebble_id:
             self.pebble.connect_via_lightblue(pair_first=args.pair)
         elif args.emulator:
-            emulator = PebbleEmulator(self.sdk_path(args))
+            emulator = PebbleEmulator(self.sdk_path(args), args.emulator)
             emulator.start()
             self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
         elif args.qemu:
@@ -431,7 +433,6 @@ class PblKillCommand(LibPebbleCommand):
     help = 'Kill the pebble emulator and phone simulator'
 
     def run(self, args):
-        emulator = PebbleEmulator(self.sdk_path(args))
+        emulator = PebbleEmulator(self.sdk_path(args), args.emulator)
         emulator.kill_qemu()
         emulator.kill_phonesim()
-

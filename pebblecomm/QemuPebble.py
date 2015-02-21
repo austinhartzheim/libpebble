@@ -98,6 +98,7 @@ class QemuPebble(object):
 
         if self.trace_enabled:
             logging.debug('rcv<<< ' + data.encode('hex'))
+
         self.assembled_data += data
 
         # Look for a complete packet
