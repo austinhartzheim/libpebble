@@ -137,7 +137,7 @@ class PebbleBundle(object):
         if (self.manifest):
             return self.manifest
 
-        if self.MANIFEST_FILENAME not in self.zip.namelist():
+        if self.get_real_path(self.MANIFEST_FILENAME) not in self.zip.namelist():
             raise Exception("Could not find {}; are you sure this is a PebbleBundle?".format(self.MANIFEST_FILENAME))
 
         self.manifest = json.loads(self.zip.read(self.get_real_path(self.MANIFEST_FILENAME)))
@@ -149,7 +149,7 @@ class PebbleBundle(object):
 
         app_manifest = self.get_manifest()['application']
 
-        app_bin = self.zip.open(app_manifest['name']).read()
+        app_bin = self.zip.open(self.get_real_path(app_manifest['name'])).read()
 
         header = app_bin[0:self.app_metadata_length_bytes]
         values = self.app_metadata_struct.unpack(header)
