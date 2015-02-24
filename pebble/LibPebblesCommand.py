@@ -76,7 +76,7 @@ class LibPebbleCommand(PblCommand):
         elif args.pebble_id:
             self.pebble.connect_via_lightblue(pair_first=args.pair)
         elif args.emulator:
-            emulator = PebbleEmulator(self.sdk_path(args), args.emulator)
+            emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug)
             emulator.start()
             self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
         elif args.qemu:
@@ -433,6 +433,6 @@ class PblKillCommand(LibPebbleCommand):
     help = 'Kill the pebble emulator and phone simulator'
 
     def run(self, args):
-        emulator = PebbleEmulator(self.sdk_path(args), args.emulator)
+        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug)
         emulator.kill_qemu()
         emulator.kill_phonesim()
