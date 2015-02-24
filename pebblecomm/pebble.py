@@ -528,6 +528,7 @@ class Pebble(object):
             "MUSIC_CONTROL": 32,
             "PHONE_CONTROL": 33,
             "APPLICATION_MESSAGE": 48,
+            "APPLICATION_LIFECYCLE": 52, # New in 3.x
             "LAUNCHER": 49, # Deprecated in 3.x
             "LOGS": 2000,
             "PING": 2001,
