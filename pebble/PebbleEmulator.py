@@ -16,6 +16,7 @@ FNULL = open(os.devnull, 'w')
 class PebbleEmulator(object):
     def __init__(self, sdk_path, platform, debug):
         self.qemu_pid = os.path.join(TEMP_DIR, 'pebble-qemu.pid')
+        self.qemu_platform = os.path.join(TEMP_DIR, 'pebble-qemu.platform')
         self.phonesim_pid = os.path.join(TEMP_DIR, 'pebble-phonesim.pid')
         self.port = PHONESIM_PORT
         self.sdk_path = sdk_path
@@ -24,6 +25,14 @@ class PebbleEmulator(object):
 
     def start(self):
         need_wait = False
+
+        if self.is_qemu_running():
+            with open(self.qemu_platform, 'r') as pf:
+                running_platform = pf.read()
+                if running_platform != self.platform:
+                    self.kill_qemu()
+                    self.kill_phonesim()
+                    time.sleep(1)
 
         if not self.is_qemu_running():
             logging.info("Starting Pebble emulator ...")
@@ -110,6 +119,10 @@ class PebbleEmulator(object):
         else:
             subprocess.Popen(cmdline, stdout=FNULL, stderr=FNULL)
 
+        # Save the platform
+        with open(self.qemu_platform, 'w') as pf:
+            pf.write(str(self.platform))
+
     def start_phonesim(self):
         phonesim_bin = os.path.join(self.sdk_path, 'Pebble', 'common', 'phonesim', 'phonesim.py')
 
@@ -135,7 +148,7 @@ class PebbleEmulator(object):
             pid = self.read_pid(self.qemu_pid);
             try:
                 os.kill(pid, 9)
-                print 'Killed the pebble emulator'
+                print 'Killed the pebble {} emulator'.format(self.platform)
             except:
                 print "Unexpected error:", sys.exc_info()[0]
                 raise
