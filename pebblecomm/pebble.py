@@ -1089,7 +1089,7 @@ class Pebble(object):
             self,
             app_metadata['uuid'],
             app_metadata['flags'],
-            0,
+            app_metadata['icon_resource_id'],
             app_metadata['app_version_major'],
             app_metadata['app_version_minor'],
             app_metadata['sdk_version_major'],
@@ -1222,7 +1222,7 @@ class Pebble(object):
             "<16sIIHHBB96s",
             uuid_bytes,
             flags,              # info_flags
-            17,                 # total_size
+            0,                  # icon_resource_id
             0,                  # app_version
             0,                  # sdk_version
             0,                  # app_face_bg_color
@@ -2412,14 +2412,14 @@ class Notification(TimelineItem):
 
 class AppMetadata(object):
 
-    def __init__(self, pebble, in_uuid, flags, total_size, app_version_major,
+    def __init__(self, pebble, in_uuid, flags, icon_resource_id, app_version_major,
         app_version_minor, sdk_version_major, sdk_version_minor, app_face_bg_color,
         app_face_template_id, app_name):
 
         self.pebble = pebble
         self.in_uuid = in_uuid
         self.flags = flags
-        self.total_size = total_size
+        self.icon_resource_id = icon_resource_id
         self.app_version_major = app_version_major
         self.app_version_minor = app_version_minor
         self.sdk_version_major = sdk_version_major
@@ -2435,7 +2435,7 @@ class AppMetadata(object):
             "<16sIIBBBBBB96s",
             uuid_bytes,
             self.flags,
-            self.total_size,
+            self.icon_resource_id,
             self.app_version_major,
             self.app_version_minor,
             self.sdk_version_major,
