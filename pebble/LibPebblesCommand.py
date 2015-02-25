@@ -39,7 +39,7 @@ class LibPebbleCommand(PblCommand):
                 help='When using Developer Connection, the IP address or hostname of your phone. Can also be provided through %s environment variable.' % PEBBLE_PHONE_ENVVAR)
         parser.add_argument('--pebble_id', type=str,
                 help='When using a direct BT connection, the watch\'s Bluetooth ID (e.g. DF38 or 01:23:45:67:DF:38). Can also be provided through %s environment variable.' % PEBBLE_BTID_ENVVAR)
-        parser.add_argument('--emulator', type=str,
+        parser.add_argument('--emulator', type=str, choices=['aplite', 'basalt'],
                 help='Use this option to talk to a Pebble Emulator on your computer. The emulator is automatically started if needed. Basalt is the default emulator, but you can specify another through %s environment variable.' % PEBBLE_PLATFORM_ENVVAR)
         parser.add_argument('--qemu', type=str,
                 help='Use this option to connect directly to a qemu instance. You must provide the hostname:port. This can also be provided through %s environment variable.' % PEBBLE_QEMU_ENVVAR)
