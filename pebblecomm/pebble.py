@@ -67,16 +67,9 @@ class PebbleHardware(object):
         SNOWY_BB2: 'basalt',
     }
 
-    PATHS = {
-        'unknown': ('',),
-        'aplite': ('',),
-        'basalt': ('basalt/', ''),
-    }
-
     @classmethod
-    def prefixes_for_hardware(cls, hardware):
-        platform = cls.PLATFORMS.get(hardware, 'unknown')
-        return cls.PATHS[platform]
+    def hardware_platform(cls, hardware):
+        return cls.PLATFORMS.get(hardware, 'unknown')
 
 
 class PebbleBundle(object):
@@ -100,6 +93,12 @@ class PebbleBundle(object):
             '16s'   # uuid
     ]
 
+    PLATFORM_PATHS = {
+        'unknown': ('',),
+        'aplite': ('',),
+        'basalt': ('basalt/', ''),
+    }
+
     def __init__(self, bundle_path, hardware=PebbleHardware.UNKNOWN):
         self.hardware = hardware
         bundle_abs_path = os.path.abspath(bundle_path)
@@ -117,11 +116,16 @@ class PebbleBundle(object):
 
         self.print_pbl_logs = False
 
+    @classmethod
+    def prefixes_for_hardware(cls, hardware):
+        platform = PebbleHardware.hardware_platform(hardware)
+        return cls.PLATFORM_PATHS[platform]
+
     def get_real_path(self, path):
         if path in self.UNIVERSAL_FILES:
             return path
         else:
-            prefixes = PebbleHardware.prefixes_for_hardware(self.hardware)
+            prefixes = self.prefixes_for_hardware(self.hardware)
             for prefix in prefixes:
                 real_path = prefix + path
                 if real_path in self._zip_contents:
@@ -133,7 +137,7 @@ class PebbleBundle(object):
         if (self.manifest):
             return self.manifest
 
-        if self.MANIFEST_FILENAME not in self.zip.namelist():
+        if self.get_real_path(self.MANIFEST_FILENAME) not in self.zip.namelist():
             raise Exception("Could not find {}; are you sure this is a PebbleBundle?".format(self.MANIFEST_FILENAME))
 
         self.manifest = json.loads(self.zip.read(self.get_real_path(self.MANIFEST_FILENAME)))
@@ -145,7 +149,7 @@ class PebbleBundle(object):
 
         app_manifest = self.get_manifest()['application']
 
-        app_bin = self.zip.open(app_manifest['name']).read()
+        app_bin = self.zip.open(self.get_real_path(app_manifest['name'])).read()
 
         header = app_bin[0:self.app_metadata_length_bytes]
         values = self.app_metadata_struct.unpack(header)
@@ -524,23 +528,22 @@ class Pebble(object):
             "MUSIC_CONTROL": 32,
             "PHONE_CONTROL": 33,
             "APPLICATION_MESSAGE": 48,
-            "LAUNCHER": 49,
+            "LAUNCHER": 49, # Deprecated in 3.x
             "LOGS": 2000,
             "PING": 2001,
             "LOG_DUMP": 2002,
             "RESET": 2003,
             "APP": 2004,
             "APP_LOGS": 2006,
-            "NOTIFICATION": 3000,
-            "EXTENSIBLE_NOTIFS": 3010,
+            "EXTENSIBLE_NOTIFS": 3010, # Deprecated in 3.x
             "RESOURCE": 4000,
-            "APP_MANAGER": 6000,
-            "APP_FETCH": 6001,
+            "APP_MANAGER": 6000, # Deprecated in 3.x
+            "APP_FETCH": 6001, # New in 3.x
             "SCREENSHOT": 8000,
             "COREDUMP": 9000,
-            "BLOB_DB": 45531,
+            "BLOB_DB": 45531, # New in 3.x
             "PUTBYTES": 48879,
-            "AUDIO": 10000,
+            "AUDIO": 10000, # New in 3.x
     }
 
     log_levels = {
@@ -592,7 +595,6 @@ class Pebble(object):
             self.endpoints["LAUNCHER"]: self._application_message_response,
             self.endpoints["LOGS"]: self._log_response,
             self.endpoints["PING"]: self._ping_response,
-            self.endpoints["EXTENSIBLE_NOTIFS"]: self._notification_response,
             self.endpoints["APP_LOGS"]: self._app_log_response,
             self.endpoints["APP_MANAGER"]: self._appbank_status_response,
             self.endpoints["SCREENSHOT"]: self._screenshot_response,
@@ -606,6 +608,7 @@ class Pebble(object):
         }
         self.pebble_protocol_reassembly_buffer = ''
         self.watch_fw_version = None
+        self.watch_hardware = None
 
     def init_reader(self):
         try:
@@ -634,6 +637,20 @@ class Pebble(object):
         self.watch_fw_version = [int(major), int(minor)]
 
         return self.watch_fw_version
+
+    def get_watch_hardware(self):
+        if self.watch_hardware is not None:
+            return self.watch_hardware
+
+        version_info = self.get_versions()
+        hardware = version_info['normal_fw']['hardware_platform']
+
+        self.watch_hardware = hardware
+
+        return hardware
+
+    def get_watch_platform(self):
+        return PebbleHardware.hardware_platform(self.get_watch_hardware())
 
     def connect_via_serial(self, id = None):
         self._connection_type = 'serial'
@@ -818,27 +835,11 @@ class Pebble(object):
     def register_qemu_endpoint(self, endpoint_id, func):
         self._qemu_endpoint_handlers[endpoint_id] = func
 
-    def notification_sms(self, sender, body):
-
-        """Send a 'SMS Notification' to the displayed on the watch."""
-
-        ts = str(int(time.time())*1000)
-        parts = [sender, body, ts]
-        self._send_message("NOTIFICATION", self._pack_message_data(1, parts))
-
-    def notification_email(self, sender, subject, body):
-
-        """Send an 'Email Notification' to the displayed on the watch."""
-
-        ts = str(int(time.time())*1000)
-        parts = [sender, body, ts, subject]
-        self._send_message("NOTIFICATION", self._pack_message_data(0, parts))
-
     def test_add_notification(self, title = "notification!"):
 
         notification = Notification(self, title)
-        notification.actions.append(Notification.Action(0x01, "GENERIC", "action!"))
-        notification.actions.append(Notification.Action(0x02, "DISMISS", "Dismiss!"))
+        notification.actions.append(Action(0x01, "GENERIC", "action!"))
+        notification.actions.append(Action(0x03, "DISMISS", "Dismiss!"))
         notification.send()
         return notification
 
@@ -1007,10 +1008,8 @@ class Pebble(object):
           return 'Unknown'
 
     def install_app_pebble_protocol_2_x(self, pbw_path, launch_on_install=True):
-        device_version = self.get_versions()
-        hardware_version = device_version['normal_fw']['hardware_platform']
 
-        bundle = PebbleBundle(pbw_path, hardware_version)
+        bundle = PebbleBundle(pbw_path, self.get_watch_hardware())
         if not bundle.is_app_bundle():
             raise PebbleError(self.id, "This is not an app bundle")
 
@@ -1080,7 +1079,7 @@ class Pebble(object):
 
     def install_app_pebble_protocol_3_x(self, pbw_path, launch_on_install=True):
 
-        bundle = PebbleBundle(pbw_path)
+        bundle = PebbleBundle(pbw_path, self.get_watch_hardware())
         if not bundle.is_app_bundle():
             raise PebbleError(self.id, "This is not an app bundle")
 
@@ -1090,7 +1089,7 @@ class Pebble(object):
             self,
             app_metadata['uuid'],
             app_metadata['flags'],
-            0,
+            app_metadata['icon_resource_id'],
             app_metadata['app_version_major'],
             app_metadata['app_version_minor'],
             app_metadata['sdk_version_major'],
@@ -1135,10 +1134,7 @@ class Pebble(object):
         return True
 
     def install_app_binaries_pebble_protocol(self, pbw_path, app_id):
-        device_version = self.get_versions()
-        hardware_version = device_version['normal_fw']['hardware_platform']
-
-        bundle = PebbleBundle(pbw_path, hardware_version)
+        bundle = PebbleBundle(pbw_path, self.get_watch_hardware())
         if not bundle.is_app_bundle():
             raise PebbleError(self.id, "This is not an app bundle")
 
@@ -1226,7 +1222,7 @@ class Pebble(object):
             "<16sIIHHBB96s",
             uuid_bytes,
             flags,              # info_flags
-            17,                 # total_size
+            0,                  # icon_resource_id
             0,                  # app_version
             0,                  # sdk_version
             0,                  # app_face_bg_color
@@ -1676,10 +1672,6 @@ class Pebble(object):
         # We only care about the cookie, so just strip the idle flag before calling unpack
         restype, retcookie = unpack("!bL", data[0:5])
         return retcookie
-
-    def _notification_response(self, endpoint, data):
-        # pass in the "pebble" object
-        Notification.response(self, endpoint, data)
 
     def _get_time_response(self, endpoint, data):
         restype, timestamp = unpack("!bL", data)
@@ -2275,86 +2267,6 @@ class Action(object):
             data += attribute.pack()
         return data
 
-class Notification(object):
-
-    """A custom notification to send to the watch.
-    """
-
-    commands = {
-        "INVOKE_NOTIFICATION_ACTION": 0x02,
-        "WATCH_ACK_NACK": 0x10,
-        "PHONE_ACK_NACK": 0x11,
-    }
-
-    phone_action = {
-        "ACK": 0x00,
-        "NACK": 0x01
-    }
-
-    def __init__(self, pebble, title, attributes=None, actions=None):
-
-        """Create a Notification object.
-
-        The title argument is provided for convenience. It is simply added to the attribute
-        list later.
-        """
-
-        self.pebble = pebble
-        self.title = title
-        self.attributes = attributes if attributes else []
-        self.actions = actions if actions else []
-        self.notif_id = random.randint(0, 0xFFFFFFFE)
-
-
-    def send(self, silent=False, utc=True, layout=0x01):
-
-        attributes = [Attribute("TITLE", self.title)] + self.attributes
-        header_fmt = "<BBIIIIBBB" # header
-        flags = (2 * utc) + silent
-        header_data = pack(header_fmt,
-            0x00,
-            0x01, # add notif
-            flags, # flags
-            self.notif_id, # notif ID
-            0x00000000, # ANCS ID
-            int(time.time()), # timestamp
-            layout, # layout
-            len(attributes),
-            len(self.actions))
-
-        attributes_data = "".join([x.pack() for x in attributes])
-        actions_data = "".join([x.pack() for x in self.actions])
-
-        data = header_data + attributes_data + actions_data
-        self.pebble._send_message("EXTENSIBLE_NOTIFS", data)
-
-    def remove(self):
-
-        """Remove a notification from the watch. Currently not implemented watch-side."""
-
-        # 0x01 is the "remove notification" command
-        data = pack("<BI", 0x01, self.notif_id)
-        self.pebble._send_message("EXTENSIBLE_NOTIFS", data)
-
-    @classmethod
-    def response(cls, pebble, endpoint, data):
-        command, = unpack("<B", data[:1])
-        log.debug("notification command 0x%x" % command)
-        if command == cls.commands["INVOKE_NOTIFICATION_ACTION"]:
-            # always respond with ACK
-            _, notif_id, action_id = unpack("<BIB", data[:6])
-            log.debug("Invoked action 0x%x on notification 0x%x" % (action_id, notif_id))
-            # no attributes sent back
-            ack_response = pack("<BIBBB", cls.commands["PHONE_ACK_NACK"], notif_id, action_id, cls.phone_action["ACK"], 0)
-            pebble._send_message("EXTENSIBLE_NOTIFS", ack_response)
-        elif command == cls.commands["WATCH_ACK_NACK"]:
-            _, notif_id, resp = unpack("<BIB", data[:6])
-            resp_type = "ACK" if resp == 0x00 else "NACK"
-            log.debug("%s'd for notification 0x%x" % (resp_type, notif_id))
-        else:
-            log.debug("notification command 0x%x not recognized" % command)
-
-
 class TimelineItem(object):
 
     """A timeline item to send to the watch.
@@ -2423,25 +2335,91 @@ class TimelineItem(object):
 
         data = header_data + attributes_data + actions_data
 
-        if self.type == "NOTIFICATION":
-            self.pebble._send_message("EXTENSIBLE_NOTIFS", data)
-        else:
-            blobdb = BlobDB(self.type)
-            blobdb_data = blobdb.insert(self.id.bytes, data)
-            self.pebble._send_message("BLOB_DB", blobdb_data)
-            return EndpointSync(self.pebble, "BLOB_DB").get_data()
+        blobdb = BlobDB(self.type)
+        blobdb_data = blobdb.insert(self.id.bytes, data)
+        self.pebble._send_message("BLOB_DB", blobdb_data)
+        return EndpointSync(self.pebble, "BLOB_DB").get_data()
 
+class Notification(TimelineItem):
+    """A custom notification to send to the watch.
+    """
+
+    class Notification2_x(object):
+
+       """A 2.x notification to send to a 2.x watch
+       """
+
+       commands = {
+           "INVOKE_NOTIFICATION_ACTION": 0x02,
+           "WATCH_ACK_NACK": 0x10,
+           "PHONE_ACK_NACK": 0x11,
+       }
+
+       phone_action = {
+           "ACK": 0x00,
+           "NACK": 0x01
+       }
+
+       def __init__(self, pebble, title, attributes=None, actions=None):
+
+           """Create a Notification object.
+
+           The title argument is provided for convenience. It is simply added to the attribute
+           list later.
+           """
+
+           self.pebble = pebble
+           self.title = title
+           self.attributes = attributes if attributes else []
+           self.actions = actions if actions else []
+           self.notif_id = random.randint(0, 0xFFFFFFFE)
+
+
+       def send(self, silent=False, utc=True, layout=0x01):
+
+           attributes = [Attribute("TITLE", self.title)] + self.attributes
+           header_fmt = "<BBIIIIBBB" # header
+           flags = (2 * utc) + silent
+           header_data = pack(header_fmt,
+               0x00,
+               0x01, # add notif
+               flags, # flags
+               self.notif_id, # notif ID
+               0x00000000, # ANCS ID
+               int(time.time()), # timestamp
+               layout, # layout
+               len(attributes),
+               len(self.actions))
+
+           attributes_data = "".join([x.pack() for x in attributes])
+           actions_data = "".join([x.pack() for x in self.actions])
+
+           data = header_data + attributes_data + actions_data
+           self.pebble._send_message("EXTENSIBLE_NOTIFS", data)
+
+    def __new__(cls, pebble, title, attributes=None, actions=None, layout=0x01):
+        # determine if 2.x or 3.x
+        watch_fw_version = pebble.get_watch_fw_version()
+        if (watch_fw_version[0] >= 3):
+            return super(Notification, cls).__new__(cls, pebble, title, type="NOTIFICATION",
+                attributes=attributes, actions=actions, layout=layout)
+        else:
+            return cls.Notification2_x(pebble, title, attributes=attributes, actions=actions)
+
+    def __init__(self, pebble, title, attributes=None, actions=None, layout=0x01):
+       super(Notification, self).__init__(pebble, title, type="NOTIFICATION",
+            attributes=attributes, actions=actions, layout=layout)
 
 class AppMetadata(object):
 
-    def __init__(self, pebble, in_uuid, flags, total_size, app_version_major,
+    def __init__(self, pebble, in_uuid, flags, icon_resource_id, app_version_major,
         app_version_minor, sdk_version_major, sdk_version_minor, app_face_bg_color,
         app_face_template_id, app_name):
 
         self.pebble = pebble
         self.in_uuid = in_uuid
         self.flags = flags
-        self.total_size = total_size
+        self.icon_resource_id = icon_resource_id
         self.app_version_major = app_version_major
         self.app_version_minor = app_version_minor
         self.sdk_version_major = sdk_version_major
@@ -2457,7 +2435,7 @@ class AppMetadata(object):
             "<16sIIBBBBBB96s",
             uuid_bytes,
             self.flags,
-            self.total_size,
+            self.icon_resource_id,
             self.app_version_major,
             self.app_version_minor,
             self.sdk_version_major,
@@ -2485,7 +2463,8 @@ class BlobDB(object):
             "TEST": 0,
             "PIN": 1,
             "APP": 2,
-            "REMINDER": 3
+            "REMINDER": 3,
+            "NOTIFICATION": 4
     }
 
     def __init__(self, db="TEST"):
