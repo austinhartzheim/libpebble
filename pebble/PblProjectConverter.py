@@ -2,6 +2,7 @@ import json
 import os
 import re
 import shutil
+import hashlib
 
 from PblCommand import PblCommand
 from PblProjectCreator import *
@@ -23,10 +24,16 @@ def convert_project():
 
     wscript_path = os.path.join(project_root, "wscript")
 
-    os.remove(wscript_path)
+    newhash = hashlib.md5(FILE_WSCRIPT).hexdigest()
+    with open(wscript_path, "r") as f:
+        oldhash = hashlib.md5(f.read()).hexdigest()
 
-    with open(wscript_path, "w") as f:
-        f.write(FILE_WSCRIPT)
+    if newhash != oldhash:
+        print 'Renaming current wscript to wscript.backup'
+        os.rename(wscript_path, wscript_path + '.backup')
+        print 'Generating new 3.x wscript'
+        with open(wscript_path, "w") as f:
+            f.write(FILE_WSCRIPT)
 
     os.system('pebble clean')
 
