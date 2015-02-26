@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import hashlib
+import collections
 
 from PblCommand import PblCommand
 from PblProjectCreator import *
@@ -10,7 +11,7 @@ from PblProjectCreator import *
 def generate_appinfo_from_old_project(project_root):
     app_info_path = os.path.join(project_root, "appinfo.json")
     with open(app_info_path, "r") as f:
-        app_info_json = json.load(f)
+        app_info_json = json.load(f, object_pairs_hook=collections.OrderedDict)
 
     app_info_json["targetPlatforms"] = ["aplite", "basalt"]
 
