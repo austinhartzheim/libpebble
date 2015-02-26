@@ -5,7 +5,7 @@ import json
 
 from PblCommand import PblCommand
 
-SDK_VERSION = '3'
+SDK_VERSION = "3"
 
 class PblProjectCreator(PblCommand):
     name = 'new-project'
