@@ -270,10 +270,15 @@ def check_project_directory():
     if not os.path.isdir('src'):
         raise InvalidProjectException
 
+    app_info_path = os.path.join(os.getcwd(), "appinfo.json")
+    with open(app_info_path, "r") as f:
+        app_info_json = json.load(f)
+
     if os.path.islink('pebble_app.ld') \
             or os.path.exists('resources/src/resource_map.json') \
             or not os.path.exists('wscript') \
-            or 'ctx.env.TARGET_PLATFORMS' not in open('wscript').read():
+            or not 'sdkVersion' in app_info_json.keys() \
+            or not app_info_json["sdkVersion"] < SDK_VERSION:
         raise OutdatedProjectException
 
 def requires_project_dir(func):
