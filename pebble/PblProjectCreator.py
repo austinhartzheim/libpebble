@@ -221,7 +221,7 @@ DICT_DUMMY_APPINFO = {
     'version_code': 1,
     'version_label': '1.0',
     'target_platform': '["aplite", "basalt"]',
-    'sdk_version': 3,
+    'sdk_version': SDK_VERSION,
     'is_watchface': 'false',
     'app_keys': """{
     "dummy": 0
