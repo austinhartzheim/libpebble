@@ -14,6 +14,7 @@ def generate_appinfo_from_old_project(project_root):
         app_info_json = json.load(f, object_pairs_hook=collections.OrderedDict)
 
     app_info_json["targetPlatforms"] = ["aplite", "basalt"]
+    app_info_json["sdkVersion"] = "3"
 
     with open(app_info_path, "w") as f:
         json.dump(app_info_json, f, indent=2)
