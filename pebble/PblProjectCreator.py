@@ -96,7 +96,7 @@ def build(ctx):
     build_worker = os.path.exists('worker_src')
     binaries = []
 
-    for p in ctx.env.TARGET_PLATFORMS:
+    for p in ctx.env.target_platforms:
         ctx.set_env(ctx.all_envs[p])
         app_elf='{}/pebble-app.elf'.format(ctx.env.BUILD_DIR)
         ctx.pbl_program(source=ctx.path.ant_glob('src/**/*.c'),
@@ -237,7 +237,7 @@ FILE_DUMMY_APPINFO = string.Template("""{
   "companyName": "${company_name}",
   "versionCode": ${version_code},
   "versionLabel": "${version_label}",
-  "sdkVersion": ${sdk_version},
+  "sdkVersion": "${sdk_version}",
   "targetPlatform": ${target_platform},
   "watchapp": {
     "watchface": ${is_watchface}
