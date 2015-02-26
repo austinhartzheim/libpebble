@@ -273,7 +273,7 @@ def check_project_directory():
     if os.path.islink('pebble_app.ld') \
             or os.path.exists('resources/src/resource_map.json') \
             or not os.path.exists('wscript') \
-            or 'ctx.env.target_platforms' not in open('wscript').read():
+            or 'ctx.env.TARGET_PLATFORMS' not in open('wscript').read():
         raise OutdatedProjectException
 
 def requires_project_dir(func):
