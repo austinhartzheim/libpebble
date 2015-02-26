@@ -30,7 +30,7 @@ def convert_project():
         current_hash = hashlib.md5(f.read()).hexdigest()
 
     if wscript2xhash != current_hash:
-        print 'Renaming current wscript to wscript.backup'
+        print 'WARNING: You had modified your wscript and those changes will be lost.\nSaving your old wscript in wscript.backup.'
         os.rename(wscript_path, wscript_path + '.backup')
 
     print 'Generating new 3.x wscript'
