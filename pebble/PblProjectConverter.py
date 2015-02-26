@@ -17,7 +17,7 @@ def generate_appinfo_from_old_project(project_root):
     app_info_json["sdkVersion"] = "3"
 
     with open(app_info_path, "w") as f:
-        json.dump(app_info_json, f, indent=2)
+        json.dump(app_info_json, f, indent=2, separators=(',', ': '))
 
 def convert_project():
     project_root = os.getcwd()

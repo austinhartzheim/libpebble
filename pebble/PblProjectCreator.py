@@ -238,7 +238,7 @@ FILE_DUMMY_APPINFO = string.Template("""{
   "versionCode": ${version_code},
   "versionLabel": "${version_label}",
   "sdkVersion": "${sdk_version}",
-  "targetPlatform": ${target_platform},
+  "targetPlatforms": ${target_platform},
   "watchapp": {
     "watchface": ${is_watchface}
   },
