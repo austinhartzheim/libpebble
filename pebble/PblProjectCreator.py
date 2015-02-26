@@ -4,6 +4,8 @@ import uuid
 
 from PblCommand import PblCommand
 
+SDK_VERSION = 3
+
 class PblProjectCreator(PblCommand):
     name = 'new-project'
     help = 'Create a new Pebble project'
@@ -219,6 +221,7 @@ DICT_DUMMY_APPINFO = {
     'version_code': 1,
     'version_label': '1.0',
     'target_platform': '["aplite", "basalt"]',
+    'sdk_version': 3,
     'is_watchface': 'false',
     'app_keys': """{
     "dummy": 0
@@ -233,6 +236,7 @@ FILE_DUMMY_APPINFO = string.Template("""{
   "companyName": "${company_name}",
   "versionCode": ${version_code},
   "versionLabel": "${version_label}",
+  "sdkVersion": "${sdk_version}",
   "targetPlatform": ${target_platform},
   "watchapp": {
     "watchface": ${is_watchface}
@@ -278,7 +282,7 @@ def check_project_directory():
             or os.path.exists('resources/src/resource_map.json') \
             or not os.path.exists('wscript') \
             or not 'sdkVersion' in app_info_json.keys() \
-            or not app_info_json["sdkVersion"] < SDK_VERSION:
+            or int(app_info_json["sdkVersion"]) < SDK_VERSION:
         raise OutdatedProjectException
 
 def requires_project_dir(func):
