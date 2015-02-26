@@ -240,9 +240,8 @@ class PblWafCommand(PblCommand):
             # Read in the appinfo.json to get the list of resources
             try:
                 appInfo = json.load(open("appinfo.json"))
-                for p in appInfo['targetPlatforms']:
-                    self._send_memory_usage(args, appInfo, p)
-                self._send_resource_usage(args, appInfo)
+                #self._send_memory_usage(args, appInfo, p)
+                #self._send_resource_usage(args, appInfo)
                 self._send_line_counts(args, appInfo)
                 hasJS = os.path.exists(os.path.join('src', 'js'))
                 PblAnalytics.code_has_java_script_evt(uuid=appInfo["uuid"],
