@@ -25,16 +25,17 @@ def convert_project():
 
     wscript_path = os.path.join(project_root, "wscript")
 
-    newhash = hashlib.md5(FILE_WSCRIPT).hexdigest()
+    wscript2xhash = hashlib.md5(FILE_WSCRIPT_2).hexdigest()
     with open(wscript_path, "r") as f:
-        oldhash = hashlib.md5(f.read()).hexdigest()
+        current_hash = hashlib.md5(f.read()).hexdigest()
 
-    if newhash != oldhash:
+    if wscript2xhash != current_hash:
         print 'Renaming current wscript to wscript.backup'
         os.rename(wscript_path, wscript_path + '.backup')
-        print 'Generating new 3.x wscript'
-        with open(wscript_path, "w") as f:
-            f.write(FILE_WSCRIPT)
+
+    print 'Generating new 3.x wscript'
+    with open(wscript_path, "w") as f:
+        f.write(FILE_WSCRIPT)
 
     os.system('pebble clean')
 
