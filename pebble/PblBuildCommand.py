@@ -1,4 +1,3 @@
-
 import logging
 import sh, os, subprocess
 import json
@@ -59,7 +58,7 @@ class PblWafCommand(PblCommand):
     
     
     ###########################################################################
-    def _send_memory_usage(self, args, appInfo):
+    def _send_memory_usage(self, args, appInfo, platform):
         """ Send app memory usage to analytics 
         
         Parameters:
@@ -67,9 +66,9 @@ class PblWafCommand(PblCommand):
         args: the args passed to the run() method
         appInfo: the applications appInfo
         """
-        
-        cmdName = 'arm_none_eabi_size'
-        cmdArgs = [os.path.join("build", "pebble-app.elf")]
+
+        cmdName = 'arm-none-eabi-size'
+        cmdArgs = [os.path.join("build", platform, "pebble-app.elf")]
         try:
             output = sh.arm_none_eabi_size(*cmdArgs, _tty_out=False)
             (textSize, dataSize, bssSize) = [int(x) for x in \
@@ -241,7 +240,8 @@ class PblWafCommand(PblCommand):
             # Read in the appinfo.json to get the list of resources
             try:
                 appInfo = json.load(open("appinfo.json"))
-                self._send_memory_usage(args, appInfo)
+                for p in appInfo['targetPlatforms']:
+                    self._send_memory_usage(args, appInfo, p)
                 self._send_resource_usage(args, appInfo)
                 self._send_line_counts(args, appInfo)
                 hasJS = os.path.exists(os.path.join('src', 'js'))

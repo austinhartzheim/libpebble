@@ -27,12 +27,10 @@ class PebbleEmulator(object):
         need_wait = False
 
         if self.is_qemu_running():
-            with open(self.qemu_platform, 'r') as pf:
-                running_platform = pf.read()
-                if running_platform != self.platform:
-                    self.kill_qemu()
-                    self.kill_phonesim()
-                    time.sleep(1)
+            if self.running_platform() != self.platform:
+                self.kill_qemu()
+                self.kill_phonesim()
+                time.sleep(1)
 
         if not self.is_qemu_running():
             logging.info("Starting Pebble emulator ...")
@@ -66,6 +64,13 @@ class PebbleEmulator(object):
                 return True
         else:
             return False
+
+    def running_platform(self):
+        if self.is_qemu_running():
+            with open(self.qemu_platform, 'r') as pf:
+                return pf.read()
+        else:
+            return None
 
     def read_pid(self, pidfile):
         try:
@@ -148,7 +153,7 @@ class PebbleEmulator(object):
             pid = self.read_pid(self.qemu_pid);
             try:
                 os.kill(pid, 9)
-                print 'Killed the pebble {} emulator'.format(self.platform)
+                print 'Killed the pebble {} emulator'.format(self.running_platform())
             except:
                 print "Unexpected error:", sys.exc_info()[0]
                 raise
