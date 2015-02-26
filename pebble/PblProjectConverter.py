@@ -16,7 +16,7 @@ def generate_appinfo_from_old_project(project_root):
     app_info_json["targetPlatforms"] = ["aplite", "basalt"]
 
     with open(app_info_path, "w") as f:
-        json.dump(app_info_json, f, indent=True)
+        json.dump(app_info_json, f, indent=2)
 
 def convert_project():
     project_root = os.getcwd()
