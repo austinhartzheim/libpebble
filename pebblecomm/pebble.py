@@ -2,6 +2,7 @@
 
 import atexit
 import binascii
+import collections
 import datetime
 import glob
 import itertools
@@ -239,7 +240,9 @@ class ScreenshotSync():
         self.length_received = 0
         self.progress_callback = progress_callback
         self.version = None
-        pebble.register_endpoint(endpoint, self.message_callback)
+        self.pebble = pebble
+        self.endpoint = endpoint
+        self.pebble.register_endpoint(self.endpoint, self.message_callback)
 
     # Received a reply message from the watch. We expect several of these...
     def message_callback(self, endpoint, data):
@@ -320,6 +323,8 @@ class ScreenshotSync():
         except:
             traceback.print_exc()
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
+        finally:
+            self.pebble.unregister_endpoint(self.endpoint, self.message_callback)
 
 
 class CoreDumpSync():
@@ -346,8 +351,10 @@ class CoreDumpSync():
         self.have_read_header = False
         self.length_received = 0
         self.progress_callback = progress_callback
-        self.error_code = 0;
-        pebble.register_endpoint(endpoint, self.message_callback)
+        self.error_code = 0
+        self.pebble = pebble
+        self.endpoint = endpoint
+        self.pebble.register_endpoint(self.endpoint, self.message_callback)
 
     # Received a reply message from the watch. We expect several of these...
     def message_callback(self, endpoint, data):
@@ -421,7 +428,8 @@ class CoreDumpSync():
         except:
             print "Got Error"
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
-        return None
+        finally:
+            self.pebble.unregister_endpoint(self.endpoint, self.message_callback)
 
 class AudioSync():
 
@@ -433,7 +441,9 @@ class AudioSync():
         self.timeout = timeout
         self.marker = threading.Event()
         self.recording = False
-        pebble.register_endpoint(endpoint, self.packet_callback)
+        self.pebble = pebble
+        self.endpoint = endpoint
+        self.pebble.register_endpoint(self.endpoint, self.packet_callback)
 
     def packet_callback(self, endpoint, data):
         packet_id, = unpack('B', data[0])
@@ -470,12 +480,17 @@ class AudioSync():
             return self.frames, self.sample_rate
         except:
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
+        finally:
+            self.pebble.unregister_endpoint(self.endpoint, self.packet_callback)
+
 
 class EndpointSync():
     def __init__(self, pebble, endpoint, timeout=10):
         self.marker = threading.Event()
         self.timeout = timeout
-        pebble.register_endpoint(endpoint, self.callback)
+        self.endpoint = endpoint
+        self.pebble = pebble
+        self.pebble.register_endpoint(self.endpoint, self.callback)
 
     def callback(self, endpoint, response):
         self.data = response
@@ -487,6 +502,8 @@ class EndpointSync():
             return self.data
         except:
             raise PebbleError(None, "Timed out... Is the Pebble phone app connected/direct BT connection up?")
+        finally:
+            self.pebble.unregister_endpoint(self.endpoint, self.callback)
 
 class QemuEndpointSync():
     timeout = 10
@@ -723,11 +740,16 @@ class Pebble(object):
             payload = tail[0:size]
             self.pebble_protocol_reassembly_buffer = self.pebble_protocol_reassembly_buffer[4 + size:]
 
+            for handler in self._endpoint_handlers.get(endpoint, []):
+                if not handler.preprocess:
+                    handler.fn(endpoint, payload)
+
             if endpoint in self._internal_endpoint_handlers:
                 payload = self._internal_endpoint_handlers[endpoint](endpoint, payload)
 
-            if endpoint in self._endpoint_handlers:
-                self._endpoint_handlers[endpoint](endpoint, payload)
+            for handler in self._endpoint_handlers.get(endpoint, []):
+                if handler.preprocess:
+                    handler.fn(endpoint, payload)
 
     def _reader(self):
         try:
@@ -825,12 +847,23 @@ class Pebble(object):
             log.debug('<<< ' + (data + resp).encode('hex'))
         return (source, endpoint, resp)
 
-    def register_endpoint(self, endpoint_name, func):
+    _EndpointHandler = collections.namedtuple("_EndpointHandler", ('fn', 'preprocess'))
+
+    def register_endpoint(self, endpoint_name, func, preprocess=True):
         if endpoint_name not in self.endpoints:
             raise PebbleError(self.id, "Invalid endpoint specified")
 
         endpoint = self.endpoints[endpoint_name]
-        self._endpoint_handlers[endpoint] = func
+        handler = self._EndpointHandler(func, preprocess)
+        self._endpoint_handlers.setdefault(endpoint, []).append(handler)
+
+    def unregister_endpoint(self, endpoint_name, func=None):
+        if endpoint_name not in self._endpoint_handlers:
+            return
+        if func is None:
+            del self._endpoint_handlers[endpoint_name]
+        else:
+            self._endpoint_handlers[endpoint_name].remove(func)
 
     def register_qemu_endpoint(self, endpoint_id, func):
         self._qemu_endpoint_handlers[endpoint_id] = func
@@ -1038,7 +1071,6 @@ class Pebble(object):
             resources = None
 
         client = PutBytesClient(self, first_free, "BINARY", binary)
-        self.register_endpoint("PUTBYTES", client.handle_message)
         client.init()
         while not client._done and not client._error:
             time.sleep(0.5)
@@ -1048,7 +1080,6 @@ class Pebble(object):
         # Install the resources
         if resources:
             client = PutBytesClient(self, first_free, "RESOURCES", resources)
-            self.register_endpoint("PUTBYTES", client.handle_message)
             client.init()
             while not client._done and not client._error:
                 time.sleep(0.5)
@@ -1058,14 +1089,13 @@ class Pebble(object):
         # Is there a worker to install?
         worker_info = bundle.get_worker_info()
         if worker_info is not None:
-          binary = bundle.zip.read(bundle.get_worker_path())
-          client = PutBytesClient(self, first_free, "WORKER", binary)
-          self.register_endpoint("PUTBYTES", client.handle_message)
-          client.init()
-          while not client._done and not client._error:
-              time.sleep(0.5)
-          if client._error:
-              raise PebbleError(self.id, "Failed to send worker binary %s/%s" % (pbw_path, worker_info['name']))
+            binary = bundle.zip.read(bundle.get_worker_path())
+            client = PutBytesClient(self, first_free, "WORKER", binary)
+            client.init()
+            while not client._done and not client._error:
+                time.sleep(0.5)
+            if client._error:
+                raise PebbleError(self.id, "Failed to send worker binary %s/%s" % (pbw_path, worker_info['name']))
 
 
         time.sleep(2)
@@ -1090,7 +1120,7 @@ class Pebble(object):
             self,
             app_metadata['uuid'],
             app_metadata['flags'],
-            0,
+            app_metadata['icon_resource_id'],
             app_metadata['app_version_major'],
             app_metadata['app_version_minor'],
             app_metadata['sdk_version_major'],
@@ -1147,7 +1177,6 @@ class Pebble(object):
             resources = None
 
         client = PutBytesClient(self, app_id, "BINARY", binary, has_cookie=True)
-        self.register_endpoint("PUTBYTES", client.handle_message)
         client.init()
         while not client._done and not client._error:
             time.sleep(0.5)
@@ -1157,7 +1186,6 @@ class Pebble(object):
         # Install the resources
         if resources:
             client = PutBytesClient(self, app_id, "RESOURCES", resources, has_cookie=True)
-            self.register_endpoint("PUTBYTES", client.handle_message)
             client.init()
             while not client._done and not client._error:
                 time.sleep(0.5)
@@ -1167,14 +1195,13 @@ class Pebble(object):
         # Is there a worker to install?
         worker_info = bundle.get_worker_info()
         if worker_info is not None:
-          binary = bundle.zip.read(bundle.get_worker_path())
-          client = PutBytesClient(self, app_id, "WORKER", binary, has_cookie=True)
-          self.register_endpoint("PUTBYTES", client.handle_message)
-          client.init()
-          while not client._done and not client._error:
-              time.sleep(0.5)
-          if client._error:
-              raise PebbleError(self.id, "Failed to send worker binary %s/%s" % (pbw_path, bundle.get_worker_path()))
+            binary = bundle.zip.read(bundle.get_worker_path())
+            client = PutBytesClient(self, app_id, "WORKER", binary, has_cookie=True)
+            client.init()
+            while not client._done and not client._error:
+                time.sleep(0.5)
+            if client._error:
+                raise PebbleError(self.id, "Failed to send worker binary %s/%s" % (pbw_path, bundle.get_worker_path()))
 
         # If we have not thrown an exception, we succeeded
         return True
@@ -1223,7 +1250,7 @@ class Pebble(object):
             "<16sIIHHBB96s",
             uuid_bytes,
             flags,              # info_flags
-            17,                 # total_size
+            0,                  # icon_resource_id
             0,                  # app_version
             0,                  # sdk_version
             0,                  # app_face_bg_color
@@ -1275,7 +1302,6 @@ class Pebble(object):
     def send_file(self, file_path, name):
         data = open(file_path, 'r').read()
         client = PutBytesClient(self, 0, "FILE", data, name)
-        self.register_endpoint("PUTBYTES", client.handle_message)
         client.init()
         while not client._done and not client._error:
             pass
@@ -1298,7 +1324,6 @@ class Pebble(object):
 
         if resources:
             client = PutBytesClient(self, 0, "SYS_RESOURCES", resources)
-            self.register_endpoint("PUTBYTES", client.handle_message)
             client.init()
             while not client._done and not client._error:
                 pass
@@ -1307,7 +1332,6 @@ class Pebble(object):
 
 
         client = PutBytesClient(self, 0, "RECOVERY" if recovery else "FIRMWARE", binary)
-        self.register_endpoint("PUTBYTES", client.handle_message)
         client.init()
         while not client._done and not client._error:
             pass
@@ -1632,6 +1656,7 @@ class Pebble(object):
 
         while not client.done:
             time.sleep(1)
+        self.unregister_endpoint("LOG_DUMP", client.parse_log_dump_response)
 
     def app_log_enable(self):
         self._app_log_enabled = True
@@ -1766,7 +1791,7 @@ class Pebble(object):
         app_uuid = uuid.UUID(bytes=data[0:16])
         timestamp, str_level, filename, linenumber, message = self._parse_log_response(data[16:])
 
-        log.info("{} {}:{} {}".format(str_level, filename, linenumber, message))
+        log.info("{} {}:{} {}".format(str_level, filename, linenumber, message.encode('utf-8')))
 
         # See if the log message we printed matches the message we print when we crash. If so, try to provide
         # some additional information by looking up the filename and linenumber for the symbol we crasehd at.
@@ -2081,7 +2106,9 @@ class PutBytesClient(object):
         self._filename = filename + '\0'
         self._has_cookie = has_cookie
 
+
     def init(self):
+        self._pebble.register_endpoint("PUTBYTES", self.handle_message)
         if self._has_cookie:
             self._transfer_type = self._transfer_type | (1 << 7)
             data = pack("!BIBI", 1, len(self._buffer), self._transfer_type, self._index)
@@ -2135,11 +2162,13 @@ class PutBytesClient(object):
         if res != 1:
             self.abort()
             return
+        self._pebble.unregister_endpoint("PUTBYTES", self.handle_message)
         self._done = True
 
     def abort(self):
         msgdata = pack("!bI", 4, self._token & 0xFFFFFFFF)
         self._pebble._send_message("PUTBYTES", msgdata)
+        self._pebble.unregister_endpoint("PUTBYTES", self.handle_message)
         self._error = True
 
     def send(self):
@@ -2397,14 +2426,14 @@ class Notification(TimelineItem):
 
 class AppMetadata(object):
 
-    def __init__(self, pebble, in_uuid, flags, total_size, app_version_major,
+    def __init__(self, pebble, in_uuid, flags, icon_resource_id, app_version_major,
         app_version_minor, sdk_version_major, sdk_version_minor, app_face_bg_color,
         app_face_template_id, app_name):
 
         self.pebble = pebble
         self.in_uuid = in_uuid
         self.flags = flags
-        self.total_size = total_size
+        self.icon_resource_id = icon_resource_id
         self.app_version_major = app_version_major
         self.app_version_minor = app_version_minor
         self.sdk_version_major = sdk_version_major
@@ -2420,7 +2449,7 @@ class AppMetadata(object):
             "<16sIIBBBBBB96s",
             uuid_bytes,
             self.flags,
-            self.total_size,
+            self.icon_resource_id,
             self.app_version_major,
             self.app_version_minor,
             self.sdk_version_major,
