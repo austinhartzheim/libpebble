@@ -66,14 +66,14 @@ class PebbleEmulator(object):
         else:
             return False
 
-    def persistant_dir(self):
+    def persistent_dir(self):
         if platform.system() == 'Darwin':
             return os.path.join(expanduser("~"), 'Library/Application Support/Pebble SDK')
         else:
             return os.path.join(expanduser("~"), '.pebble-sdk')
 
     def check_for_spi_images(self):
-        qemu_spi_flash = os.path.join(self.persistant_dir(), self.platform, 'qemu', "qemu_spi_flash.bin")
+        qemu_spi_flash = os.path.join(self.persistent_dir(), self.platform, 'qemu', "qemu_spi_flash.bin")
 
         if not os.path.exists(qemu_spi_flash):
             logging.debug("Required QEMU file not found: {}".format(qemu_spi_flash))
@@ -82,13 +82,13 @@ class PebbleEmulator(object):
 
     def copy_spi_image(self):
         sdk_qemu_spi_flash = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', 'qemu_spi_flash.bin')
-        qemu_spi_flash = os.path.join(self.persistant_dir(), self.platform, 'qemu', "qemu_spi_flash.bin")
+        qemu_spi_flash = os.path.join(self.persistent_dir(), self.platform, 'qemu', "qemu_spi_flash.bin")
 
         if not os.path.exists(sdk_qemu_spi_flash):
             logging.debug("Copy Failed. Required QEMU file not found: {}".format(sdk_qemu_spi_flash))
             raise Exception("Your SDK does not support the Pebble Emulator.")
         else:
-            os.system("mkdir -p '{}'".format(os.path.join(self.persistant_dir(), self.platform, 'qemu')))
+            os.system("mkdir -p '{}'".format(os.path.join(self.persistent_dir(), self.platform, 'qemu')))
             os.system("cp '{}' '{}'".format(sdk_qemu_spi_flash, qemu_spi_flash))
 
     def running_platform(self):
@@ -122,7 +122,7 @@ class PebbleEmulator(object):
     def start_qemu(self):
         qemu_bin = os.path.join(self.sdk_path, 'Pebble', 'common', 'qemu', 'qemu-system-arm' + "_" + platform.system() + '_' + platform.machine())
         qemu_micro_flash = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', "qemu_micro_flash.bin")
-        qemu_spi_flash = os.path.join(self.persistant_dir(), self.platform, 'qemu', "qemu_spi_flash.bin")
+        qemu_spi_flash = os.path.join(self.persistent_dir(), self.platform, 'qemu', "qemu_spi_flash.bin")
 
         self.check_for_spi_images()
 
@@ -203,6 +203,6 @@ class PebbleEmulator(object):
     def wipe_spi(self):
         platforms = ['aplite', 'basalt']
         for p in platforms:
-            qemu_spi_flash = os.path.join(self.persistant_dir(), p, 'qemu', "qemu_spi_flash.bin")
+            qemu_spi_flash = os.path.join(self.persistent_dir(), p, 'qemu', "qemu_spi_flash.bin")
             if os.path.exists(qemu_spi_flash):
                 os.system("rm '{}'".format(qemu_spi_flash))
