@@ -1765,7 +1765,7 @@ class Pebble(object):
         app_uuid = uuid.UUID(bytes=data[0:16])
         timestamp, str_level, filename, linenumber, message = self._parse_log_response(data[16:])
 
-        log.info("{} {}:{} {}".format(str_level, filename, linenumber, message))
+        log.info("{} {}:{} {}".format(str_level, filename, linenumber, message.encode('utf-8')))
 
         # See if the log message we printed matches the message we print when we crash. If so, try to provide
         # some additional information by looking up the filename and linenumber for the symbol we crasehd at.
