@@ -436,3 +436,12 @@ class PblKillCommand(LibPebbleCommand):
         emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug)
         emulator.kill_qemu()
         emulator.kill_phonesim()
+
+
+class PblWipeCommand(LibPebbleCommand):
+    name = 'wipe'
+    help = 'Wipe the pebble emulator spi images'
+
+    def run(self, args):
+        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug)
+        emulator.wipe_spi()

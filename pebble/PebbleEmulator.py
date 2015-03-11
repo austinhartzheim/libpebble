@@ -6,6 +6,7 @@ import os
 import subprocess
 import tempfile
 import platform
+from os.path import expanduser
 
 QEMU_DEFAULT_BT_PORT = 12344
 QEMU_DEFAULT_CONSOLE_PORT = 12345
@@ -65,6 +66,32 @@ class PebbleEmulator(object):
         else:
             return False
 
+    def persistant_dir(self):
+        if platform.system() == 'Darwin':
+            return os.path.join(expanduser("~"), 'Library/Application Support/Pebble SDK')
+        else:
+            return os.path.join(expanduser("~"), '.pebble-sdk')
+
+    def check_for_spi_images(self):
+        qemu_spi_flash = os.path.join(self.persistant_dir(), self.platform, 'qemu', "qemu_spi_flash.bin")
+
+        if not os.path.exists(qemu_spi_flash):
+            logging.debug("Required QEMU file not found: {}".format(qemu_spi_flash))
+            logging.debug("Copying {} SPI image to {}".format(self.platform, qemu_spi_flash))
+            self.copy_spi_image()
+
+    def copy_spi_image(self):
+        sdk_qemu_spi_flash = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', 'qemu_spi_flash.bin')
+        qemu_spi_flash = os.path.join(self.persistant_dir(), self.platform, 'qemu', "qemu_spi_flash.bin")
+
+        if not os.path.exists(sdk_qemu_spi_flash):
+            logging.debug("Copy Failed. Required QEMU file not found: {}".format(sdk_qemu_spi_flash))
+            raise Exception("Your SDK does not support the Pebble Emulator.")
+        else:
+            print 'making stuff...'
+            os.system("mkdir -p '{}'".format(os.path.join(self.persistant_dir(), self.platform, 'qemu')))
+            os.system("cp '{}' '{}'".format(sdk_qemu_spi_flash, qemu_spi_flash))
+
     def running_platform(self):
         if self.is_qemu_running():
             with open(self.qemu_platform, 'r') as pf:
@@ -96,9 +123,11 @@ class PebbleEmulator(object):
     def start_qemu(self):
         qemu_bin = os.path.join(self.sdk_path, 'Pebble', 'common', 'qemu', 'qemu-system-arm' + "_" + platform.system() + '_' + platform.machine())
         qemu_micro_flash = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', "qemu_micro_flash.bin")
-        qemu_spi_flash = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', "qemu_spi_flash.bin")
+        qemu_spi_flash = os.path.join(self.persistant_dir(), self.platform, 'qemu', "qemu_spi_flash.bin")
 
-        for f in [qemu_bin, qemu_micro_flash, qemu_spi_flash]:
+        self.check_for_spi_images()
+
+        for f in [qemu_bin, qemu_micro_flash]:
             if not os.path.exists(f):
                 logging.debug("Required QEMU file not found: {}".format(f))
                 raise Exception("Your SDK does not support the Pebble Emulator.")
@@ -171,3 +200,10 @@ class PebbleEmulator(object):
                 raise
         else:
             print 'The phone simulator isn\'t running'
+
+    def wipe_spi(self):
+        platforms = ['aplite', 'basalt']
+        for p in platforms:
+            qemu_spi_flash = os.path.join(self.persistant_dir(), p, 'qemu', "qemu_spi_flash.bin")
+            if os.path.exists(qemu_spi_flash):
+                os.system("rm '{}'".format(qemu_spi_flash))
