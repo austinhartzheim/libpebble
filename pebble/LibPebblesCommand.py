@@ -1,7 +1,10 @@
+import argparse
 import fnmatch
+import json
 import logging
 import os
 import sh
+import sys
 import time
 
 from pebblecomm import pebble as libpebble
@@ -436,3 +439,31 @@ class PblKillCommand(LibPebbleCommand):
         emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug)
         emulator.kill_qemu()
         emulator.kill_phonesim()
+
+
+class PblInsertPinCommand(LibPebbleCommand):
+    name = 'insert-pin'
+    help = 'Insert a pin into the timeline.'
+
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('--id', type=str, help='An arbitrary string representing an ID for the pin being added')
+        parser.add_argument('--uuid', type=str, default=None, help='An arbitrary string representing an ID for the pin being added')
+        parser.add_argument('file', type=argparse.FileType(), default='-', nargs='?', help='Filename to use for pin json. "-" means stdin.')
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+        uuid = args.uuid
+        if uuid is None:
+            try:
+                with open('appinfo.json') as f:
+                    appinfo = json.load(f)
+                    uuid = appinfo['uuid']
+            except (OSError, ValueError, KeyError):
+                logging.error("Couldn't find app UUID; try specifying one manually using --uuid.")
+        try:
+            pin = json.load(args.file)
+        except ValueError as e:
+            logging.error("Failed to parse json: %s" % e)
+            return 1
+        self.pebble.ws_insert_pin(args.id, uuid, pin)

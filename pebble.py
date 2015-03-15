@@ -52,6 +52,7 @@ class PbSDKShell:
         self.commands.append(PblEmuBatteryCommand())
         self.commands.append(PblEmuAccelCommand())
         self.commands.append(PblKillCommand())
+        self.commands.append(PblInsertPinCommand())
 
     def _get_version(self):
         try:
