@@ -17,7 +17,7 @@ WS_CMD_BUNDLE_INSTALL = 0x04
 WS_CMD_STATUS = 0x5
 WS_CMD_PHONE_INFO = 0x06
 WS_CMD_WATCH_CONNECTION_UPDATE = 0x07
-WS_CMD_INSERT_PIN = 0x0c
+WS_CMD_TIMELINE = 0x0c
 
 class WebSocketPebble(WebSocket):
 
@@ -109,7 +109,7 @@ class WebSocketPebble(WebSocket):
             watch_connected = (int(data[1:].encode("hex"), 16) == 255)
             logging.info("Pebble " + ("connected" if watch_connected else "disconnected"));
             return ('ws', 'watchConnectionStatusUpdate', watch_connected, data)
-        elif ws_cmd==WS_CMD_INSERT_PIN:
+        elif ws_cmd==WS_CMD_TIMELINE:
             failed = data[1] == 1
             logging.info("Pin insert " + ("failed" if failed else "may have succeeded."))
         else:
