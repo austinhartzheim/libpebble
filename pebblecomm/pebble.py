@@ -616,7 +616,7 @@ class Pebble(object):
             self.endpoints["SCREENSHOT"]: self._screenshot_response,
             self.endpoints["COREDUMP"]: self._coredump_response,
             self.endpoints["AUDIO"]: self._audio_response,
-            self.endpoints["BLOB_DB"]: self._blob_db_response,
+            # self.endpoints["BLOB_DB"]: self._blob_db_response,
         }
         self._qemu_endpoint_handlers = {}
         self._qemu_internal_endpoint_handlers = {
