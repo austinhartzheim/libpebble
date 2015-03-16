@@ -34,7 +34,6 @@ from struct import pack, unpack
 DEFAULT_PEBBLE_ID = None #Triggers autodetection on unix-like systems
 DEFAULT_WEBSOCKET_PORT = 9000
 DEBUG_PROTOCOL = False
-APP_ELF_PATH = 'build/pebble-app.elf'
 
 class PebbleHardware(object):
     UNKNOWN = 0
@@ -639,35 +638,40 @@ class Pebble(object):
         except:
             raise
 
-    def get_watch_fw_version(self):
-        if (self.watch_fw_version is not None):
-            return self.watch_fw_version
-
+    def get_watch_version_info(self):
         version_info = self.get_versions()
-        cur_version = version_info['normal_fw']['version']
+
+        fw_version = version_info['normal_fw']['version']
 
         # remove the v and split on '.' and '-'
-        pieces = re.split("[\.-]", cur_version[1:])
+        pieces = re.split("[\.-]", fw_version[1:])
         major = pieces[0]
         minor = pieces[1]
 
+        # Save watch FW info
         self.watch_fw_version = [int(major), int(minor)]
 
+        # Save watch HW info
+        self.watch_hardware = version_info['normal_fw']['hardware_platform']
+    
+    def get_watch_fw_version(self):
+        if self.watch_fw_version is None:
+            self.get_watch_version_info()
         return self.watch_fw_version
 
     def get_watch_hardware(self):
-        if self.watch_hardware is not None:
-            return self.watch_hardware
-
-        version_info = self.get_versions()
-        hardware = version_info['normal_fw']['hardware_platform']
-
-        self.watch_hardware = hardware
-
-        return hardware
+        if self.watch_hardware is None:
+            self.get_watch_version_info()
+        return self.watch_hardware
 
     def get_watch_platform(self):
         return PebbleHardware.hardware_platform(self.get_watch_hardware())
+
+    def get_platform_path(self, filename=''):
+        platform = self.get_watch_platform()
+
+        if platform is not 'unknown':
+            return "build/{}/{}".format(platform, filename) 
 
     def connect_via_serial(self, id = None):
         self._connection_type = 'serial'
@@ -740,7 +744,7 @@ class Pebble(object):
                 return
             payload = tail[0:size]
             self.pebble_protocol_reassembly_buffer = self.pebble_protocol_reassembly_buffer[4 + size:]
-
+            
             for handler in self._endpoint_handlers.get(endpoint, []):
                 if not handler.preprocess:
                     handler.fn(endpoint, payload)
@@ -1662,6 +1666,8 @@ class Pebble(object):
         log.info("Enabling application logging...")
         self._send_message("APP_LOGS", pack("!B", 0x01))
 
+        self.get_watch_version_info()
+
     def app_log_disable(self):
         self._app_log_enabled = False
         log.info("Disabling application logging...")
@@ -1729,6 +1735,7 @@ class Pebble(object):
 
             log.info("{} {} {} {} {}".format(timestamp, str_level, filename, linenumber, message))
 
+
     def _print_crash_message(self, crashed_uuid, crashed_pc, crashed_lr):
         # Read the current projects UUID from it's appinfo.json. If we can't do this or the uuid doesn't match
         # the uuid of the crashed app we don't print anything.
@@ -1755,10 +1762,10 @@ class Pebble(object):
             # Someone other than us crashed, just bail
             return
 
-
-        if not os.path.exists(APP_ELF_PATH):
+        app_elf_path = self.get_platform_path('pebble-app.elf')
+        if not os.path.exists(app_elf_path):
             log.warn("Could not look up debugging symbols.")
-            log.warn("Could not find ELF file: %s" % APP_ELF_PATH)
+            log.warn("Could not find ELF file: %s" % app_elf_path)
             log.warn("Please try rebuilding your project")
             return
 
@@ -1773,7 +1780,7 @@ class Pebble(object):
 
                 result = '???'
             else:
-                result = sh.arm_none_eabi_addr2line(addr_str, exe=APP_ELF_PATH,
+                result = sh.arm_none_eabi_addr2line(addr_str, exe=app_elf_path,
                                                     _tty_out=False).strip()
 
             log.warn("%24s %10s %s", register_name + ':', addr_str, result)
