@@ -67,6 +67,9 @@ class LibPebbleCommand(PblCommand):
         auth_storage_file = os.path.join(self.get_persistent_dir(), 'oauth_storage')
         account = get_default_account(auth_storage_file)
 
+        if not account.is_logged_in():
+            raise ConfigurationException("You have not connected your SDK to your developer account. Please run 'pebble login'.")
+
         if not args.phone and not args.pebble_id and not args.emulator and not args.qemu:
             args.emulator = 'basalt'
 
