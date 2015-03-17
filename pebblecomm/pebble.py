@@ -545,6 +545,7 @@ class Pebble(object):
             "BLOB_DB": 45531, # New in 3.x
             "PUTBYTES": 48879,
             "AUDIO": 10000, # New in 3.x
+            "TIMELINE_ACTION": 0x2CB0,
     }
 
     log_levels = {
