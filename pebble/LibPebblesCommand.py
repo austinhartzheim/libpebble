@@ -98,9 +98,9 @@ class LibPebbleCommand(PblCommand):
     @classmethod
     def get_persistent_dir(self):
         if platform.system() == 'Darwin':
-            return os.path.join(expanduser("~"), 'Library/Application Support/Pebble SDK')
+            return expanduser("~/Library/Application Support/Pebble SDK")
         else:
-            return os.path.join(expanduser("~"), '.pebble-sdk')
+            return expanduser("~/.pebble-sdk")
 
     def tail(self, interactive=False, skip_enable_app_log=False):
         if not skip_enable_app_log:
