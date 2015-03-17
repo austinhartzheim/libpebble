@@ -456,7 +456,7 @@ class PblKillCommand(LibPebbleCommand):
     help = 'Kill the pebble emulator and phone simulator'
 
     def run(self, args):
-        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir())
+        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir(), None)
         emulator.kill_qemu()
         emulator.kill_phonesim()
 
@@ -470,7 +470,7 @@ class PblWipeCommand(LibPebbleCommand):
                 help=('Select only one platform to wipe.'))
 
     def run(self, args):
-        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir())
+        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir(), None)
         emulator.wipe_spi()
 
 class PblInsertPinCommand(LibPebbleCommand):
