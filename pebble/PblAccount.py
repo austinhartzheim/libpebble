@@ -51,6 +51,9 @@ class PblAccount(object):
     def set_expiration_to_long_time(self, creds):
         cred_str = creds.to_json()
         cred_json = json.loads(cred_str)
+        # incase it might have an expiration
+        if(cred_json is not None):
+            return creds
         cred_json['token_expiry'] = '2100-01-01T00:00:01Z'
         cred_new_json = json.dumps(cred_json)
         return Credentials.new_from_json(cred_new_json)
