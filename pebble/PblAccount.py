@@ -3,6 +3,7 @@ from oauth2client.client import Credentials
 from oauth2client.file import Storage
 
 import sys
+import os
 import json
 import collections
 import datetime
@@ -10,12 +11,12 @@ import oauth2client.tools as tools
 import argparse
 import httplib2
 
-AUTH_SERVER   = "https://auth.getpebble.com"
+AUTH_SERVER   = os.getenv("PEBBLE_OAUTH_SERVER", "https://auth.getpebble.com")
 AUTHORIZE_URI = AUTH_SERVER + "/oauth/authorize"
 TOKEN_URI     = AUTH_SERVER + "/oauth/token"
 
-SDK_CLIENT_ID = "8b9140c7b1f101a84a26cab03e6b12273af36829d0e6540394dae61196fe5e7b"
-SDK_CLIENT_SECRET = "8fdcbceafcbca6f9fdb6432cfcc246180bb59bcea957795b12efb5527397e2a1"
+SDK_CLIENT_ID     = os.getenv("PEBBLE_OAUTH_APP_ID", "8b9140c7b1f101a84a26cab03e6b12273af36829d0e6540394dae61196fe5e7b")
+SDK_CLIENT_SECRET = os.getenv("PEBBLE_OAUTH_APP_SECRET", "8fdcbceafcbca6f9fdb6432cfcc246180bb59bcea957795b12efb5527397e2a1")
 
 flow = OAuth2WebServerFlow(
     client_id = SDK_CLIENT_ID,
