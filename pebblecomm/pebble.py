@@ -857,13 +857,21 @@ class Pebble(object):
         handler = self._EndpointHandler(func, preprocess)
         self._endpoint_handlers.setdefault(endpoint, []).append(handler)
 
-    def unregister_endpoint(self, endpoint_name, func=None):
-        if endpoint_name not in self._endpoint_handlers:
+    def unregister_endpoint(self, endpoint_name, func=None, preprocess=True):
+        if endpoint_name not in self.endpoints:
+            raise PebbleError(self.id, "Invalid endpoint specified")
+
+        endpoint = self.endpoints[endpoint_name]
+
+        if endpoint not in self._endpoint_handlers:
             return
         if func is None:
-            del self._endpoint_handlers[endpoint_name]
+            del self._endpoint_handlers[endpoint]
         else:
-            self._endpoint_handlers[endpoint_name].remove(func)
+            try:
+                self._endpoint_handlers[endpoint].remove(self._EndpointHandler(func, preprocess))
+            except ValueError:
+                pass
 
     def register_qemu_endpoint(self, endpoint_id, func):
         self._qemu_endpoint_handlers[endpoint_id] = func
