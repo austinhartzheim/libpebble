@@ -70,9 +70,6 @@ class LibPebbleCommand(PblCommand):
         if not args.phone and not args.pebble_id and not args.emulator and not args.qemu:
             args.emulator = 'basalt'
 
-        auth_storage_file = os.path.join(self.get_persistent_dir(), 'oauth_storage')
-        account = get_default_account(auth_storage_file)
-
         num_args = bool(args.phone) + bool(args.pebble_id) + bool(args.qemu) + bool(args.emulator)
         if num_args > 1:
             raise ConfigurationException("You must specify only one method to connect to the watch "
