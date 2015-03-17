@@ -5,7 +5,6 @@ from oauth2client.file import Storage
 import sys
 import os
 import json
-import collections
 import datetime
 import oauth2client.tools as tools
 import argparse
@@ -51,7 +50,7 @@ class PblAccount(object):
     # hack to fix null token expiration
     def set_expiration_to_long_time(self, creds):
         cred_str = creds.to_json()
-        cred_json = json.loads(cred_str, object_pairs_hook=collections.OrderedDict)
+        cred_json = json.loads(cred_str)
         cred_json['token_expiry'] = '2100-01-01T00:00:01Z'
         cred_new_json = json.dumps(cred_json)
         return Credentials.new_from_json(cred_new_json)
