@@ -162,6 +162,7 @@ class PebbleEmulator(object):
         cmdline.extend(["--qemu", "localhost:{}".format(QEMU_DEFAULT_BT_PORT)])
         cmdline.extend(["--port", str(PHONESIM_PORT)])
         cmdline.extend(["--oauth", self.oauth_token])
+        cmdline.extend(["--persist", self.persistent_dir])
 
         if self.debug:
             process = subprocess.Popen(cmdline)
