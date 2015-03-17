@@ -14,8 +14,8 @@ AUTH_SERVER   = "https://auth.getpebble.com"
 AUTHORIZE_URI = AUTH_SERVER + "/oauth/authorize"
 TOKEN_URI     = AUTH_SERVER + "/oauth/token"
 
-SDK_CLIENT_ID = "6c4f2bbb7553edf0cf93e12efc43468e8eee87e36f45903d2d65f9a43a5d44b2"
-SDK_CLIENT_SECRET = "1d7cd5fea2696e86c6761f2c34d4e8dc10e35e7215171b0ad089e97de496a401"
+SDK_CLIENT_ID = "8b9140c7b1f101a84a26cab03e6b12273af36829d0e6540394dae61196fe5e7b"
+SDK_CLIENT_SECRET = "8fdcbceafcbca6f9fdb6432cfcc246180bb59bcea957795b12efb5527397e2a1"
 
 flow = OAuth2WebServerFlow(
     client_id = SDK_CLIENT_ID,
