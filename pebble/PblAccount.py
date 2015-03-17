@@ -73,7 +73,6 @@ class PblAccount(object):
 
     def check_persistent_dir(self):
         if not os.path.exists(self.persistent_dir):
-            logging.debug("{} doesn't exist, so creating it...".format(self.persistent_dir))
             os.system("mkdir -p '{}'".format(self.persistent_dir))
 
 def get_default_account(persistent_dir):
