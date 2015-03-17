@@ -111,7 +111,8 @@ class WebSocketPebble(WebSocket):
             return ('ws', 'watchConnectionStatusUpdate', watch_connected, data)
         elif ws_cmd==WS_CMD_TIMELINE:
             failed = data[1] == 1
-            logging.info("Pin insert " + ("failed" if failed else "may have succeeded."))
+            if failed:
+                logging.error("Pin operation failed.")
         else:
             logging.debug("Unexpected reponse: %s: data: %s", ws_cmd, data[1:].encode("hex"))
 

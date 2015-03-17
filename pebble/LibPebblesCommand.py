@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import sh
-import sys
 import time
 
 from pebblecomm import pebble as libpebble
@@ -461,6 +460,7 @@ class PblInsertPinCommand(LibPebbleCommand):
                     app_uuid = appinfo['uuid']
             except (OSError, ValueError, KeyError):
                 logging.error("Couldn't find app UUID; try specifying one manually using --app-uuid.")
+                return
         try:
             pin = json.load(args.file)
         except ValueError as e:
