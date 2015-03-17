@@ -1,7 +1,11 @@
 from oauth2client.client import OAuth2WebServerFlow
-from oauth2client.keyring_storage import Storage
+from oauth2client.client import Credentials
+from oauth2client.file import Storage
 
 import sys
+import json
+import collections
+import datetime
 import oauth2client.tools as tools
 import argparse
 import httplib2
@@ -22,14 +26,17 @@ flow = OAuth2WebServerFlow(
 )
 
 class PblAccount(object):
-    def __init__(self):
-        self.storage = Storage('pebble-sdk', 'user')
+    def __init__(self, storage_file):
+        self.storage = Storage(storage_file)
 
     def is_logged_in(self):
         return True if self.storage.get() else False
 
     def get_credentials(self):
         return self.storage.get()
+
+    def get_token(self):
+        return json.loads(self.storage.get().to_json())['access_token']
 
     def refresh_credentials(self):
         creds = self.get_credentials()
@@ -40,6 +47,14 @@ class PblAccount(object):
         token_info = creds.get_access_token()
         return token_info.access_token
 
+    # hack to fix null token expiration
+    def set_expiration_to_long_time(self, creds):
+        cred_str = creds.to_json()
+        cred_json = json.loads(cred_str, object_pairs_hook=collections.OrderedDict)
+        cred_json['token_expiry'] = '2100-01-01T00:00:01Z'
+        cred_new_json = json.dumps(cred_json)
+        return Credentials.new_from_json(cred_new_json)
+
     def login(self):
         parser = argparse.ArgumentParser(description=__doc__,
             formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -47,7 +62,11 @@ class PblAccount(object):
         parser.set_defaults(auth_host_port = [60000])
 
         flags = parser.parse_args([])
-        creds = tools.run_flow(flow, self.storage, flags)
+        creds = self.set_expiration_to_long_time(tools.run_flow(flow, self.storage, flags))
 
-def get_default_account():
-   return PblAccount()
+        self.storage.put(creds)
+
+
+def get_default_account(storage_file):
+   return PblAccount(storage_file)
+

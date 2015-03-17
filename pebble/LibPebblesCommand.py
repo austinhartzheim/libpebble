@@ -64,6 +64,9 @@ class LibPebbleCommand(PblCommand):
             args.qemu = os.getenv(PEBBLE_QEMU_ENVVAR)
             args.emulator = os.getenv(PEBBLE_PLATFORM_ENVVAR)
 
+        auth_storage_file = os.path.join(self.get_persistent_dir(), 'oauth_storage')
+        account = get_default_account(auth_storage_file)
+
         if not args.phone and not args.pebble_id and not args.emulator and not args.qemu:
             args.emulator = 'basalt'
 
@@ -84,7 +87,7 @@ class LibPebbleCommand(PblCommand):
         elif args.pebble_id:
             self.pebble.connect_via_lightblue(pair_first=args.pair)
         elif args.emulator:
-            emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir())
+            emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir(), account.get_token())
             emulator.start()
             self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
         elif args.qemu:
@@ -92,6 +95,7 @@ class LibPebbleCommand(PblCommand):
         else:
             self.pebble.connect_via_cloud(account)
 
+    @classmethod
     def get_persistent_dir(self):
         if platform.system() == 'Darwin':
             return os.path.join(expanduser("~"), 'Library/Application Support/Pebble SDK')
@@ -366,8 +370,6 @@ class PblReplCommand(LibPebbleCommand):
         LibPebbleCommand.run(self, args)
         self.tail(interactive=True)
 
-<<<<<<< Updated upstream
-
 class PblEmuTapCommand(LibPebbleCommand):
     name = 'emu_tap'
     help = 'Send a tap event to Pebble running in the emulator'
@@ -519,6 +521,7 @@ class PblLoginCommand(PblCommand):
     help = ""
 
     def run(self, args):
-        account = get_default_account()
+        auth_storage_file = os.path.join(LibPebbleCommand.get_persistent_dir(), 'oauth_storage')
+        account = get_default_account(auth_storage_file)
         account.login()
 
