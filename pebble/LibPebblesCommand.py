@@ -467,7 +467,7 @@ class PblWipeCommand(LibPebbleCommand):
 
     def run(self, args):
         emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir(), None)
-        emulator.wipe_spi()
+        emulator.wipe_spi(args.platform)
 
 class PblInsertPinCommand(LibPebbleCommand):
     name = 'insert-pin'
