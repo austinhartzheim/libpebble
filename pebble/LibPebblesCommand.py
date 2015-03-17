@@ -3,6 +3,8 @@ import logging
 import os
 import sh
 import time
+import platform
+from os.path import expanduser
 
 from pebblecomm import pebble as libpebble
 
@@ -76,11 +78,17 @@ class LibPebbleCommand(PblCommand):
         elif args.pebble_id:
             self.pebble.connect_via_lightblue(pair_first=args.pair)
         elif args.emulator:
-            emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug)
+            emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir())
             emulator.start()
             self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
         elif args.qemu:
             self.pebble.connect_via_qemu(args.qemu)
+
+    def get_persistent_dir(self):
+        if platform.system() == 'Darwin':
+            return os.path.join(expanduser("~"), 'Library/Application Support/Pebble SDK')
+        else:
+            return os.path.join(expanduser("~"), '.pebble-sdk')
 
     def tail(self, interactive=False, skip_enable_app_log=False):
         if not skip_enable_app_log:
@@ -433,7 +441,7 @@ class PblKillCommand(LibPebbleCommand):
     help = 'Kill the pebble emulator and phone simulator'
 
     def run(self, args):
-        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug)
+        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir())
         emulator.kill_qemu()
         emulator.kill_phonesim()
 
@@ -443,5 +451,5 @@ class PblWipeCommand(LibPebbleCommand):
     help = 'Wipe the pebble emulator spi images'
 
     def run(self, args):
-        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug)
+        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir())
         emulator.wipe_spi()
