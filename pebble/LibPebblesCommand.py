@@ -1,4 +1,6 @@
+import argparse
 import fnmatch
+import json
 import logging
 import os
 import sh
@@ -39,7 +41,7 @@ class LibPebbleCommand(PblCommand):
                 help='When using Developer Connection, the IP address or hostname of your phone. Can also be provided through %s environment variable.' % PEBBLE_PHONE_ENVVAR)
         parser.add_argument('--pebble_id', type=str,
                 help='When using a direct BT connection, the watch\'s Bluetooth ID (e.g. DF38 or 01:23:45:67:DF:38). Can also be provided through %s environment variable.' % PEBBLE_BTID_ENVVAR)
-        parser.add_argument('--emulator', type=str,
+        parser.add_argument('--emulator', type=str, choices=['aplite', 'basalt'],
                 help='Use this option to talk to a Pebble Emulator on your computer. The emulator is automatically started if needed. Basalt is the default emulator, but you can specify another through %s environment variable.' % PEBBLE_PLATFORM_ENVVAR)
         parser.add_argument('--qemu', type=str,
                 help='Use this option to connect directly to a qemu instance. You must provide the hostname:port. This can also be provided through %s environment variable.' % PEBBLE_QEMU_ENVVAR)
@@ -76,7 +78,7 @@ class LibPebbleCommand(PblCommand):
         elif args.pebble_id:
             self.pebble.connect_via_lightblue(pair_first=args.pair)
         elif args.emulator:
-            emulator = PebbleEmulator(self.sdk_path(args), args.emulator)
+            emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug)
             emulator.start()
             self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
         elif args.qemu:
@@ -433,6 +435,48 @@ class PblKillCommand(LibPebbleCommand):
     help = 'Kill the pebble emulator and phone simulator'
 
     def run(self, args):
-        emulator = PebbleEmulator(self.sdk_path(args), args.emulator)
+        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug)
         emulator.kill_qemu()
         emulator.kill_phonesim()
+
+
+class PblInsertPinCommand(LibPebbleCommand):
+    name = 'insert-pin'
+    help = 'Insert a pin into the timeline.'
+
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('--id', type=str, default=None, help='An arbitrary string representing an ID for the pin being added')
+        parser.add_argument('--app-uuid', type=str, default=None, help="The UUID of the pin's parent app.")
+        parser.add_argument('file', type=argparse.FileType(), default='-', nargs='?', help='Filename to use for pin json. "-" means stdin.')
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+        app_uuid = args.app_uuid
+        if app_uuid is None:
+            try:
+                with open('appinfo.json') as f:
+                    appinfo = json.load(f)
+                    app_uuid = appinfo['uuid']
+            except (OSError, ValueError, KeyError):
+                logging.error("Couldn't find app UUID; try specifying one manually using --app-uuid.")
+                return
+        try:
+            pin = json.load(args.file)
+        except ValueError as e:
+            logging.error("Failed to parse json: %s" % e)
+            return 1
+        self.pebble.ws_insert_pin(args.id, app_uuid, pin)
+
+
+class PblDeletePinCommand(LibPebbleCommand):
+    name = 'delete-pin'
+    help = "Delete a pin from the timeline."
+
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('id', help="The id of the pin to delete (provided as --id to insert-pin or as the pin's id property).")
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+        self.pebble.ws_delete_pin(args.id)
