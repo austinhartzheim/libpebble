@@ -1,4 +1,6 @@
+import argparse
 import fnmatch
+import json
 import logging
 import os
 import sh
@@ -436,3 +438,45 @@ class PblKillCommand(LibPebbleCommand):
         emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug)
         emulator.kill_qemu()
         emulator.kill_phonesim()
+
+
+class PblInsertPinCommand(LibPebbleCommand):
+    name = 'insert-pin'
+    help = 'Insert a pin into the timeline.'
+
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('--id', type=str, default=None, help='An arbitrary string representing an ID for the pin being added')
+        parser.add_argument('--app-uuid', type=str, default=None, help="The UUID of the pin's parent app.")
+        parser.add_argument('file', type=argparse.FileType(), default='-', nargs='?', help='Filename to use for pin json. "-" means stdin.')
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+        app_uuid = args.app_uuid
+        if app_uuid is None:
+            try:
+                with open('appinfo.json') as f:
+                    appinfo = json.load(f)
+                    app_uuid = appinfo['uuid']
+            except (OSError, ValueError, KeyError):
+                logging.error("Couldn't find app UUID; try specifying one manually using --app-uuid.")
+                return
+        try:
+            pin = json.load(args.file)
+        except ValueError as e:
+            logging.error("Failed to parse json: %s" % e)
+            return 1
+        self.pebble.ws_insert_pin(args.id, app_uuid, pin)
+
+
+class PblDeletePinCommand(LibPebbleCommand):
+    name = 'delete-pin'
+    help = "Delete a pin from the timeline."
+
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('id', help="The id of the pin to delete (provided as --id to insert-pin or as the pin's id property).")
+
+    def run(self, args):
+        LibPebbleCommand.run(self, args)
+        self.pebble.ws_delete_pin(args.id)

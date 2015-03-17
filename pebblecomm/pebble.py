@@ -1603,6 +1603,35 @@ class Pebble(object):
                 break;
             button_state = 0
 
+    @staticmethod
+    def _pin_id_to_uuid(pin_id):
+        return uuid.uuid5(uuid.NAMESPACE_DNS, '%s.pin.developer.getpebble.com' % pin_id)
+
+    def ws_insert_pin(self, pin_id, app_uuid, pin):
+        if pin_id is None:
+            try:
+                pin_id = str(pin['id'])
+            except KeyError:
+                log.error("Pin id not provided and not embedded in pin.")
+                return
+        else:
+            if pin_id != pin.get('id', pin_id):
+                log.error("Embedded pin id mismatches provided pin id.")
+                return
+        guid = self._pin_id_to_uuid(pin_id)
+        now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        pin['guid'] = str(guid)
+        # TODO: The createTime field here is a lie for updates. Ideally, we would persist a uuid -> startTime mapping.
+        # In practice, I don't think it really matters (at least for pypkjs' implementation).
+        pin['createTime'] = now
+        pin['updateTime'] = now
+        pin['source'] = 'sdk'
+        pin['dataSource'] = 'sandbox-uuid:%s' % app_uuid
+        self._ser.write('\x01' + json.dumps(pin), ws_cmd=WebSocketPebble.WS_CMD_TIMELINE)
+
+    def ws_delete_pin(self, pin_id):
+        guid = self._pin_id_to_uuid(pin_id)
+        self._ser.write('\x02%s' % guid, ws_cmd=WebSocketPebble.WS_CMD_TIMELINE)
 
     def _qemu_vibration_notification(self, endpoint, data):
         on, = unpack("!b", data)
