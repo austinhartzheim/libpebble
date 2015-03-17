@@ -21,7 +21,6 @@ try:
                                             PblCleanCommand,
                                             PblAnalyzeSizeCommand)
     from pebble.LibPebblesCommand   import *
-    from pebble.PblLoginCommand     import *
 except Exception as e:
     logging.basicConfig(format='[%(levelname)-8s] %(message)s',
                     level = logging.DEBUG)
@@ -32,7 +31,6 @@ class PbSDKShell:
     commands = []
 
     def __init__(self):
-        self.commands.append(PblLoginCommand())
         self.commands.append(PblProjectCreator())
         self.commands.append(PblProjectConverter())
         self.commands.append(PblBuildCommand())
@@ -57,6 +55,7 @@ class PbSDKShell:
         self.commands.append(PblWipeCommand())
         self.commands.append(PblInsertPinCommand())
         self.commands.append(PblDeletePinCommand())
+        self.commands.append(PblLoginCommand())
 
     def _get_version(self):
         try:

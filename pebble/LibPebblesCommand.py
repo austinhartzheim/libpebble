@@ -360,6 +360,7 @@ class PblReplCommand(LibPebbleCommand):
         LibPebbleCommand.run(self, args)
         self.tail(interactive=True)
 
+<<<<<<< Updated upstream
 
 class PblEmuTapCommand(LibPebbleCommand):
     name = 'emu_tap'
@@ -506,4 +507,12 @@ class PblDeletePinCommand(LibPebbleCommand):
     def run(self, args):
         LibPebbleCommand.run(self, args)
         self.pebble.ws_delete_pin(args.id)
+
+class PblLoginCommand(PblCommand):
+    name = 'login'
+    help = ""
+
+    def run(self, args):
+        account = get_default_account()
+        account.login()
 

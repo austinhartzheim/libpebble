@@ -21,7 +21,6 @@ flow = OAuth2WebServerFlow(
     token_uri = TOKEN_URI
 )
 
-# WIP
 class PblAccount(object):
     def __init__(self):
         self.storage = Storage('pebble-sdk', 'user')
