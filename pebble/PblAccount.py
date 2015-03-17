@@ -26,8 +26,10 @@ flow = OAuth2WebServerFlow(
 )
 
 class PblAccount(object):
-    def __init__(self, storage_file):
-        self.storage = Storage(storage_file)
+    def __init__(self, persistent_dir):
+        self.persistent_dir = persistent_dir
+        self.storage = Storage(os.path.join(self.persistent_dir, 'oauth_storage'))
+        self.check_persistent_dir()
 
     def is_logged_in(self):
         return True if self.storage.get() else False
@@ -52,7 +54,7 @@ class PblAccount(object):
         cred_str = creds.to_json()
         cred_json = json.loads(cred_str)
         # incase it might have an expiration
-        if(cred_json is not None):
+        if(cred_json['token_expiry'] is not None):
             return creds
         cred_json['token_expiry'] = '2100-01-01T00:00:01Z'
         cred_new_json = json.dumps(cred_json)
@@ -69,7 +71,11 @@ class PblAccount(object):
 
         self.storage.put(creds)
 
+    def check_persistent_dir(self):
+        if not os.path.exists(self.persistent_dir):
+            logging.debug("{} doesn't exist, so creating it...".format(self.persistent_dir))
+            os.system("mkdir -p '{}'".format(self.persistent_dir))
 
-def get_default_account(storage_file):
-   return PblAccount(storage_file)
+def get_default_account(persistent_dir):
+   return PblAccount(persistent_dir)
 

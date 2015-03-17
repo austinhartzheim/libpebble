@@ -64,8 +64,7 @@ class LibPebbleCommand(PblCommand):
             args.qemu = os.getenv(PEBBLE_QEMU_ENVVAR)
             args.emulator = os.getenv(PEBBLE_PLATFORM_ENVVAR)
 
-        auth_storage_file = os.path.join(self.get_persistent_dir(), 'oauth_storage')
-        account = get_default_account(auth_storage_file)
+        account = get_default_account(self.get_persistent_dir())
 
         if not account.is_logged_in():
             raise ConfigurationException("You have not connected your SDK to your developer account. Please run 'pebble login'.")
@@ -516,7 +515,6 @@ class PblLoginCommand(PblCommand):
     help = ""
 
     def run(self, args):
-        auth_storage_file = os.path.join(LibPebbleCommand.get_persistent_dir(), 'oauth_storage')
-        account = get_default_account(auth_storage_file)
+        account = get_default_account(LibPebbleCommand.get_persistent_dir())
         account.login()
 
