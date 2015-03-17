@@ -450,6 +450,11 @@ class PblWipeCommand(LibPebbleCommand):
     name = 'wipe'
     help = 'Wipe the pebble emulator spi images'
 
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('--platform', type=str, choices=['aplite', 'basalt'],
+                help=('Select only one platform to wipe.'))
+
     def run(self, args):
         emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir())
         emulator.wipe_spi()

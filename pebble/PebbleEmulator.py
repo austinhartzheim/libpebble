@@ -194,9 +194,16 @@ class PebbleEmulator(object):
         else:
             print 'The phone simulator isn\'t running'
 
-    def wipe_spi(self):
-        platforms = ['aplite', 'basalt']
+    def wipe_spi(self, platform):
+        platforms = []
+
+        if platform is None:
+            platforms = ['aplite', 'basalt']
+        else:
+            platforms.append(platform)
+
         for p in platforms:
             qemu_spi_flash = os.path.join(self.persistent_dir, p, 'qemu', "qemu_spi_flash.bin")
             if os.path.exists(qemu_spi_flash):
                 os.system("rm '{}'".format(qemu_spi_flash))
+
