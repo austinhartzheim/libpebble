@@ -510,11 +510,19 @@ class PblDeletePinCommand(LibPebbleCommand):
         LibPebbleCommand.run(self, args)
         self.pebble.ws_delete_pin(args.id)
 
-class PblLoginCommand(PblCommand):
+class PblLoginCommand(LibPebbleCommand):
     name = 'login'
     help = ""
 
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('--logging_level', type=str, default='ERROR')
+        parser.add_argument('--auth_host_name', type=str, default='localhost')
+        parser.add_argument('--auth_host_port', type=int, nargs='?', default=[60000])
+        parser.add_argument('--noauth_local_webserver', action='store_true', default=False,
+                help=('If your browser is on a different machine then exit and re-run this application with the command-line parameter'))
+
     def run(self, args):
         account = get_default_account(LibPebbleCommand.get_persistent_dir())
-        account.login()
+        account.login(args)
 
