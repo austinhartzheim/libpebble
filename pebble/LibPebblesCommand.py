@@ -509,7 +509,7 @@ class PblDeletePinCommand(LibPebbleCommand):
 
     def configure_subparser(self, parser):
         LibPebbleCommand.configure_subparser(self, parser)
-        parser.add_argument('id', help="The id of the pin to delete (provided as --id to insert-pin or as the pin's id property).")
+        parser.add_argument('--id', required=True, help="The id of the pin to delete (provided as --id to insert-pin or as the pin's id property).")
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
