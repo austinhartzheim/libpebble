@@ -1633,6 +1633,7 @@ class Pebble(object):
         # In practice, I don't think it really matters (at least for pypkjs' implementation).
         pin['createTime'] = now
         pin['updateTime'] = now
+        pin['topicKeys'] = []
         pin['source'] = 'sdk'
         pin['dataSource'] = 'sandbox-uuid:%s' % app_uuid
         self._ser.write('\x01' + json.dumps(pin), ws_cmd=WebSocketPebble.WS_CMD_TIMELINE)

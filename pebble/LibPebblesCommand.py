@@ -478,7 +478,7 @@ class PblInsertPinCommand(LibPebbleCommand):
                 with open('appinfo.json') as f:
                     appinfo = json.load(f)
                     app_uuid = appinfo['uuid']
-            except (OSError, ValueError, KeyError):
+            except (OSError, IOError, ValueError, KeyError):
                 logging.error("Couldn't find app UUID; try specifying one manually using --app-uuid.")
                 return
         try:
