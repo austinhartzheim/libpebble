@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import sh
+import shutil
 import time
 import platform
 from os.path import expanduser
@@ -458,7 +459,7 @@ class PblKillCommand(LibPebbleCommand):
 
 class PblWipeCommand(LibPebbleCommand):
     name = 'wipe'
-    help = 'Wipe the pebble emulator spi images'
+    help = 'Wipe stored pebble data (emulator state, authentication, etc.)'
 
     def configure_subparser(self, parser):
         LibPebbleCommand.configure_subparser(self, parser)
@@ -466,8 +467,10 @@ class PblWipeCommand(LibPebbleCommand):
                 help=('Select only one platform to wipe.'))
 
     def run(self, args):
-        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir(), None)
-        emulator.wipe_spi(args.platform)
+        if os.path.exists(self.get_persistent_dir()):
+            shutil.rmtree(self.get_persistent_dir())
+        else:
+            logging.warn("Nothing to wipe.")
 
 class PblInsertPinCommand(LibPebbleCommand):
     name = 'insert-pin'
