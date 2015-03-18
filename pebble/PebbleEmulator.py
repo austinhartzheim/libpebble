@@ -153,7 +153,7 @@ class PebbleEmulator(object):
 
     def start_phonesim(self):
         phonesim_bin = os.path.join(self.sdk_path, 'Pebble', 'common', 'phonesim', 'phonesim.py')
-        layout_file = os.path.join(self.persistent_dir, self.platform, 'qemu', "layouts.json")
+        layout_file = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', "layouts.json")
 
         if not os.path.exists(phonesim_bin):
             logging.debug("phone simulator not found: {}".format(phonesim_bin))
