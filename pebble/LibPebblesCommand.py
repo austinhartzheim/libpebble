@@ -12,6 +12,7 @@ from pebblecomm import pebble as libpebble
 
 from PblCommand import PblCommand
 from PebbleEmulator import PebbleEmulator
+from PblAccount import PblAccount, get_default_account
 import PblAnalytics
 
 PEBBLE_PHONE_ENVVAR='PEBBLE_PHONE'
@@ -63,6 +64,11 @@ class LibPebbleCommand(PblCommand):
             args.qemu = os.getenv(PEBBLE_QEMU_ENVVAR)
             args.emulator = os.getenv(PEBBLE_PLATFORM_ENVVAR)
 
+        account = get_default_account(self.get_persistent_dir())
+
+        if not account.is_logged_in():
+            raise ConfigurationException("You have not connected your SDK to your developer account. Please run 'pebble login'.")
+
         if not args.phone and not args.pebble_id and not args.emulator and not args.qemu:
             args.emulator = 'basalt'
 
@@ -75,22 +81,26 @@ class LibPebbleCommand(PblCommand):
 
         self.pebble = libpebble.Pebble(args.pebble_id)
         self.pebble.set_print_pbl_logs(args.verbose)
+
         if args.phone:
             self.pebble.connect_via_websocket(args.phone)
         elif args.pebble_id:
             self.pebble.connect_via_lightblue(pair_first=args.pair)
         elif args.emulator:
-            emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir())
+            emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir(), account.get_token())
             emulator.start()
             self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
         elif args.qemu:
             self.pebble.connect_via_qemu(args.qemu)
+        else:
+            self.pebble.connect_via_cloud(account)
 
+    @classmethod
     def get_persistent_dir(self):
         if platform.system() == 'Darwin':
-            return os.path.join(expanduser("~"), 'Library/Application Support/Pebble SDK')
+            return expanduser("~/Library/Application Support/Pebble SDK")
         else:
-            return os.path.join(expanduser("~"), '.pebble-sdk')
+            return expanduser("~/.pebble-sdk")
 
     def tail(self, interactive=False, skip_enable_app_log=False):
         if not skip_enable_app_log:
@@ -354,7 +364,6 @@ class PblReplCommand(LibPebbleCommand):
         LibPebbleCommand.run(self, args)
         self.tail(interactive=True)
 
-
 class PblEmuTapCommand(LibPebbleCommand):
     name = 'emu_tap'
     help = 'Send a tap event to Pebble running in the emulator'
@@ -443,7 +452,7 @@ class PblKillCommand(LibPebbleCommand):
     help = 'Kill the pebble emulator and phone simulator'
 
     def run(self, args):
-        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir())
+        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir(), None)
         emulator.kill_qemu()
         emulator.kill_phonesim()
 
@@ -457,8 +466,8 @@ class PblWipeCommand(LibPebbleCommand):
                 help=('Select only one platform to wipe.'))
 
     def run(self, args):
-        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir())
-        emulator.wipe_spi()
+        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir(), None)
+        emulator.wipe_spi(args.platform)
 
 class PblInsertPinCommand(LibPebbleCommand):
     name = 'insert-pin'
@@ -500,4 +509,20 @@ class PblDeletePinCommand(LibPebbleCommand):
     def run(self, args):
         LibPebbleCommand.run(self, args)
         self.pebble.ws_delete_pin(args.id)
+
+class PblLoginCommand(LibPebbleCommand):
+    name = 'login'
+    help = ""
+
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('--logging_level', type=str, default='ERROR')
+        parser.add_argument('--auth_host_name', type=str, default='localhost')
+        parser.add_argument('--auth_host_port', type=int, nargs='?', default=[60000])
+        parser.add_argument('--noauth_local_webserver', action='store_true', default=False,
+                help=('If your browser is on a different machine then exit and re-run this application with the command-line parameter'))
+
+    def run(self, args):
+        account = get_default_account(LibPebbleCommand.get_persistent_dir())
+        account.login(args)
 
