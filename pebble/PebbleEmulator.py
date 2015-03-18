@@ -14,7 +14,7 @@ TEMP_DIR = tempfile.gettempdir()
 FNULL = open(os.devnull, 'w')
 
 class PebbleEmulator(object):
-    def __init__(self, sdk_path, platform, debug):
+    def __init__(self, sdk_path, platform, debug, persistent_dir, oauth_token):
         self.qemu_pid = os.path.join(TEMP_DIR, 'pebble-qemu.pid')
         self.qemu_platform = os.path.join(TEMP_DIR, 'pebble-qemu.platform')
         self.phonesim_pid = os.path.join(TEMP_DIR, 'pebble-phonesim.pid')
@@ -22,6 +22,8 @@ class PebbleEmulator(object):
         self.sdk_path = sdk_path
         self.platform = platform
         self.debug = debug
+        self.persistent_dir = persistent_dir
+        self.oauth_token = oauth_token
 
     def start(self):
         need_wait = False
@@ -65,6 +67,25 @@ class PebbleEmulator(object):
         else:
             return False
 
+    def check_for_spi_images(self):
+        qemu_spi_flash = os.path.join(self.persistent_dir, self.platform, 'qemu', "qemu_spi_flash.bin")
+
+        if not os.path.exists(qemu_spi_flash):
+            logging.debug("Required QEMU file not found: {}".format(qemu_spi_flash))
+            logging.debug("Copying {} SPI image to {}".format(self.platform, qemu_spi_flash))
+            self.copy_spi_image()
+
+    def copy_spi_image(self):
+        sdk_qemu_spi_flash = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', 'qemu_spi_flash.bin')
+        qemu_spi_flash = os.path.join(self.persistent_dir, self.platform, 'qemu', "qemu_spi_flash.bin")
+
+        if not os.path.exists(sdk_qemu_spi_flash):
+            logging.debug("Copy Failed. Required QEMU file not found: {}".format(sdk_qemu_spi_flash))
+            raise Exception("Your SDK does not support the Pebble Emulator.")
+        else:
+            os.system("mkdir -p '{}'".format(os.path.join(self.persistent_dir, self.platform, 'qemu')))
+            os.system("cp '{}' '{}'".format(sdk_qemu_spi_flash, qemu_spi_flash))
+
     def running_platform(self):
         if self.is_qemu_running():
             with open(self.qemu_platform, 'r') as pf:
@@ -96,9 +117,11 @@ class PebbleEmulator(object):
     def start_qemu(self):
         qemu_bin = os.path.join(self.sdk_path, 'Pebble', 'common', 'qemu', 'qemu-system-arm' + "_" + platform.system() + '_' + platform.machine())
         qemu_micro_flash = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', "qemu_micro_flash.bin")
-        qemu_spi_flash = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', "qemu_spi_flash.bin")
+        qemu_spi_flash = os.path.join(self.persistent_dir, self.platform, 'qemu', "qemu_spi_flash.bin")
 
-        for f in [qemu_bin, qemu_micro_flash, qemu_spi_flash]:
+        self.check_for_spi_images()
+
+        for f in [qemu_bin, qemu_micro_flash]:
             if not os.path.exists(f):
                 logging.debug("Required QEMU file not found: {}".format(f))
                 raise Exception("Your SDK does not support the Pebble Emulator.")
@@ -130,6 +153,7 @@ class PebbleEmulator(object):
 
     def start_phonesim(self):
         phonesim_bin = os.path.join(self.sdk_path, 'Pebble', 'common', 'phonesim', 'phonesim.py')
+        layout_file = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', "layouts.json")
 
         if not os.path.exists(phonesim_bin):
             logging.debug("phone simulator not found: {}".format(phonesim_bin))
@@ -138,6 +162,9 @@ class PebbleEmulator(object):
         cmdline = [phonesim_bin]
         cmdline.extend(["--qemu", "localhost:{}".format(QEMU_DEFAULT_BT_PORT)])
         cmdline.extend(["--port", str(PHONESIM_PORT)])
+        cmdline.extend(["--oauth", self.oauth_token])
+        cmdline.extend(["--persist", self.persistent_dir])
+        cmdline.extend(["--layout", layout_file])
 
         if self.debug:
             process = subprocess.Popen(cmdline)
@@ -171,3 +198,17 @@ class PebbleEmulator(object):
                 raise
         else:
             print 'The phone simulator isn\'t running'
+
+    def wipe_spi(self, platform):
+        platforms = []
+
+        if platform is None:
+            platforms = ['aplite', 'basalt']
+        else:
+            platforms.append(platform)
+
+        for p in platforms:
+            qemu_spi_flash = os.path.join(self.persistent_dir, p, 'qemu', "qemu_spi_flash.bin")
+            if os.path.exists(qemu_spi_flash):
+                os.system("rm '{}'".format(qemu_spi_flash))
+
