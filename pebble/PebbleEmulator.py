@@ -14,7 +14,7 @@ TEMP_DIR = tempfile.gettempdir()
 FNULL = open(os.devnull, 'w')
 
 class PebbleEmulator(object):
-    def __init__(self, sdk_path, platform, debug, persistent_dir):
+    def __init__(self, sdk_path, platform, debug, persistent_dir, oauth_token):
         self.qemu_pid = os.path.join(TEMP_DIR, 'pebble-qemu.pid')
         self.qemu_platform = os.path.join(TEMP_DIR, 'pebble-qemu.platform')
         self.phonesim_pid = os.path.join(TEMP_DIR, 'pebble-phonesim.pid')
@@ -23,6 +23,7 @@ class PebbleEmulator(object):
         self.platform = platform
         self.debug = debug
         self.persistent_dir = persistent_dir
+        self.oauth_token = oauth_token
 
     def start(self):
         need_wait = False
@@ -152,7 +153,7 @@ class PebbleEmulator(object):
 
     def start_phonesim(self):
         phonesim_bin = os.path.join(self.sdk_path, 'Pebble', 'common', 'phonesim', 'phonesim.py')
-        layout_file = os.path.join(self.persistent_dir, self.platform, 'qemu', "layouts.json")
+        layout_file = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', "layouts.json")
 
         if not os.path.exists(phonesim_bin):
             logging.debug("phone simulator not found: {}".format(phonesim_bin))
@@ -161,6 +162,8 @@ class PebbleEmulator(object):
         cmdline = [phonesim_bin]
         cmdline.extend(["--qemu", "localhost:{}".format(QEMU_DEFAULT_BT_PORT)])
         cmdline.extend(["--port", str(PHONESIM_PORT)])
+        cmdline.extend(["--oauth", self.oauth_token])
+        cmdline.extend(["--persist", self.persistent_dir])
         cmdline.extend(["--layout", layout_file])
 
         if self.debug:
