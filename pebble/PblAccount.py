@@ -60,14 +60,8 @@ class PblAccount(object):
         cred_new_json = json.dumps(cred_json)
         return Credentials.new_from_json(cred_new_json)
 
-    def login(self):
-        parser = argparse.ArgumentParser(description=__doc__,
-            formatter_class=argparse.RawDescriptionHelpFormatter,
-            parents=[tools.argparser])
-        parser.set_defaults(auth_host_port = [60000])
-
-        flags = parser.parse_args([])
-        creds = self.set_expiration_to_long_time(tools.run_flow(flow, self.storage, flags))
+    def login(self, args):
+        creds = self.set_expiration_to_long_time(tools.run_flow(flow, self.storage, args))
 
         self.storage.put(creds)
 
