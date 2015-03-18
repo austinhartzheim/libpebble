@@ -667,12 +667,6 @@ class Pebble(object):
     def get_watch_platform(self):
         return PebbleHardware.hardware_platform(self.get_watch_hardware())
 
-    def get_platform_path(self, filename=''):
-        platform = self.get_watch_platform()
-
-        if platform is not 'unknown':
-            return "build/{}/{}".format(platform, filename) 
-
     def connect_via_serial(self, id = None):
         self._connection_type = 'serial'
 
@@ -1762,7 +1756,12 @@ class Pebble(object):
             # Someone other than us crashed, just bail
             return
 
-        app_elf_path = self.get_platform_path('pebble-app.elf')
+        platform = self.get_watch_platform()
+        if platform == 'unknown':
+            app_elf_path = 'build/pebble-app.elf'
+        else:
+            app_elf_path = "build/{}/pebble-app.elf".format(platform)
+        
         if not os.path.exists(app_elf_path):
             log.warn("Could not look up debugging symbols.")
             log.warn("Could not find ELF file: %s" % app_elf_path)
