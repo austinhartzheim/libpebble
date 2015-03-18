@@ -1,4 +1,5 @@
 import argparse
+import time
 import fnmatch
 import json
 import logging
@@ -91,6 +92,7 @@ class LibPebbleCommand(PblCommand):
             emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir(), account.get_token())
             emulator.start()
             self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
+            self.pebble.set_time_utc(int(time.time()))
         elif args.qemu:
             self.pebble.connect_via_qemu(args.qemu)
         else:

@@ -1015,6 +1015,20 @@ class Pebble(object):
         data = pack("!bL", 2, timestamp)
         self._send_message("TIME", data)
 
+    def set_time_utc(self, timestamp, tz_name=None, tz_offset_minutes=None):
+        if tz_name is None:
+            if tz_offset_minutes is None:
+                # DST is the gift that keeps on giving.
+                if time.localtime(timestamp).tm_isdst and time.daylight:
+                    tz_offset = -time.altzone
+                else:
+                    tz_offset = -time.timezone
+                tz_offset_minutes = int(tz_offset / 60)
+            tz_name = "UTC%+d" % (tz_offset_minutes / 60)
+
+        data = pack("!bIhb%ds" % len(tz_name), 3, timestamp, tz_offset_minutes, len(tz_name), tz_name)
+        self._send_message("TIME", data)
+
 
     def install_bundle_ws(self, bundle_path):
         self._ws_client = WSClient()
