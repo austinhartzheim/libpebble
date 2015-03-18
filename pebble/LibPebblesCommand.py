@@ -482,7 +482,7 @@ class PblInsertPinCommand(LibPebbleCommand):
         LibPebbleCommand.configure_subparser(self, parser)
         parser.add_argument('--id', type=str, default=None, help='An arbitrary string representing an ID for the pin being added')
         parser.add_argument('--app-uuid', type=str, default=None, help="The UUID of the pin's parent app.")
-        parser.add_argument('file', type=argparse.FileType(), default='-', nargs='?', help='Filename to use for pin json. "-" means stdin.')
+        parser.add_argument('file', type=argparse.FileType(), help='Filename to use for pin json. "-" means stdin.')
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
