@@ -84,7 +84,7 @@ class PebbleEmulator(object):
             logging.debug("Copy Failed. Required QEMU file not found: {}".format(sdk_qemu_spi_flash))
             raise Exception("Your SDK does not support the Pebble Emulator.")
         else:
-            os.makedirs(os.path.join(self.persistent_dir, self.platform, 'qemu'))
+            os.makedirs(os.path.dirname(qemu_spi_flash))
             shutil.copy(sdk_qemu_spi_flash, qemu_spi_flash)
 
     def _get_spi_path(self, platform=None):
