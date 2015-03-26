@@ -6,6 +6,7 @@ import os
 import subprocess
 import tempfile
 import platform
+import pebble
 
 QEMU_DEFAULT_BT_PORT = 12344
 QEMU_DEFAULT_CONSOLE_PORT = 12345
@@ -68,7 +69,7 @@ class PebbleEmulator(object):
             return False
 
     def check_for_spi_images(self):
-        qemu_spi_flash = os.path.join(self.persistent_dir, self.platform, 'qemu', "qemu_spi_flash.bin")
+        qemu_spi_flash = self._get_spi_path()
 
         if not os.path.exists(qemu_spi_flash):
             logging.debug("Required QEMU file not found: {}".format(qemu_spi_flash))
@@ -77,7 +78,7 @@ class PebbleEmulator(object):
 
     def copy_spi_image(self):
         sdk_qemu_spi_flash = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', 'qemu_spi_flash.bin')
-        qemu_spi_flash = os.path.join(self.persistent_dir, self.platform, 'qemu', "qemu_spi_flash.bin")
+        qemu_spi_flash = self._get_spi_path()
 
         if not os.path.exists(sdk_qemu_spi_flash):
             logging.debug("Copy Failed. Required QEMU file not found: {}".format(sdk_qemu_spi_flash))
@@ -85,6 +86,10 @@ class PebbleEmulator(object):
         else:
             os.system("mkdir -p '{}'".format(os.path.join(self.persistent_dir, self.platform, 'qemu')))
             os.system("cp '{}' '{}'".format(sdk_qemu_spi_flash, qemu_spi_flash))
+
+    def _get_spi_path(self):
+        return os.path.join(self.persistent_dir, self.platform, pebble.get_sdk_version(), 'qemu', "qemu_spi_flash.bin")
+
 
     def running_platform(self):
         if self.is_qemu_running():
@@ -163,7 +168,7 @@ class PebbleEmulator(object):
         cmdline.extend(["--qemu", "localhost:{}".format(QEMU_DEFAULT_BT_PORT)])
         cmdline.extend(["--port", str(PHONESIM_PORT)])
         cmdline.extend(["--oauth", self.oauth_token])
-        cmdline.extend(["--persist", self.persistent_dir])
+        cmdline.extend(["--persist", os.path.join(self.persistent_dir, self.platform, pebble.get_sdk_version())])
         cmdline.extend(["--layout", layout_file])
 
         if self.debug:
