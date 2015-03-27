@@ -121,7 +121,7 @@ class PebbleEmulator(object):
     def start_qemu(self):
         qemu_bin = os.path.join(self.sdk_path, 'Pebble', 'common', 'qemu', 'qemu-system-arm' + "_" + platform.system() + '_' + platform.machine())
         qemu_micro_flash = os.path.join(self.sdk_path, 'Pebble', self.platform, 'qemu', "qemu_micro_flash.bin")
-        qemu_spi_flash = os.path.join(self.persistent_dir, self.platform, 'qemu', "qemu_spi_flash.bin")
+        qemu_spi_flash = self._get_spi_path()
 
         self.check_for_spi_images()
 
