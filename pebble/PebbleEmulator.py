@@ -18,7 +18,7 @@ FNULL = open(os.devnull, 'w')
 
 
 class PebbleEmulator(object):
-    def __init__(self, sdk_path, platform, debug, persistent_dir, oauth_token):
+    def __init__(self, sdk_path, platform, debug, debug_phonesim, persistent_dir, oauth_token):
         self.qemu_pid = os.path.join(TEMP_DIR, 'pebble-qemu.pid')
         self.qemu_platform = os.path.join(TEMP_DIR, 'pebble-qemu.platform')
         self.phonesim_pid = os.path.join(TEMP_DIR, 'pebble-phonesim.pid')
@@ -26,6 +26,7 @@ class PebbleEmulator(object):
         self.sdk_path = sdk_path
         self.platform = platform
         self.debug = debug
+        self.debug_phonesim = debug_phonesim
         self.persistent_dir = persistent_dir
         self.oauth_token = oauth_token
 
@@ -169,6 +170,8 @@ class PebbleEmulator(object):
         cmdline.extend(["--oauth", self.oauth_token])
         cmdline.extend(["--persist", os.path.join(self.persistent_dir, self.platform, pebble.get_sdk_version())])
         cmdline.extend(["--layout", layout_file])
+        if self.debug_phonesim:
+            cmdline.extend(['--debug'])
 
         if self.debug:
             process = subprocess.Popen(cmdline)
