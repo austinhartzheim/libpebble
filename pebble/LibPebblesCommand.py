@@ -71,7 +71,7 @@ class LibPebbleCommand(PblCommand):
         account = get_default_account(self.get_persistent_dir())
 
         if not account.is_logged_in():
-            logging.warning("You are not logged in with your Pebble Account. You will not be able to receive remote pins in the emulator.")
+            logging.warning("You are not logged in with your Pebble Account and will not be able to receive remote pins in the emulator. Please run 'pebble login' to connect your Pebble account")
 
         if not args.phone and not args.pebble_id and not args.emulator and not args.qemu:
             args.emulator = 'basalt'
