@@ -167,11 +167,13 @@ class PebbleEmulator(object):
         cmdline = [phonesim_bin]
         cmdline.extend(["--qemu", "localhost:{}".format(QEMU_DEFAULT_BT_PORT)])
         cmdline.extend(["--port", str(PHONESIM_PORT)])
-        cmdline.extend(["--oauth", self.oauth_token])
         cmdline.extend(["--persist", os.path.join(self.persistent_dir, self.platform, pebble.get_sdk_version())])
         cmdline.extend(["--layout", layout_file])
         if self.debug_phonesim:
             cmdline.extend(['--debug'])
+
+        if self.oauth_token:
+            cmdline.extend(["--oauth", self.oauth_token])
 
         if self.debug:
             process = subprocess.Popen(cmdline)
