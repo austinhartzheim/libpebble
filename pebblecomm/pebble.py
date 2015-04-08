@@ -1668,7 +1668,7 @@ class Pebble(object):
         """Dump the saved logs from the watch.
 
         Arguments:
-        generation_number -- The genration to dump, where 0 is the current boot and 3 is the oldest boot.
+        generation_number -- The generation to dump, where 0 is the current boot and 1, 2, etc. are older boots.
         """
 
         if self.get_watch_platform() == 'aplite' and generation_number > 3:
