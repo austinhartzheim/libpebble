@@ -1690,6 +1690,10 @@ class Pebble(object):
                 if response_type == 0x81:
                     self.done = True
                     return
+                elif response_type == 0x82:
+                    log.info("No logs received")
+                    self.done = True
+                    return
                 elif response_type != 0x80 or response_cookie != cookie:
                     log.info("Received unexpected message with type 0x%x cookie %u expected 0x80 %u" %
                         (response_type, response_cookie, cookie))
