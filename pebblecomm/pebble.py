@@ -1506,6 +1506,15 @@ class Pebble(object):
             cmd = "\x00"  # Normal reset
         self._send_message("RESET", cmd)
 
+    def send_emulator_command(self, msg, protocol):
+        if self._connection_type == 'qemu':
+            self._ser.write(msg, protocol=protocol)
+        elif self._connection_type == 'websocket':
+            self._ser.write(pack("B", protocol) + msg, ws_cmd=WebSocketPebble.WS_CMD_PHONESIM)
+        else:
+            raise NotImplementedError("QEMU commands are only supported over qemu and websocket connections")
+
+
     def emu_tap(self, axis='x', direction=1):
 
         """Send a tap to the watch running in the emulator"""
@@ -1516,7 +1525,8 @@ class Pebble(object):
         if DEBUG_PROTOCOL:
             log.debug('>>> ' + msg.encode('hex'))
 
-        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Tap)
+        self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_Tap)
+
 
     def emu_bluetooth_connection(self, connected=True):
 
@@ -1526,7 +1536,7 @@ class Pebble(object):
         if DEBUG_PROTOCOL:
             log.debug('>>> ' + msg.encode('hex'))
 
-        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_BluetoothConnection)
+        self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_BluetoothConnection)
 
 
     def emu_compass(self, heading=0, calib=2):
@@ -1537,7 +1547,7 @@ class Pebble(object):
         if DEBUG_PROTOCOL:
             log.debug('>>> ' + msg.encode('hex'))
 
-        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Compass)
+        self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_Compass)
 
 
     def emu_battery(self, pct=80, charging=True):
@@ -1548,7 +1558,7 @@ class Pebble(object):
         if DEBUG_PROTOCOL:
             log.debug('>>> ' + msg.encode('hex'))
 
-        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Battery)
+        self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_Battery)
 
 
     def emu_accel(self, motion=None, filename=None):
@@ -1604,11 +1614,12 @@ class Pebble(object):
         if DEBUG_PROTOCOL:
             log.debug('>>> ' + msg.encode('hex'))
 
-        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Accel)
+        self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_Accel)
 
-        response = QemuEndpointSync(self, QemuPebble.QemuProtocol_Accel).get_data()
-        samples_avail = struct.Struct("!H").unpack(response)
-        print "Success: room for %d more samples" % (samples_avail)
+        if self._connection_type == 'qemu':
+            response = QemuEndpointSync(self, QemuPebble.QemuProtocol_Accel).get_data()
+            samples_avail = struct.Struct("!H").unpack(response)
+            print "Success: room for %d more samples" % (samples_avail)
 
 
     def emu_button(self, button_id):
@@ -1624,7 +1635,7 @@ class Pebble(object):
             if DEBUG_PROTOCOL:
                 log.debug('>>> ' + msg.encode('hex'))
 
-            self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Button)
+            self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_Button)
             if button_state == 0:
                 break;
             button_state = 0
