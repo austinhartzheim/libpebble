@@ -1671,8 +1671,8 @@ class Pebble(object):
         generation_number -- The genration to dump, where 0 is the current boot and 3 is the oldest boot.
         """
 
-        if generation_number > 3:
-            raise Exception("Invalid generation number %u, should be [0-3]" % generation_number)
+        if self.get_watch_platform() == 'aplite' and generation_number > 3:
+            raise Exception("Invalid generation number %u on aplite platform, should be [0-3]" % generation_number)
 
         log.info('=== Generation %u ===' % generation_number)
 
