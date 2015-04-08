@@ -53,6 +53,8 @@ class LibPebbleCommand(PblCommand):
         parser.add_argument('--pair', action="store_true", help="When using a direct BT connection, attempt to pair the watch automatically")
         parser.add_argument('--verbose', action="store_true", default=False,
                             help='Prints received system logs in addition to APP_LOG')
+        parser.add_argument('--debug-phonesim', action='store_true',
+                help='Enable verbose debugging output for the phone simulator (requires --debug).')
 
     def run(self, args):
         # e.g. needed to de-sym crashes on `pebble logs`
@@ -69,7 +71,7 @@ class LibPebbleCommand(PblCommand):
         account = get_default_account(self.get_persistent_dir())
 
         if not account.is_logged_in():
-            raise ConfigurationException("You have not connected your SDK to your developer account. Please run 'pebble login'.")
+            logging.warning("You are not logged in with your Pebble Account and will not be able to receive remote pins in the emulator. Please run 'pebble login' to connect your Pebble account.")
 
         if not args.phone and not args.pebble_id and not args.emulator and not args.qemu:
             args.emulator = 'basalt'
@@ -89,7 +91,8 @@ class LibPebbleCommand(PblCommand):
         elif args.pebble_id:
             self.pebble.connect_via_lightblue(pair_first=args.pair)
         elif args.emulator:
-            emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir(), account.get_token())
+            token = account.get_token() if account.is_logged_in() else None
+            emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, args.debug_phonesim, self.get_persistent_dir(), token)
             emulator.start()
             self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
             self.pebble.set_time_utc(int(time.time()))
@@ -455,7 +458,7 @@ class PblKillCommand(LibPebbleCommand):
     help = 'Kill the pebble emulator and phone simulator'
 
     def run(self, args):
-        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir(), None)
+        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, args.debug_phonesim, self.get_persistent_dir(), None)
         emulator.kill_qemu()
         emulator.kill_phonesim()
 
