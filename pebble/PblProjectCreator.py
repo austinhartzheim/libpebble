@@ -70,6 +70,9 @@ class PblProjectCreator(PblCommand):
 FILE_GITIGNORE = """
 # Ignore build generated files
 build
+
+# Ignore waf lock file
+.lock-waf*
 """
 
 FILE_WSCRIPT = """
