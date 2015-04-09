@@ -654,7 +654,7 @@ class Pebble(object):
 
         # Save watch HW info
         self.watch_hardware = version_info['normal_fw']['hardware_platform']
-    
+
     def get_watch_fw_version(self):
         if self.watch_fw_version is None:
             self.get_watch_version_info()
@@ -744,7 +744,7 @@ class Pebble(object):
                 return
             payload = tail[0:size]
             self.pebble_protocol_reassembly_buffer = self.pebble_protocol_reassembly_buffer[4 + size:]
-            
+
             for handler in self._endpoint_handlers.get(endpoint, []):
                 if not handler.preprocess:
                     handler.fn(endpoint, payload)
@@ -1613,7 +1613,7 @@ class Pebble(object):
 
     def emu_button(self, button_id):
 
-        """Send a short button press to the watch running in the emulator. 
+        """Send a short button press to the watch running in the emulator.
         0: back, 1: up, 2: select, 3: down """
 
         button_state = 1 << button_id;
@@ -1668,11 +1668,11 @@ class Pebble(object):
         """Dump the saved logs from the watch.
 
         Arguments:
-        generation_number -- The genration to dump, where 0 is the current boot and 3 is the oldest boot.
+        generation_number -- The generation to dump, where 0 is the current boot and 1, 2, etc. are older boots.
         """
 
-        if generation_number > 3:
-            raise Exception("Invalid generation number %u, should be [0-3]" % generation_number)
+        if self.get_watch_platform() == 'aplite' and generation_number > 3:
+            raise Exception("Invalid generation number %u on aplite platform, should be [0-3]" % generation_number)
 
         log.info('=== Generation %u ===' % generation_number)
 
@@ -1688,6 +1688,10 @@ class Pebble(object):
 
                 response_type, response_cookie = unpack("!BI", data[:5])
                 if response_type == 0x81:
+                    self.done = True
+                    return
+                elif response_type == 0x82:
+                    log.info("Log generation does not exist on the watch")
                     self.done = True
                     return
                 elif response_type != 0x80 or response_cookie != cookie:
@@ -1819,7 +1823,7 @@ class Pebble(object):
             app_elf_path = 'build/pebble-app.elf'
         else:
             app_elf_path = "build/{}/pebble-app.elf".format(platform)
-        
+
         if not os.path.exists(app_elf_path):
             log.warn("Could not look up debugging symbols.")
             log.warn("Could not find ELF file: %s" % app_elf_path)
