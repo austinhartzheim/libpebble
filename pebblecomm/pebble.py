@@ -1512,7 +1512,7 @@ class Pebble(object):
         elif self._connection_type == 'websocket':
             self._ser.write(pack("B", protocol) + msg, ws_cmd=WebSocketPebble.WS_CMD_PHONESIM)
         else:
-            raise NotImplementedError("QEMU commands are only supported over qemu and websocket connections")
+            raise Exception("QEMU commands are only supported over qemu and websocket connections")
 
 
     def emu_tap(self, axis='x', direction=1):
@@ -1618,7 +1618,7 @@ class Pebble(object):
 
         if self._connection_type == 'qemu':
             response = QemuEndpointSync(self, QemuPebble.QemuProtocol_Accel).get_data()
-            samples_avail = struct.Struct("!H").unpack(response)
+            samples_avail = struct.unpack("!H", response)
             print "Success: room for %d more samples" % (samples_avail)
 
 
