@@ -1672,8 +1672,29 @@ class Pebble(object):
         if not async:
             return EndpointSync(self, "FACTORY_SETTINGS").get_data()
 
-    def request_color(self, async=False):
-        return self.request_factory_setting("mfg_color", async=async)
+    WATCH_MODEL_MAP = {
+        0x01: 'pebble_black',
+        0x02: 'pebble_white',
+        0x03: 'pebble_red',
+        0x04: 'pebble_orange',
+        0x05: 'pebble_gray',
+        0x06: 'pebble_steel_silver',
+        0x07: 'pebble_steel_black',
+        0x08: 'pebble_blue',
+        0x09: 'pebble_green',
+        0x0a: 'pebble_pink',
+        0x0b: 'pebble_time_white',
+        0x0c: 'pebble_time_black',
+        0x0d: 'pebble_time_red',
+    }
+
+    def request_model(self, async=False):
+        color = self.request_factory_setting("mfg_color", async=async)
+        if color is None:
+            return None
+        else:
+            model_id, = unpack('!I', color)
+            return self.WATCH_MODEL_MAP.get(model_id, None)
 
     def dump_logs(self, generation_number):
         """Dump the saved logs from the watch.
