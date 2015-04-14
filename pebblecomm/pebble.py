@@ -554,6 +554,7 @@ class Pebble(object):
             "APP_LOGS": 2006,
             "EXTENSIBLE_NOTIFS": 3010, # Deprecated in 3.x
             "RESOURCE": 4000,
+            "FACTORY_SETTINGS": 5001,
             "APP_MANAGER": 6000, # Deprecated in 3.x
             "APP_FETCH": 6001, # New in 3.x
             "SCREENSHOT": 8000,
@@ -618,6 +619,7 @@ class Pebble(object):
             self.endpoints["COREDUMP"]: self._coredump_response,
             self.endpoints["AUDIO"]: self._audio_response,
             self.endpoints["BLOB_DB"]: self._blob_db_response,
+            self.endpoints["FACTORY_SETTINGS"]: self._factory_setting_response,
         }
         self._qemu_endpoint_handlers = {}
         self._qemu_internal_endpoint_handlers = {
@@ -1664,6 +1666,15 @@ class Pebble(object):
         on, = unpack("!b", data)
         print "Vibration: %s" % ("on" if on else "off")
 
+    def request_factory_setting(self, setting, async=False):
+        self._send_message("FACTORY_SETTINGS", pack("!BB", 0x00, len(setting)) + str(setting))
+
+        if not async:
+            return EndpointSync(self, "FACTORY_SETTINGS").get_data()
+
+    def request_color(self, async=False):
+        return self.request_factory_setting("mfg_color", async=async)
+
     def dump_logs(self, generation_number):
         """Dump the saved logs from the watch.
 
@@ -1751,6 +1762,18 @@ class Pebble(object):
 
     def _audio_response(self, endpoint, data):
         return data
+
+    def _factory_setting_response(self, endpoint, data):
+        command_id, = unpack("!B", data[0])
+        if command_id != 0x01:
+            if command_id == 0xFF:
+                log.warning("Failed to request factory setting.")
+            return None
+        if len(data) < 2:
+            return None
+        strlen, = unpack("!B", data[1])
+        return data[2:2+strlen]
+
 
     def _ping_response(self, endpoint, data):
         # Ping responses can either be 5 bytes or 6 bytes long.
