@@ -25,6 +25,7 @@ import traceback
 import uuid
 import WebSocketPebble
 import QemuPebble
+import ProxyWebSocketPebble
 import zipfile
 
 from AppStore import AppStoreClient
@@ -34,7 +35,6 @@ from struct import pack, unpack
 DEFAULT_PEBBLE_ID = None #Triggers autodetection on unix-like systems
 DEFAULT_WEBSOCKET_PORT = 9000
 DEBUG_PROTOCOL = False
-APP_ELF_PATH = 'build/pebble-app.elf'
 
 class PebbleHardware(object):
     UNKNOWN = 0
@@ -555,6 +555,7 @@ class Pebble(object):
             "APP_LOGS": 2006,
             "EXTENSIBLE_NOTIFS": 3010, # Deprecated in 3.x
             "RESOURCE": 4000,
+            "FACTORY_SETTINGS": 5001,
             "APP_MANAGER": 6000, # Deprecated in 3.x
             "APP_FETCH": 6001, # New in 3.x
             "SCREENSHOT": 8000,
@@ -617,7 +618,8 @@ class Pebble(object):
             self.endpoints["SCREENSHOT"]: self._screenshot_response,
             self.endpoints["COREDUMP"]: self._coredump_response,
             self.endpoints["AUDIO"]: self._audio_response,
-            # self.endpoints["BLOB_DB"]: self._blob_db_response,
+            self.endpoints["BLOB_DB"]: self._blob_db_response,
+            self.endpoints["FACTORY_SETTINGS"]: self._factory_setting_response,
         }
         self._qemu_endpoint_handlers = {}
         self._qemu_internal_endpoint_handlers = {
@@ -639,32 +641,31 @@ class Pebble(object):
         except:
             raise
 
-    def get_watch_fw_version(self):
-        if (self.watch_fw_version is not None):
-            return self.watch_fw_version
-
+    def get_watch_version_info(self):
         version_info = self.get_versions()
-        cur_version = version_info['normal_fw']['version']
+
+        fw_version = version_info['normal_fw']['version']
 
         # remove the v and split on '.' and '-'
-        pieces = re.split("[\.-]", cur_version[1:])
+        pieces = re.split("[\.-]", fw_version[1:])
         major = pieces[0]
         minor = pieces[1]
 
+        # Save watch FW info
         self.watch_fw_version = [int(major), int(minor)]
 
+        # Save watch HW info
+        self.watch_hardware = version_info['normal_fw']['hardware_platform']
+
+    def get_watch_fw_version(self):
+        if self.watch_fw_version is None:
+            self.get_watch_version_info()
         return self.watch_fw_version
 
     def get_watch_hardware(self):
-        if self.watch_hardware is not None:
-            return self.watch_hardware
-
-        version_info = self.get_versions()
-        hardware = version_info['normal_fw']['hardware_platform']
-
-        self.watch_hardware = hardware
-
-        return hardware
+        if self.watch_hardware is None:
+            self.get_watch_version_info()
+        return self.watch_hardware
 
     def get_watch_platform(self):
         return PebbleHardware.hardware_platform(self.get_watch_hardware())
@@ -715,6 +716,11 @@ class Pebble(object):
         self._ser = QemuPebble.QemuPebble(host, port, timeout=1, connect_timeout=5)
         self._ser.enable_trace(True)
         self._ser.connect()
+        self.init_reader()
+
+    def connect_via_cloud(self, account):
+        self._conection_type = 'cloud'
+        self._ser = ProxyWebSocketPebble.create_connection(account, timeout=2, connect_timeout=10)
         self.init_reader()
 
     def _exit_signal_handler(self, *args):
@@ -1008,6 +1014,20 @@ class Pebble(object):
         """Set the time stored in the target Pebble's RTC."""
 
         data = pack("!bL", 2, timestamp)
+        self._send_message("TIME", data)
+
+    def set_time_utc(self, timestamp, tz_name=None, tz_offset_minutes=None):
+        if tz_name is None:
+            if tz_offset_minutes is None:
+                # DST is the gift that keeps on giving.
+                if time.localtime(timestamp).tm_isdst and time.daylight:
+                    tz_offset = -time.altzone
+                else:
+                    tz_offset = -time.timezone
+                tz_offset_minutes = int(tz_offset / 60)
+            tz_name = "UTC%+d" % (tz_offset_minutes / 60)
+
+        data = pack("!bIhb%ds" % len(tz_name), 3, timestamp, tz_offset_minutes, len(tz_name), tz_name)
         self._send_message("TIME", data)
 
 
@@ -1490,6 +1510,15 @@ class Pebble(object):
             cmd = "\x00"  # Normal reset
         self._send_message("RESET", cmd)
 
+    def send_emulator_command(self, msg, protocol):
+        if self._connection_type == 'qemu':
+            self._ser.write(msg, protocol=protocol)
+        elif self._connection_type == 'websocket':
+            self._ser.write(pack("B", protocol) + msg, ws_cmd=WebSocketPebble.WS_CMD_PHONESIM_QEMU)
+        else:
+            raise Exception("QEMU commands are only supported over qemu and websocket connections")
+
+
     def emu_tap(self, axis='x', direction=1):
 
         """Send a tap to the watch running in the emulator"""
@@ -1500,7 +1529,8 @@ class Pebble(object):
         if DEBUG_PROTOCOL:
             log.debug('>>> ' + msg.encode('hex'))
 
-        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Tap)
+        self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_Tap)
+
 
     def emu_bluetooth_connection(self, connected=True):
 
@@ -1510,7 +1540,7 @@ class Pebble(object):
         if DEBUG_PROTOCOL:
             log.debug('>>> ' + msg.encode('hex'))
 
-        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_BluetoothConnection)
+        self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_BluetoothConnection)
 
 
     def emu_compass(self, heading=0, calib=2):
@@ -1521,7 +1551,7 @@ class Pebble(object):
         if DEBUG_PROTOCOL:
             log.debug('>>> ' + msg.encode('hex'))
 
-        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Compass)
+        self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_Compass)
 
 
     def emu_battery(self, pct=80, charging=True):
@@ -1532,7 +1562,7 @@ class Pebble(object):
         if DEBUG_PROTOCOL:
             log.debug('>>> ' + msg.encode('hex'))
 
-        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Battery)
+        self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_Battery)
 
 
     def emu_accel(self, motion=None, filename=None):
@@ -1588,16 +1618,17 @@ class Pebble(object):
         if DEBUG_PROTOCOL:
             log.debug('>>> ' + msg.encode('hex'))
 
-        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Accel)
+        self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_Accel)
 
-        response = QemuEndpointSync(self, QemuPebble.QemuProtocol_Accel).get_data()
-        samples_avail = struct.Struct("!H").unpack(response)
-        print "Success: room for %d more samples" % (samples_avail)
+        if self._connection_type == 'qemu':
+            response = QemuEndpointSync(self, QemuPebble.QemuProtocol_Accel).get_data()
+            samples_avail = struct.unpack("!H", response)
+            print "Success: room for %d more samples" % (samples_avail)
 
 
     def emu_button(self, button_id):
 
-        """Send a short button press to the watch running in the emulator. 
+        """Send a short button press to the watch running in the emulator.
         0: back, 1: up, 2: select, 3: down """
 
         button_state = 1 << button_id;
@@ -1608,7 +1639,7 @@ class Pebble(object):
             if DEBUG_PROTOCOL:
                 log.debug('>>> ' + msg.encode('hex'))
 
-            self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Button)
+            self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_Button)
             if button_state == 0:
                 break;
             button_state = 0
@@ -1635,6 +1666,7 @@ class Pebble(object):
         # In practice, I don't think it really matters (at least for pypkjs' implementation).
         pin['createTime'] = now
         pin['updateTime'] = now
+        pin['topicKeys'] = []
         pin['source'] = 'sdk'
         pin['dataSource'] = 'sandbox-uuid:%s' % app_uuid
         self._ser.write('\x01' + json.dumps(pin), ws_cmd=WebSocketPebble.WS_CMD_TIMELINE)
@@ -1647,15 +1679,45 @@ class Pebble(object):
         on, = unpack("!b", data)
         print "Vibration: %s" % ("on" if on else "off")
 
+    def request_factory_setting(self, setting, async=False):
+        self._send_message("FACTORY_SETTINGS", pack("!BB", 0x00, len(setting)) + str(setting))
+
+        if not async:
+            return EndpointSync(self, "FACTORY_SETTINGS").get_data()
+
+    WATCH_MODEL_MAP = {
+        0x01: 'pebble_black',
+        0x02: 'pebble_white',
+        0x03: 'pebble_red',
+        0x04: 'pebble_orange',
+        0x05: 'pebble_gray',
+        0x06: 'pebble_steel_silver',
+        0x07: 'pebble_steel_black',
+        0x08: 'pebble_blue',
+        0x09: 'pebble_green',
+        0x0a: 'pebble_pink',
+        0x0b: 'pebble_time_white',
+        0x0c: 'pebble_time_black',
+        0x0d: 'pebble_time_red',
+    }
+
+    def request_model(self, async=False):
+        color = self.request_factory_setting("mfg_color", async=async)
+        if color is None:
+            return None
+        else:
+            model_id, = unpack('!I', color)
+            return self.WATCH_MODEL_MAP.get(model_id, None)
+
     def dump_logs(self, generation_number):
         """Dump the saved logs from the watch.
 
         Arguments:
-        generation_number -- The genration to dump, where 0 is the current boot and 3 is the oldest boot.
+        generation_number -- The generation to dump, where 0 is the current boot and 1, 2, etc. are older boots.
         """
 
-        if generation_number > 3:
-            raise Exception("Invalid generation number %u, should be [0-3]" % generation_number)
+        if self.get_watch_platform() == 'aplite' and generation_number > 3:
+            raise Exception("Invalid generation number %u on aplite platform, should be [0-3]" % generation_number)
 
         log.info('=== Generation %u ===' % generation_number)
 
@@ -1671,6 +1733,10 @@ class Pebble(object):
 
                 response_type, response_cookie = unpack("!BI", data[:5])
                 if response_type == 0x81:
+                    self.done = True
+                    return
+                elif response_type == 0x82:
+                    log.info("Log generation does not exist on the watch")
                     self.done = True
                     return
                 elif response_type != 0x80 or response_cookie != cookie:
@@ -1701,6 +1767,8 @@ class Pebble(object):
         log.info("Enabling application logging...")
         self._send_message("APP_LOGS", pack("!B", 0x01))
 
+        self.get_watch_version_info()
+
     def app_log_disable(self):
         self._app_log_enabled = False
         log.info("Disabling application logging...")
@@ -1728,6 +1796,18 @@ class Pebble(object):
 
     def _audio_response(self, endpoint, data):
         return data
+
+    def _factory_setting_response(self, endpoint, data):
+        command_id, = unpack("!B", data[0])
+        if command_id != 0x01:
+            if command_id == 0xFF:
+                log.warning("Failed to request factory setting.")
+            return None
+        if len(data) < 2:
+            return None
+        strlen, = unpack("!B", data[1])
+        return data[2:2+strlen]
+
 
     def _ping_response(self, endpoint, data):
         # Ping responses can either be 5 bytes or 6 bytes long.
@@ -1768,6 +1848,7 @@ class Pebble(object):
 
             log.info("{} {} {} {} {}".format(timestamp, str_level, filename, linenumber, message))
 
+
     def _print_crash_message(self, crashed_uuid, crashed_pc, crashed_lr):
         # Read the current projects UUID from it's appinfo.json. If we can't do this or the uuid doesn't match
         # the uuid of the crashed app we don't print anything.
@@ -1794,10 +1875,15 @@ class Pebble(object):
             # Someone other than us crashed, just bail
             return
 
+        platform = self.get_watch_platform()
+        if platform == 'unknown':
+            app_elf_path = 'build/pebble-app.elf'
+        else:
+            app_elf_path = "build/{}/pebble-app.elf".format(platform)
 
-        if not os.path.exists(APP_ELF_PATH):
+        if not os.path.exists(app_elf_path):
             log.warn("Could not look up debugging symbols.")
-            log.warn("Could not find ELF file: %s" % APP_ELF_PATH)
+            log.warn("Could not find ELF file: %s" % app_elf_path)
             log.warn("Please try rebuilding your project")
             return
 
@@ -1812,7 +1898,7 @@ class Pebble(object):
 
                 result = '???'
             else:
-                result = sh.arm_none_eabi_addr2line(addr_str, exe=APP_ELF_PATH,
+                result = sh.arm_none_eabi_addr2line(addr_str, exe=app_elf_path,
                                                     _tty_out=False).strip()
 
             log.warn("%24s %10s %s", register_name + ':', addr_str, result)

@@ -1,9 +1,11 @@
 import argparse
+import time
 import fnmatch
 import json
 import logging
 import os
 import sh
+import shutil
 import time
 import platform
 from os.path import expanduser
@@ -12,6 +14,7 @@ from pebblecomm import pebble as libpebble
 
 from PblCommand import PblCommand
 from PebbleEmulator import PebbleEmulator
+from PblAccount import PblAccount, get_default_account
 import PblAnalytics
 
 PEBBLE_PHONE_ENVVAR='PEBBLE_PHONE'
@@ -50,6 +53,8 @@ class LibPebbleCommand(PblCommand):
         parser.add_argument('--pair', action="store_true", help="When using a direct BT connection, attempt to pair the watch automatically")
         parser.add_argument('--verbose', action="store_true", default=False,
                             help='Prints received system logs in addition to APP_LOG')
+        parser.add_argument('--debug-phonesim', action='store_true',
+                help='Enable verbose debugging output for the phone simulator (requires --debug).')
 
     def run(self, args):
         # e.g. needed to de-sym crashes on `pebble logs`
@@ -63,6 +68,11 @@ class LibPebbleCommand(PblCommand):
             args.qemu = os.getenv(PEBBLE_QEMU_ENVVAR)
             args.emulator = os.getenv(PEBBLE_PLATFORM_ENVVAR)
 
+        account = get_default_account(self.get_persistent_dir())
+
+        if not account.is_logged_in():
+            logging.warning("You are not logged in with your Pebble Account and will not be able to receive remote pins in the emulator. Please run 'pebble login' to connect your Pebble account.")
+
         if not args.phone and not args.pebble_id and not args.emulator and not args.qemu:
             args.emulator = 'basalt'
 
@@ -75,22 +85,28 @@ class LibPebbleCommand(PblCommand):
 
         self.pebble = libpebble.Pebble(args.pebble_id)
         self.pebble.set_print_pbl_logs(args.verbose)
+
         if args.phone:
             self.pebble.connect_via_websocket(args.phone)
         elif args.pebble_id:
             self.pebble.connect_via_lightblue(pair_first=args.pair)
         elif args.emulator:
-            emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir())
+            token = account.get_token() if account.is_logged_in() else None
+            emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, args.debug_phonesim, self.get_persistent_dir(), token)
             emulator.start()
             self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
+            self.pebble.set_time_utc(int(time.time()))
         elif args.qemu:
             self.pebble.connect_via_qemu(args.qemu)
+        else:
+            self.pebble.connect_via_cloud(account)
 
+    @classmethod
     def get_persistent_dir(self):
         if platform.system() == 'Darwin':
-            return os.path.join(expanduser("~"), 'Library/Application Support/Pebble SDK')
+            return expanduser("~/Library/Application Support/Pebble SDK")
         else:
-            return os.path.join(expanduser("~"), '.pebble-sdk')
+            return expanduser("~/.pebble-sdk")
 
     def tail(self, interactive=False, skip_enable_app_log=False):
         if not skip_enable_app_log:
@@ -354,7 +370,6 @@ class PblReplCommand(LibPebbleCommand):
         LibPebbleCommand.run(self, args)
         self.tail(interactive=True)
 
-
 class PblEmuTapCommand(LibPebbleCommand):
     name = 'emu_tap'
     help = 'Send a tap event to Pebble running in the emulator'
@@ -443,13 +458,13 @@ class PblKillCommand(LibPebbleCommand):
     help = 'Kill the pebble emulator and phone simulator'
 
     def run(self, args):
-        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir())
+        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, args.debug_phonesim, self.get_persistent_dir(), None)
         emulator.kill_qemu()
         emulator.kill_phonesim()
 
 class PblWipeCommand(LibPebbleCommand):
     name = 'wipe'
-    help = 'Wipe the pebble emulator spi images'
+    help = 'Wipe stored pebble data (emulator state, authentication, etc.)'
 
     def configure_subparser(self, parser):
         LibPebbleCommand.configure_subparser(self, parser)
@@ -457,8 +472,10 @@ class PblWipeCommand(LibPebbleCommand):
                 help=('Select only one platform to wipe.'))
 
     def run(self, args):
-        emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, self.get_persistent_dir())
-        emulator.wipe_spi()
+        if os.path.exists(self.get_persistent_dir()):
+            shutil.rmtree(self.get_persistent_dir())
+        else:
+            logging.warn("Nothing to wipe.")
 
 class PblInsertPinCommand(LibPebbleCommand):
     name = 'insert-pin'
@@ -468,7 +485,7 @@ class PblInsertPinCommand(LibPebbleCommand):
         LibPebbleCommand.configure_subparser(self, parser)
         parser.add_argument('--id', type=str, default=None, help='An arbitrary string representing an ID for the pin being added')
         parser.add_argument('--app-uuid', type=str, default=None, help="The UUID of the pin's parent app.")
-        parser.add_argument('file', type=argparse.FileType(), default='-', nargs='?', help='Filename to use for pin json. "-" means stdin.')
+        parser.add_argument('file', type=argparse.FileType(), help='Filename to use for pin json. "-" means stdin.')
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
@@ -478,7 +495,7 @@ class PblInsertPinCommand(LibPebbleCommand):
                 with open('appinfo.json') as f:
                     appinfo = json.load(f)
                     app_uuid = appinfo['uuid']
-            except (OSError, ValueError, KeyError):
+            except (OSError, IOError, ValueError, KeyError):
                 logging.error("Couldn't find app UUID; try specifying one manually using --app-uuid.")
                 return
         try:
@@ -495,9 +512,25 @@ class PblDeletePinCommand(LibPebbleCommand):
 
     def configure_subparser(self, parser):
         LibPebbleCommand.configure_subparser(self, parser)
-        parser.add_argument('id', help="The id of the pin to delete (provided as --id to insert-pin or as the pin's id property).")
+        parser.add_argument('--id', required=True, help="The id of the pin to delete (provided as --id to insert-pin or as the pin's id property).")
 
     def run(self, args):
         LibPebbleCommand.run(self, args)
         self.pebble.ws_delete_pin(args.id)
+
+class PblLoginCommand(LibPebbleCommand):
+    name = 'login'
+    help = ""
+
+    def configure_subparser(self, parser):
+        LibPebbleCommand.configure_subparser(self, parser)
+        parser.add_argument('--logging_level', type=str, default='ERROR')
+        parser.add_argument('--auth_host_name', type=str, default='localhost')
+        parser.add_argument('--auth_host_port', type=int, nargs='?', default=[60000])
+        parser.add_argument('--noauth_local_webserver', action='store_true', default=False,
+                help=('If your browser is on a different machine then exit and re-run this application with the command-line parameter'))
+
+    def run(self, args):
+        account = get_default_account(LibPebbleCommand.get_persistent_dir())
+        account.login(args)
 

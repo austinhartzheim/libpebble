@@ -17,7 +17,10 @@ WS_CMD_BUNDLE_INSTALL = 0x04
 WS_CMD_STATUS = 0x5
 WS_CMD_PHONE_INFO = 0x06
 WS_CMD_WATCH_CONNECTION_UPDATE = 0x07
+WS_CMD_PHONESIM_QEMU = 0x0b
 WS_CMD_TIMELINE = 0x0c
+WS_CMD_PROXY_CONNECTION_UPDATE = 0x08
+WS_CMD_PROXY_AUTHENTICATION = 0x09
 
 class WebSocketPebble(WebSocket):
 
@@ -85,7 +88,9 @@ class WebSocketPebble(WebSocket):
             return (None, None, None, None)
 
         ws_cmd = unpack('!b',data[0])[0]
+        return self.handle_cmd(ws_cmd, data)
 
+    def handle_cmd(self, ws_cmd, data):
         if ws_cmd==WS_CMD_SERVER_LOG:
             logging.debug("Server: %s" % repr(data[1:]))
         elif ws_cmd==WS_CMD_PHONE_APP_LOG:
