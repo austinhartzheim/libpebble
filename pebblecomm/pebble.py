@@ -554,6 +554,7 @@ class Pebble(object):
             "APP_LOGS": 2006,
             "EXTENSIBLE_NOTIFS": 3010, # Deprecated in 3.x
             "RESOURCE": 4000,
+            "FACTORY_SETTINGS": 5001,
             "APP_MANAGER": 6000, # Deprecated in 3.x
             "APP_FETCH": 6001, # New in 3.x
             "SCREENSHOT": 8000,
@@ -618,6 +619,7 @@ class Pebble(object):
             self.endpoints["COREDUMP"]: self._coredump_response,
             self.endpoints["AUDIO"]: self._audio_response,
             self.endpoints["BLOB_DB"]: self._blob_db_response,
+            self.endpoints["FACTORY_SETTINGS"]: self._factory_setting_response,
         }
         self._qemu_endpoint_handlers = {}
         self._qemu_internal_endpoint_handlers = {
@@ -1506,6 +1508,15 @@ class Pebble(object):
             cmd = "\x00"  # Normal reset
         self._send_message("RESET", cmd)
 
+    def send_emulator_command(self, msg, protocol):
+        if self._connection_type == 'qemu':
+            self._ser.write(msg, protocol=protocol)
+        elif self._connection_type == 'websocket':
+            self._ser.write(pack("B", protocol) + msg, ws_cmd=WebSocketPebble.WS_CMD_PHONESIM_QEMU)
+        else:
+            raise Exception("QEMU commands are only supported over qemu and websocket connections")
+
+
     def emu_tap(self, axis='x', direction=1):
 
         """Send a tap to the watch running in the emulator"""
@@ -1516,7 +1527,8 @@ class Pebble(object):
         if DEBUG_PROTOCOL:
             log.debug('>>> ' + msg.encode('hex'))
 
-        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Tap)
+        self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_Tap)
+
 
     def emu_bluetooth_connection(self, connected=True):
 
@@ -1526,7 +1538,7 @@ class Pebble(object):
         if DEBUG_PROTOCOL:
             log.debug('>>> ' + msg.encode('hex'))
 
-        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_BluetoothConnection)
+        self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_BluetoothConnection)
 
 
     def emu_compass(self, heading=0, calib=2):
@@ -1537,7 +1549,7 @@ class Pebble(object):
         if DEBUG_PROTOCOL:
             log.debug('>>> ' + msg.encode('hex'))
 
-        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Compass)
+        self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_Compass)
 
 
     def emu_battery(self, pct=80, charging=True):
@@ -1548,7 +1560,7 @@ class Pebble(object):
         if DEBUG_PROTOCOL:
             log.debug('>>> ' + msg.encode('hex'))
 
-        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Battery)
+        self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_Battery)
 
 
     def emu_accel(self, motion=None, filename=None):
@@ -1604,11 +1616,12 @@ class Pebble(object):
         if DEBUG_PROTOCOL:
             log.debug('>>> ' + msg.encode('hex'))
 
-        self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Accel)
+        self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_Accel)
 
-        response = QemuEndpointSync(self, QemuPebble.QemuProtocol_Accel).get_data()
-        samples_avail = struct.Struct("!H").unpack(response)
-        print "Success: room for %d more samples" % (samples_avail)
+        if self._connection_type == 'qemu':
+            response = QemuEndpointSync(self, QemuPebble.QemuProtocol_Accel).get_data()
+            samples_avail = struct.unpack("!H", response)
+            print "Success: room for %d more samples" % (samples_avail)
 
 
     def emu_button(self, button_id):
@@ -1624,7 +1637,7 @@ class Pebble(object):
             if DEBUG_PROTOCOL:
                 log.debug('>>> ' + msg.encode('hex'))
 
-            self._ser.write(msg, protocol=QemuPebble.QemuProtocol_Button)
+            self.send_emulator_command(msg, protocol=QemuPebble.QemuProtocol_Button)
             if button_state == 0:
                 break;
             button_state = 0
@@ -1663,6 +1676,36 @@ class Pebble(object):
     def _qemu_vibration_notification(self, endpoint, data):
         on, = unpack("!b", data)
         print "Vibration: %s" % ("on" if on else "off")
+
+    def request_factory_setting(self, setting, async=False):
+        self._send_message("FACTORY_SETTINGS", pack("!BB", 0x00, len(setting)) + str(setting))
+
+        if not async:
+            return EndpointSync(self, "FACTORY_SETTINGS").get_data()
+
+    WATCH_MODEL_MAP = {
+        0x01: 'pebble_black',
+        0x02: 'pebble_white',
+        0x03: 'pebble_red',
+        0x04: 'pebble_orange',
+        0x05: 'pebble_gray',
+        0x06: 'pebble_steel_silver',
+        0x07: 'pebble_steel_black',
+        0x08: 'pebble_blue',
+        0x09: 'pebble_green',
+        0x0a: 'pebble_pink',
+        0x0b: 'pebble_time_white',
+        0x0c: 'pebble_time_black',
+        0x0d: 'pebble_time_red',
+    }
+
+    def request_model(self, async=False):
+        color = self.request_factory_setting("mfg_color", async=async)
+        if color is None:
+            return None
+        else:
+            model_id, = unpack('!I', color)
+            return self.WATCH_MODEL_MAP.get(model_id, None)
 
     def dump_logs(self, generation_number):
         """Dump the saved logs from the watch.
@@ -1751,6 +1794,18 @@ class Pebble(object):
 
     def _audio_response(self, endpoint, data):
         return data
+
+    def _factory_setting_response(self, endpoint, data):
+        command_id, = unpack("!B", data[0])
+        if command_id != 0x01:
+            if command_id == 0xFF:
+                log.warning("Failed to request factory setting.")
+            return None
+        if len(data) < 2:
+            return None
+        strlen, = unpack("!B", data[1])
+        return data[2:2+strlen]
+
 
     def _ping_response(self, endpoint, data):
         # Ping responses can either be 5 bytes or 6 bytes long.
