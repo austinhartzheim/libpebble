@@ -1512,7 +1512,7 @@ class Pebble(object):
         if self._connection_type == 'qemu':
             self._ser.write(msg, protocol=protocol)
         elif self._connection_type == 'websocket':
-            self._ser.write(pack("B", protocol) + msg, ws_cmd=WebSocketPebble.WS_CMD_PHONESIM)
+            self._ser.write(pack("B", protocol) + msg, ws_cmd=WebSocketPebble.WS_CMD_PHONESIM_QEMU)
         else:
             raise Exception("QEMU commands are only supported over qemu and websocket connections")
 
