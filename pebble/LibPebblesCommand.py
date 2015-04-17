@@ -46,10 +46,11 @@ class LibPebbleCommand(PblCommand):
                 help='When using Developer Connection, the IP address or hostname of your phone. Can also be provided through %s environment variable.' % PEBBLE_PHONE_ENVVAR)
         parser.add_argument('--pebble_id', type=str,
                 help='When using a direct BT connection, the watch\'s Bluetooth ID (e.g. DF38 or 01:23:45:67:DF:38). Can also be provided through %s environment variable.' % PEBBLE_BTID_ENVVAR)
-        parser.add_argument('--emulator', type=str, choices=['aplite', 'basalt'],
-                help='Use this option to talk to a Pebble Emulator on your computer. The emulator is automatically started if needed. Basalt is the default emulator, but you can specify another through %s environment variable.' % PEBBLE_PLATFORM_ENVVAR)
+        parser.add_argument('--cloud', type=str, help='Use this option to connect via the cloud')
         parser.add_argument('--qemu', type=str,
                 help='Use this option to connect directly to a qemu instance. You must provide the hostname:port. This can also be provided through %s environment variable.' % PEBBLE_QEMU_ENVVAR)
+        parser.add_argument('--emulator', type=str, choices=['aplite', 'basalt'],
+                help='Use this option to talk to a Pebble Emulator on your computer. The emulator is automatically started if needed. Basalt is the default emulator, but you can specify another through %s environment variable.' % PEBBLE_PLATFORM_ENVVAR)
         parser.add_argument('--pair', action="store_true", help="When using a direct BT connection, attempt to pair the watch automatically")
         parser.add_argument('--verbose', action="store_true", default=False,
                             help='Prints received system logs in addition to APP_LOG')
@@ -60,8 +61,8 @@ class LibPebbleCommand(PblCommand):
         # e.g. needed to de-sym crashes on `pebble logs`
         self.add_arm_tools_to_path(args)
 
-        # Only use the envrionment variables as defaults if no command-line arguments were specified
-        # ...allowing you to leave the envrionment var(s) set at all times
+        # Only use the environment variables as defaults if no command-line arguments were specified
+        # ...allowing you to leave the environment var(s) set at all times
         if not args.phone and not args.pebble_id and not args.qemu and not args.emulator:
             args.phone = os.getenv(PEBBLE_PHONE_ENVVAR)
             args.pebble_id = os.getenv(PEBBLE_BTID_ENVVAR)
@@ -72,9 +73,6 @@ class LibPebbleCommand(PblCommand):
 
         if not account.is_logged_in():
             logging.warning("You are not logged in with your Pebble Account and will not be able to receive remote pins in the emulator. Please run 'pebble login' to connect your Pebble account.")
-
-        if not args.phone and not args.pebble_id and not args.emulator and not args.qemu:
-            args.emulator = 'basalt'
 
         num_args = bool(args.phone) + bool(args.pebble_id) + bool(args.qemu) + bool(args.emulator)
         if num_args > 1:
@@ -90,16 +88,17 @@ class LibPebbleCommand(PblCommand):
             self.pebble.connect_via_websocket(args.phone)
         elif args.pebble_id:
             self.pebble.connect_via_lightblue(pair_first=args.pair)
-        elif args.emulator:
-            token = account.get_token() if account.is_logged_in() else None
-            emulator = PebbleEmulator(self.sdk_path(args), args.emulator, args.debug, args.debug_phonesim, self.get_persistent_dir(), token)
-            emulator.start()
-            self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
-            self.pebble.set_time_utc(int(time.time()))
+        elif args.cloud:
+            self.pebble.connect_via_cloud(account)
         elif args.qemu:
             self.pebble.connect_via_qemu(args.qemu)
         else:
-            self.pebble.connect_via_cloud(account)
+            token = account.get_token() if account.is_logged_in() else None
+            emulator = PebbleEmulator(self.sdk_path(args), args.debug, args.debug_phonesim, self.get_persistent_dir(), token, args.emulator)
+            emulator.start()
+            self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
+            self.pebble.set_time_utc(int(time.time()))
+
 
     @classmethod
     def get_persistent_dir(self):
