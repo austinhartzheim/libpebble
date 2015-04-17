@@ -46,11 +46,13 @@ class LibPebbleCommand(PblCommand):
                 help='When using Developer Connection, the IP address or hostname of your phone. Can also be provided through %s environment variable.' % PEBBLE_PHONE_ENVVAR)
         parser.add_argument('--pebble_id', type=str,
                 help='When using a direct BT connection, the watch\'s Bluetooth ID (e.g. DF38 or 01:23:45:67:DF:38). Can also be provided through %s environment variable.' % PEBBLE_BTID_ENVVAR)
-        parser.add_argument('--cloud', type=str, help='Use this option to connect via the cloud')
+        parser.add_argument('--cloud', type=str, 
+                help='Use this option to connect via CloudPebble services if you are logged in using your Pebble account. This is helpful if your local network does not permit a phone connection.')
         parser.add_argument('--qemu', type=str,
                 help='Use this option to connect directly to a qemu instance. You must provide the hostname:port. This can also be provided through %s environment variable.' % PEBBLE_QEMU_ENVVAR)
         parser.add_argument('--emulator', type=str, choices=['aplite', 'basalt'],
-                help='Use this option to talk to a Pebble Emulator on your computer. The emulator is automatically started if needed. Basalt is the default emulator, but you can specify another through %s environment variable.' % PEBBLE_PLATFORM_ENVVAR)
+                help='Use this option to specify which HW platform to run in the emulator. The emulator is automatically started if needed. You can set a default HW platform via the %s environment variable.' 
+                        % PEBBLE_PLATFORM_ENVVAR)
         parser.add_argument('--pair', action="store_true", help="When using a direct BT connection, attempt to pair the watch automatically")
         parser.add_argument('--verbose', action="store_true", default=False,
                             help='Prints received system logs in addition to APP_LOG')
