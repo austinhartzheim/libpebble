@@ -371,7 +371,7 @@ class PblReplCommand(LibPebbleCommand):
         self.tail(interactive=True)
 
 class PblEmuTapCommand(LibPebbleCommand):
-    name = 'emu_tap'
+    name = 'emu-tap'
     help = 'Send a tap event to Pebble running in the emulator'
 
     def configure_subparser(self, parser):
@@ -387,7 +387,7 @@ class PblEmuTapCommand(LibPebbleCommand):
 
 
 class PblEmuBluetoothConnectionCommand(LibPebbleCommand):
-    name = 'emu_bt_connection'
+    name = 'emu-bt-connection'
     help = 'Send a bluetooth connection/disconnection event to Pebble running in the emulator'
 
     def configure_subparser(self, parser):
@@ -401,7 +401,7 @@ class PblEmuBluetoothConnectionCommand(LibPebbleCommand):
 
 
 class PblEmuCompassCommand(LibPebbleCommand):
-    name = 'emu_compass'
+    name = 'emu-compass'
     help = 'Send a compass heading event to Pebble running in the emulator'
 
     def configure_subparser(self, parser):
@@ -418,7 +418,7 @@ class PblEmuCompassCommand(LibPebbleCommand):
                                 calib=calib_dict[args.calib])
 
 class PblEmuBatteryCommand(LibPebbleCommand):
-    name = 'emu_battery'
+    name = 'emu-battery'
     help = 'Set battery level on the Pebble running in the emulator'
 
     def configure_subparser(self, parser):
@@ -434,7 +434,7 @@ class PblEmuBatteryCommand(LibPebbleCommand):
 
 
 class PblEmuAccelCommand(LibPebbleCommand):
-    name = 'emu_accel'
+    name = 'emu-accel'
     help = 'Send accel data to the emulator'
 
     def configure_subparser(self, parser):
