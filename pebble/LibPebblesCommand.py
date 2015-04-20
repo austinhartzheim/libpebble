@@ -46,8 +46,6 @@ class LibPebbleCommand(PblCommand):
                 help='When using Developer Connection, the IP address or hostname of your phone. Can also be provided through %s environment variable.' % PEBBLE_PHONE_ENVVAR)
         parser.add_argument('--pebble_id', type=str,
                 help='When using a direct BT connection, the watch\'s Bluetooth ID (e.g. DF38 or 01:23:45:67:DF:38). Can also be provided through %s environment variable.' % PEBBLE_BTID_ENVVAR)
-        parser.add_argument('--cloud', action='store_true',
-                help='Use this option to connect via CloudPebble services if you are logged in using your Pebble account. This is helpful if your local network does not permit a phone connection.')
         parser.add_argument('--qemu', type=str,
                 help='Use this option to connect directly to a qemu instance. You must provide the hostname:port. This can also be provided through %s environment variable.' % PEBBLE_QEMU_ENVVAR)
         parser.add_argument('--emulator', type=str, choices=['aplite', 'basalt'],
@@ -90,8 +88,6 @@ class LibPebbleCommand(PblCommand):
             self.pebble.connect_via_websocket(args.phone)
         elif args.pebble_id:
             self.pebble.connect_via_lightblue(pair_first=args.pair)
-        elif args.cloud:
-            self.pebble.connect_via_cloud(account)
         elif args.qemu:
             self.pebble.connect_via_qemu(args.qemu)
         else:
