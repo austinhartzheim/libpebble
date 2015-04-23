@@ -18,23 +18,26 @@ FNULL = open(os.devnull, 'w')
 
 
 class PebbleEmulator(object):
-    def __init__(self, sdk_path, platform, debug, debug_phonesim, persistent_dir, oauth_token):
+    def __init__(self, sdk_path, debug, debug_phonesim, persistent_dir, oauth_token, platform=None):
         self.qemu_pid = os.path.join(TEMP_DIR, 'pebble-qemu.pid')
         self.qemu_platform = os.path.join(TEMP_DIR, 'pebble-qemu.platform')
         self.phonesim_pid = os.path.join(TEMP_DIR, 'pebble-phonesim.pid')
         self.port = PHONESIM_PORT
         self.sdk_path = sdk_path
-        self.platform = platform
         self.debug = debug
         self.debug_phonesim = debug_phonesim
         self.persistent_dir = persistent_dir
         self.oauth_token = oauth_token
+        self.use_running_platform = False if platform is not None else True
+        self.platform = platform if platform is not None else "basalt"
 
-    def start(self):
+    def start(self, use_running_platform=False):
         need_wait = False
 
         if self.is_qemu_running():
-            if self.running_platform() != self.platform:
+            if self.use_running_platform == True or use_running_platform == True:
+                return
+            elif self.running_platform() != self.platform:
                 self.kill_qemu()
                 self.kill_phonesim()
                 time.sleep(1)
