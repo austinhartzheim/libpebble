@@ -31,11 +31,11 @@ class PebbleEmulator(object):
         self.use_running_platform = False if platform is not None else True
         self.platform = platform if platform is not None else "basalt"
 
-    def start(self):
+    def start(self, use_running_platform=False):
         need_wait = False
 
         if self.is_qemu_running():
-            if self.use_running_platform == True:
+            if self.use_running_platform == True or use_running_platform == True:
                 return
             elif self.running_platform() != self.platform:
                 self.kill_qemu()

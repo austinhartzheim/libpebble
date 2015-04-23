@@ -63,7 +63,9 @@ class LibPebbleCommand(PblCommand):
 
         # Only use the environment variables as defaults if no command-line arguments were specified
         # ...allowing you to leave the environment var(s) set at all times
+        args_not_provided = False
         if not args.phone and not args.pebble_id and not args.qemu and not args.emulator:
+            args_not_provided = True
             args.phone = os.getenv(PEBBLE_PHONE_ENVVAR)
             args.pebble_id = os.getenv(PEBBLE_BTID_ENVVAR)
             args.qemu = os.getenv(PEBBLE_QEMU_ENVVAR)
@@ -93,7 +95,11 @@ class LibPebbleCommand(PblCommand):
         else:
             token = account.get_token() if account.is_logged_in() else None
             emulator = PebbleEmulator(self.sdk_path(args), args.debug, args.debug_phonesim, self.get_persistent_dir(), token, args.emulator)
-            emulator.start()
+            if args_not_provided is True:
+                emulator.start(use_running_platform=True)
+            else:
+                emulator.start(use_running_platform=False)
+
             self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
             self.pebble.set_time_utc(int(time.time()))
 
