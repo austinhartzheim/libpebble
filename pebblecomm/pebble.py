@@ -718,11 +718,6 @@ class Pebble(object):
         self._ser.connect()
         self.init_reader()
 
-    def connect_via_cloud(self, account):
-        self._conection_type = 'cloud'
-        self._ser = ProxyWebSocketPebble.create_connection(account, timeout=2, connect_timeout=10)
-        self.init_reader()
-
     def _exit_signal_handler(self, *args):
         log.warn("Disconnecting before exiting...")
         self.disconnect()
