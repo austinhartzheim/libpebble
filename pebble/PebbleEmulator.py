@@ -36,6 +36,7 @@ class PebbleEmulator(object):
 
         if self.is_qemu_running():
             if self.use_running_platform == True or use_running_platform == True:
+                logging.info("Using {} emulator...".format(self.running_platform()))
                 return
             elif self.running_platform() != self.platform:
                 self.kill_qemu()
@@ -43,7 +44,7 @@ class PebbleEmulator(object):
                 time.sleep(1)
 
         if not self.is_qemu_running():
-            logging.info("Starting Pebble emulator...")
+            logging.info("Starting Pebble {} emulator...".format(self.platform))
             self.start_qemu()
             need_wait = True
 
