@@ -269,8 +269,8 @@ class ScreenshotSync():
           image_header.unpack(header_data)
 
         if response_code is ScreenshotSync.SCREENSHOT_ALREADY_IN_PROGRESS:
-            raise PebbleError(None, "Received response that screenshot is already in progress."
-                "Please wait and try again."
+            raise PebbleError(None, "Received response that screenshot is already in progress. "
+                "Please wait and try again.")
         elif response_code is not ScreenshotSync.SCREENSHOT_OK:
             raise PebbleError(None, "Pebble responded with nonzero response "
                 "code %d, signaling an error on the watch side." % response_code)
@@ -285,7 +285,7 @@ class ScreenshotSync():
         
         if self.total_length == 0:
             raise PebbleError(None, "Received a malformed message from the watch."
-                "Response code is {}, but image size is {}".format(response_code, self.total_length)
+                "Response code is {}, but image size is {}".format(response_code, self.total_length))
         
         return data
 
