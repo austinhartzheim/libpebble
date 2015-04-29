@@ -1564,16 +1564,16 @@ class Pebble(object):
            The caller is responsible for validating that 'motion' is a valid string
         """
         MAX_ACCEL_SAMPLES = 255
-        if motion == 'tilt_left':
+        if motion == 'tilt-left':
             samples = [[-500, 0, -900], [-900, 0, -500], [-1000, 0, 0],]
 
-        elif motion == 'tilt_right':
+        elif motion == 'tilt-right':
             samples = [[500, 0, -900], [900, 0, -500], [1000, 0, 0]]
 
-        elif motion == 'tilt_forward':
+        elif motion == 'tilt-forward':
             samples = [[0, 500, -900], [0, 900, -500], [0, 1000, 0],]
 
-        elif motion == 'tilt_back':
+        elif motion == 'tilt-back':
             samples = [[0, -500, -900], [0, -900, -500], [0, -1000, 0],]
 
         elif motion.startswith('gravity'):
