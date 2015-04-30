@@ -232,6 +232,7 @@ class ScreenshotSync():
     SCREENSHOT_OK = 0
     SCREENSHOT_MALFORMED_COMMAND = 1
     SCREENSHOT_OOM_ERROR = 2
+    SCREENSHOT_ALREADY_IN_PROGRESS = 3
 
     def __init__(self, pebble, endpoint, progress_callback):
         self.marker = threading.Event()
@@ -267,10 +268,12 @@ class ScreenshotSync():
         response_code, version, self.width, self.height = \
           image_header.unpack(header_data)
 
-        if response_code is not ScreenshotSync.SCREENSHOT_OK:
+        if response_code is ScreenshotSync.SCREENSHOT_ALREADY_IN_PROGRESS:
+            raise PebbleError(None, "Received response that screenshot is already in progress. "
+                "Please wait and try again.")
+        elif response_code is not ScreenshotSync.SCREENSHOT_OK:
             raise PebbleError(None, "Pebble responded with nonzero response "
-                "code %d, signaling an error on the watch side." %
-                response_code)
+                "code %d, signaling an error on the watch side." % response_code)
 
         if not 1 <= version <= 2:
             raise PebbleError(None, "Received unrecognized image format "
@@ -279,6 +282,11 @@ class ScreenshotSync():
         self.version = version
 
         self.total_length = self.width * self.height
+        
+        if self.total_length == 0:
+            raise PebbleError(None, "Received a malformed message from the watch."
+                "Response code is {}, but image size is {}".format(response_code, self.total_length))
+        
         return data
 
     def get_data_array(self):
@@ -1564,16 +1572,16 @@ class Pebble(object):
            The caller is responsible for validating that 'motion' is a valid string
         """
         MAX_ACCEL_SAMPLES = 255
-        if motion == 'tilt_left':
+        if motion == 'tilt-left':
             samples = [[-500, 0, -900], [-900, 0, -500], [-1000, 0, 0],]
 
-        elif motion == 'tilt_right':
+        elif motion == 'tilt-right':
             samples = [[500, 0, -900], [900, 0, -500], [1000, 0, 0]]
 
-        elif motion == 'tilt_forward':
+        elif motion == 'tilt-forward':
             samples = [[0, 500, -900], [0, 900, -500], [0, 1000, 0],]
 
-        elif motion == 'tilt_back':
+        elif motion == 'tilt-back':
             samples = [[0, -500, -900], [0, -900, -500], [0, -1000, 0],]
 
         elif motion.startswith('gravity'):

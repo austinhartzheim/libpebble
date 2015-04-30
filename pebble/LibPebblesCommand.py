@@ -442,8 +442,8 @@ class PblEmuAccelCommand(LibPebbleCommand):
 
     def configure_subparser(self, parser):
         LibPebbleCommand.configure_subparser(self, parser)
-        parser.add_argument('motion', choices=['tilt_left', 'tilt_right', 'tilt_forward',
-            'tilt_back', 'gravity+x', 'gravity-x', 'gravity+y', 'gravity-y', 'gravity+z',
+        parser.add_argument('motion', choices=['tilt-left', 'tilt-right', 'tilt-forward',
+            'tilt-back', 'gravity+x', 'gravity-x', 'gravity+y', 'gravity-y', 'gravity+z',
             'gravity-z', 'custom'], default=None,
             help=('which type of action to send. If "custom", then specify the file name using'
                   ' the --file option'))
