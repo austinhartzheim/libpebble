@@ -84,6 +84,9 @@ class PbSDKShell:
 
         logging.basicConfig(format='[%(levelname)-8s] %(message)s',
                             level = log_level)
+        if log_level != logging.DEBUG:
+            logging.getLogger("requests").setLevel(logging.WARNING)
+
         # Just in case logging was already setup, basicConfig would not
         # do anything, so set the level on the root logger
         logging.getLogger().setLevel(log_level)
