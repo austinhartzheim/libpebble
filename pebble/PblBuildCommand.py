@@ -5,9 +5,9 @@ import StringIO
 import traceback
 import sys
 
-import PblAnalytics
+from analytics import post_event
 from PblCommand import PblCommand
-from PblProjectCreator import requires_project_dir
+from PblProject import requires_project_dir
 from LibPebblesCommand import (NoCompilerException, BuildErrorException,
                                AppTooBigException)
 
@@ -58,7 +58,7 @@ class PblWafCommand(PblCommand):
     
     
     ###########################################################################
-    def _send_memory_usage(self, args, appInfo, platform):
+    def _get_memory_usage(self, platform):
         """ Send app memory usage to analytics 
         
         Parameters:
@@ -67,18 +67,15 @@ class PblWafCommand(PblCommand):
         appInfo: the applications appInfo
         """
 
-        cmdName = 'arm-none-eabi-size'
-        cmdArgs = [os.path.join("build", platform, "pebble-app.elf")]
+        cmd_name = 'arm-none-eabi-size'
+        cmd_args = [os.path.join("build", platform, "pebble-app.elf")]
         try:
-            output = sh.arm_none_eabi_size(*cmdArgs, _tty_out=False)
-            (textSize, dataSize, bssSize) = [int(x) for x in \
-                                     output.stdout.splitlines()[1].split()[:3]]
-            sizeDict = {'text': textSize, 'data': dataSize, 'bss': bssSize}
-            PblAnalytics.code_size_evt(uuid=appInfo["uuid"], 
-                                    segSizes = sizeDict)
+            output = sh.arm_none_eabi_size(*cmd_args, _tty_out=False)
+            text_size, data_size, bss_size = [int(x) for x in output.stdout.splitlines()[1].split()[:3]]
+            return {'text': text_size, 'data': data_size, 'bss': bss_size}
         except sh.ErrorReturnCode as e:
             logging.error("command %s %s failed. stdout: %s, stderr: %s" %
-                          (cmdName, ' '.join(cmdArgs), e.stdout, e.stderr))
+                          (cmd_name, ' '.join(cmd_args), e.stdout, e.stderr))
         except sh.CommandNotFound as e:
             logging.error("The command %s could not be found. Could not "
                           "collect memory usage analytics." % (e.message))
@@ -111,7 +108,7 @@ class PblWafCommand(PblCommand):
     
 
     ###########################################################################
-    def _send_line_counts(self, args, appInfo):
+    def _get_line_counts(self):
         """ Send app line counts up to analytics 
         
         Parameters:
@@ -126,13 +123,11 @@ class PblWafCommand(PblCommand):
             c_line_count += self._count_lines('src', ['.h', '.c'])
             js_line_count += self._count_lines('src', ['.js'])
 
-        PblAnalytics.code_line_count_evt(uuid=appInfo["uuid"], 
-                                c_line_count = c_line_count,
-                                js_line_count = js_line_count)
+        return {'c_line_count': c_line_count, 'js_line_count': js_line_count}
 
 
     ###########################################################################
-    def _send_resource_usage(self, args, appInfo):
+    def _get_resource_usage(self, app_info):
         """ Send app resource usage up to analytics 
         
         Parameters:
@@ -142,45 +137,42 @@ class PblWafCommand(PblCommand):
         """
         
         # Collect the number and total size of each class of resource:
-        resCounts = {"raw": 0, "image": 0, "font": 0}
-        resSizes = {"raw": 0, "image": 0, "font": 0}
+        res_counts = {"raw": 0, "image": 0, "font": 0}
+        res_sizes = {"raw": 0, "image": 0, "font": 0}
         
-        for resDict in appInfo["resources"]["media"]:
-            if resDict["type"] in ["png", "png-trans"]:
+        for res_dict in app_info["resources"]["media"]:
+            if res_dict["type"] in ["png", "png-trans"]:
                 type = "image"
-            elif resDict["type"] in ["font"]: 
+            elif res_dict["type"] in ["font"]:
                 type = "font"
-            elif resDict["type"] in ["raw"]:
+            elif res_dict["type"] in ["raw"]:
                 type = "raw"
             else:
                 raise RuntimeError("Unsupported resource type %s" % 
-                                (resDict["type"]))
+                                (res_dict["type"]))
 
             # Look for the generated blob in the build/resource directory.
             # As far as we can tell, the generated blob always starts with
             # the original filename and adds an extension to it, or (for
             # fonts), a name and extension. 
-            (dirName, fileName) = os.path.split(resDict["file"])
-            dirToSearch = os.path.join("build", "resources", dirName)
+            dir_name, filename = os.path.split(res_dict["file"])
+            dir_to_search = os.path.join("build", "resources", dir_name)
             found = False
-            for name in os.listdir(dirToSearch):
-                if (type == "raw" and name == fileName) \
-                    or (type != 'raw' and name.startswith(fileName) 
-                        and name != fileName):
-                    size = os.path.getsize(os.path.join(dirToSearch, name))
+            for name in os.listdir(dir_to_search):
+                if (type == "raw" and name == filename) \
+                    or (type != 'raw' and name.startswith(filename)
+                        and name != filename):
+                    size = os.path.getsize(os.path.join(dir_to_search, name))
                     found = True
                     break
             if not found:
                 raise RuntimeError("Could not find generated resource "
-                            "corresponding to %s." % (resDict["file"]))
+                            "corresponding to %s." % (res_dict["file"]))
                 
-            resCounts[type] += 1
-            resSizes[type] += size
-            
-        # Send the stats now
-        PblAnalytics.res_sizes_evt(uuid=appInfo["uuid"],
-                                 resCounts = resCounts,
-                                 resSizes = resSizes)
+            res_counts[type] += 1
+            res_sizes[type] += size
+
+        return {'resource_counts': res_counts, 'resource_sizes': res_sizes}
                 
 
     ###########################################################################
@@ -239,13 +231,8 @@ class PblWafCommand(PblCommand):
             #  up to analytics
             # Read in the appinfo.json to get the list of resources
             try:
-                appInfo = json.load(open("appinfo.json"))
-                #self._send_memory_usage(args, appInfo, p)
-                #self._send_resource_usage(args, appInfo)
-                self._send_line_counts(args, appInfo)
-                hasJS = os.path.exists(os.path.join('src', 'js'))
-                PblAnalytics.code_has_java_script_evt(uuid=appInfo["uuid"],
-                                         hasJS=hasJS)
+                has_js = os.path.exists(os.path.join('src', 'js'))
+                post_event("app_build_succeeded", has_js=has_js, line_counts=self._get_line_counts())
             except Exception as e:
                 logging.error("Exception occurred collecting app analytics: "
                               "%s" % str(e))

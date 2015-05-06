@@ -15,7 +15,7 @@ from pebblecomm import pebble as libpebble
 from PblCommand import PblCommand
 from PebbleEmulator import PebbleEmulator
 from PblAccount import PblAccount, get_default_account
-import PblAnalytics
+from analytics import post_event
 
 PEBBLE_PHONE_ENVVAR='PEBBLE_PHONE'
 PEBBLE_BTID_ENVVAR='PEBBLE_BTID'
@@ -85,15 +85,17 @@ class LibPebbleCommand(PblCommand):
 
         self.pebble = libpebble.Pebble(args.pebble_id)
         self.pebble.set_print_pbl_logs(args.verbose)
+        self.virtual_pebble = False
 
         if args.phone:
             self.pebble.connect_via_websocket(args.phone)
         elif args.pebble_id:
             self.pebble.connect_via_lightblue(pair_first=args.pair)
         elif args.qemu:
+            self.virtual_pebble = True
             self.pebble.connect_via_qemu(args.qemu)
         else:
-            token = account.get_token() if account.is_logged_in() else None
+            token = account.get_access_token() if account.is_logged_in() else None
             emulator = PebbleEmulator(self.sdk_path(args), args.debug, args.debug_phonesim, self.get_persistent_dir(), token, args.emulator)
             if args_not_provided is True:
                 emulator.start(use_running_platform=True)
@@ -103,13 +105,15 @@ class LibPebbleCommand(PblCommand):
             self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
             self.pebble.set_time_utc(int(time.time()))
 
-
     @classmethod
-    def get_persistent_dir(self):
+    def get_persistent_dir(cls):
         if platform.system() == 'Darwin':
-            return expanduser("~/Library/Application Support/Pebble SDK")
+            dir = expanduser("~/Library/Application Support/Pebble SDK")
         else:
-            return expanduser("~/.pebble-sdk")
+            dir = expanduser("~/.pebble-sdk")
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        return dir
 
     def tail(self, interactive=False, skip_enable_app_log=False):
         if not skip_enable_app_log:
@@ -168,6 +172,7 @@ class PblInstallCommand(LibPebbleCommand):
             return 1
 
         if args.logs:
+            post_event("app_log_view", virtual=self.virtual_pebble)
             self.pebble.app_log_enable()
 
         if args.bundle_path.lower().endswith(".pbw"):
@@ -180,8 +185,14 @@ class PblInstallCommand(LibPebbleCommand):
 
         if self.pebble.is_phone_info_available():
             # Send the phone OS version to analytics
-            phoneInfoStr = self.pebble.get_phone_info()
-            PblAnalytics.phone_info_evt(phoneInfoStr=phoneInfoStr)
+            phone_info = self.pebble.get_phone_info()
+        else:
+            phone_info = None
+
+        if success:
+            post_event("app_install_succeeded", virtual=self.virtual_pebble, phone_info=phone_info)
+        else:
+            post_event("app_install_failed", virtual=self.virtual_pebble, phone_info=phone_info)
 
         if success and args.logs:
             self.tail(skip_enable_app_log=True)

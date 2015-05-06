@@ -6,7 +6,9 @@ import hashlib
 import collections
 
 from PblCommand import PblCommand
-from PblProjectCreator import *
+from PblProjectCreator import FILE_WSCRIPT, FILE_WSCRIPT_2
+from PblProject import check_current_directory, OutdatedProjectException
+
 
 def generate_appinfo_from_old_project(project_root):
     app_info_path = os.path.join(project_root, "appinfo.json")
@@ -48,7 +50,7 @@ Note: This will only convert the project, you'll still have to update your sourc
 
     def run(self, args):
         try:
-            check_project_directory()
+            check_current_directory()
             print "No conversion required"
             return 0
         except OutdatedProjectException:
