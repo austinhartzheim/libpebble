@@ -11,6 +11,7 @@ import requests
 
 import PblAccount
 import PblProject
+from . import get_sdk_version
 
 
 class PebbleAnalytics(object):
@@ -37,6 +38,7 @@ class PebbleAnalytics(object):
             'platform': 'native_sdk',
             'sdk': {
                 'host': self._get_host_info(),
+                'version': get_sdk_version()
             },
             'data': data.copy()
         }
