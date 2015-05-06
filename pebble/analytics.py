@@ -47,15 +47,13 @@ class PebbleAnalytics(object):
         except PblProject.PebbleProjectException:
             pass
 
-        print json.dumps(analytics)
-        return
 
         td_obj = self._flatten(analytics)
 
         fields = {
             'json': json.dumps(td_obj)
         }
-        requests.post(self.TD_SERVER, fields=fields)
+        requests.post(self.TD_SERVER, data=fields)
 
     def _should_track(self):
         # Should we track analytics?
