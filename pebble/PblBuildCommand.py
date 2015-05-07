@@ -59,7 +59,7 @@ class PblWafCommand(PblCommand):
     
     ###########################################################################
     def _get_memory_usage(self, platform):
-        """ Send app memory usage to analytics 
+        """ Determines memory usage for analytics
         
         Parameters:
         --------------------------------------------------------------------
@@ -109,7 +109,7 @@ class PblWafCommand(PblCommand):
 
     ###########################################################################
     def _get_line_counts(self):
-        """ Send app line counts up to analytics 
+        """ Determines app line counts for analytics
         
         Parameters:
         --------------------------------------------------------------------
@@ -128,7 +128,7 @@ class PblWafCommand(PblCommand):
 
     ###########################################################################
     def _get_resource_usage(self, app_info):
-        """ Send app resource usage up to analytics 
+        """ Determines app resource usage for analytics
         
         Parameters:
         --------------------------------------------------------------------
