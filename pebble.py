@@ -27,6 +27,7 @@ except Exception as e:
         pass
     raise
 
+
 class PbSDKShell:
     commands = []
 
@@ -116,7 +117,7 @@ class PbSDKShell:
             return 1
 
         except OutdatedProjectException as e:
-            post_event('sdk_building_outdated_projecgt')
+            post_event('sdk_building_outdated_project')
             logging.error("The Pebble project directory is using an outdated version of the SDK!")
             logging.error("Try running `pebble convert-project` to update the project")
             return 1

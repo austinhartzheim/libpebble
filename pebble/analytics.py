@@ -32,6 +32,9 @@ class PebbleAnalytics(object):
         return dict(items)
 
     def submit_event(self, event, **data):
+        if not self.should_track:
+            return
+
         analytics = {
             'event': event,
             'identity': self._get_identity(),
