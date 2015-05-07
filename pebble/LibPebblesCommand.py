@@ -101,6 +101,7 @@ class LibPebbleCommand(PblCommand):
                 emulator.start(use_running_platform=True)
             else:
                 emulator.start(use_running_platform=False)
+            self.virtual_pebble = True
 
             self.pebble.connect_via_websocket(emulator.phonesim_address(), emulator.phonesim_port())
             self.pebble.set_time_utc(int(time.time()))
