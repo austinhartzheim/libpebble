@@ -37,7 +37,10 @@ class PebbleProject(object):
             raise InvalidProjectException
 
         with open(os.path.join(project_dir, "appinfo.json"), "r") as f:
-            app_info = json.load(f)
+            try:
+                app_info = json.load(f)
+            except ValueError as ex:
+                raise Exception("Could not parse appinfo.json because of the following error: %s" % ex)
 
         if os.path.islink(os.path.join(project_dir, 'pebble_app.ld')) \
                 or os.path.exists(os.path.join(project_dir, 'resources/src/resource_map.json')) \
