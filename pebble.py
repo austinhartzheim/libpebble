@@ -4,7 +4,7 @@ import argparse
 import logging
 import sys
 
-import pebble.PblAnalytics as PblAnalytics
+from pebble.analytics import PebbleAnalytics, post_event
 
 # Catch any missing python dependencies so we can send an event to analytics
 try:
@@ -13,19 +13,20 @@ try:
     #  python dependency event.
     import websocket
     import pebble as libpebble
-    from pebble.PblProjectCreator   import (PblProjectCreator,
-                                            InvalidProjectException,
-                                            OutdatedProjectException)
+    from pebble.PblProject import InvalidProjectException, OutdatedProjectException
+    from pebble.PblProjectCreator   import PblProjectCreator
     from pebble.PblProjectConverter import PblProjectConverter
-    from pebble.PblBuildCommand     import (PblBuildCommand,
-                                            PblCleanCommand,
-                                            PblAnalyzeSizeCommand)
+    from pebble.PblBuildCommand     import PblBuildCommand, PblCleanCommand, PblAnalyzeSizeCommand
     from pebble.LibPebblesCommand   import *
 except Exception as e:
     logging.basicConfig(format='[%(levelname)-8s] %(message)s',
                     level = logging.DEBUG)
-    PblAnalytics.missing_python_dependency_evt(str(e))
+    try:
+        post_event('sdk_missing_dependency', exception=str(e))
+    except Exception as e:
+        pass
     raise
+
 
 class PbSDKShell:
     commands = []
@@ -84,6 +85,9 @@ class PbSDKShell:
 
         logging.basicConfig(format='[%(levelname)-8s] %(message)s',
                             level = log_level)
+        if log_level != logging.DEBUG:
+            logging.getLogger("requests").setLevel(logging.WARNING)
+
         # Just in case logging was already setup, basicConfig would not
         # do anything, so set the level on the root logger
         logging.getLogger().setLevel(log_level)
@@ -94,71 +98,56 @@ class PbSDKShell:
         # Find the extension that was called
         command = [x for x in self.commands if x.name == args.command][0]
 
+        start_time = time.time()
         try:
             retval = command.run(args)
-            if retval:
-                PblAnalytics.cmd_fail_evt(args.command, 'unknown error')
-            else:
-                cmdName = args.command
-                if cmdName == 'install' and args.logs is True:
-                    cmdName = 'install --logs'
-                PblAnalytics.cmd_success_evt(cmdName)
             return retval
 
         except libpebble.PebbleError as e:
-            PblAnalytics.cmd_fail_evt(args.command, 'pebble error')
+            post_event('sdk_libpebble_failed', exception=str(e))
             if args.debug:
                 raise e
             else:
                 logging.error(e)
                 return 1
 
-        except ConfigurationException as e:
-            PblAnalytics.cmd_fail_evt(args.command, 'configuration error')
-            logging.error(e)
-            return 1
-
         except InvalidProjectException as e:
-            PblAnalytics.cmd_fail_evt(args.command, 'invalid project')
-            logging.error("This command must be run from a Pebble project "
-                          "directory")
+            post_event('sdk_run_without_project')
+            logging.error("This command must be run from a Pebble project directory")
             return 1
 
         except OutdatedProjectException as e:
-            PblAnalytics.cmd_fail_evt(args.command, 'outdated project')
-            logging.error("The Pebble project directory is using an outdated "
-                          "version of the SDK!")
-            logging.error("Try running `pebble convert-project` to update the "
-                          "project")
+            post_event('sdk_building_outdated_project')
+            logging.error("The Pebble project directory is using an outdated version of the SDK!")
+            logging.error("Try running `pebble convert-project` to update the project")
             return 1
 
         except NoCompilerException as e:
-            PblAnalytics.missing_tools_evt()
+            post_event('sdk_missing_tools')
             logging.error("The compiler/linker tools could not be found. "
-                          "Ensure that the arm-cs-tools directory is present "
-                          "in the Pebble SDK directory (%s)" %
+                          "Ensure that the arm-cs-tools directory is present in the Pebble SDK directory (%s)" %
                           PblCommand().sdk_path(args))
             return 1
 
         except BuildErrorException as e:
-            PblAnalytics.cmd_fail_evt(args.command, 'compilation error')
+            post_event('app_build_failed', build_time=(time.time() - start_time), type="compilation_error")
             logging.error("A compilation error occurred")
             return 1
 
         except AppTooBigException as e:
-            PblAnalytics.cmd_fail_evt(args.command, 'application too big')
+            post_event('app_build_failed', build_time=(time.time() - start_time), type="app_too_large")
             logging.error("The built application is too big")
             return 1
 
         except Exception as e:
-            PblAnalytics.cmd_fail_evt(args.command, 'unhandled exception: %s' %
-                                 str(e))
+            post_event('sdk_unhandled_exception', exception=str(e))
             logging.error(str(e))
 
             # Print out stack trace if in debug mode to aid in bug reporting
             if args.debug:
                 raise
             return 1
+
 
 def main():
     retval = PbSDKShell().main()

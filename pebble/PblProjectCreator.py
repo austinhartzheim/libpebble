@@ -4,8 +4,8 @@ import uuid
 import json
 
 from PblCommand import PblCommand
-
-SDK_VERSION = "3"
+from PblProject import SDK_VERSION
+from analytics import post_event
 
 class PblProjectCreator(PblCommand):
     name = 'new-project'
@@ -66,6 +66,8 @@ class PblProjectCreator(PblCommand):
         # Add wscript file
         with open(os.path.join(project_root, "wscript"), "w") as f:
             f.write(FILE_WSCRIPT)
+
+        post_event("sdk_create_project", javascript=args.javascript, worker=args.worker)
 
 FILE_GITIGNORE = """
 # Ignore build generated files
@@ -259,39 +261,3 @@ Pebble.addEventListener("ready",
     }
 );
 """
-
-class PebbleProjectException(Exception):
-    pass
-
-class InvalidProjectException(PebbleProjectException):
-    pass
-
-class OutdatedProjectException(PebbleProjectException):
-    pass
-
-def check_project_directory():
-    """Check to see if the current directory matches what is created by PblProjectCreator.run.
-
-    Raises an InvalidProjectException or an OutdatedProjectException if everything isn't quite right.
-    """
-
-    if not os.path.isdir('src'):
-        raise InvalidProjectException
-
-    app_info_path = os.path.join(os.getcwd(), "appinfo.json")
-    with open(app_info_path, "r") as f:
-        app_info_json = json.load(f)
-
-    if os.path.islink('pebble_app.ld') \
-            or os.path.exists('resources/src/resource_map.json') \
-            or not os.path.exists('wscript') \
-            or not 'sdkVersion' in app_info_json.keys() \
-            or app_info_json["sdkVersion"] != SDK_VERSION:
-        raise OutdatedProjectException
-
-def requires_project_dir(func):
-    def wrapper(self, args):
-        check_project_directory()
-        return func(self, args)
-    return wrapper
-
