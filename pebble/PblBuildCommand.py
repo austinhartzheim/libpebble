@@ -266,21 +266,36 @@ class PblAnalyzeSizeCommand(PblCommand):
 
     def configure_subparser(self, parser):
         PblCommand.configure_subparser(self, parser)
-        parser.add_argument('elf_path', type=str, nargs='?', default='build/pebble-app.elf',
-                help='Path to the elf file to analyze')
+        parser.add_argument('elf_path', type=str, nargs='?',
+                help='Path to the elf file to analyze, basalt platform will be used if unspecified')
         parser.add_argument('--summary', action='store_true', help='Display a single line per section')
         parser.add_argument('--verbose', action='store_true', help='Display a per-symbol breakdown')
 
     @requires_project_dir
     def run(self, args):
-        sys.path.append(os.path.join(self.sdk_path(args), 'Pebble', 'tools'))
+        sys.path.append(os.path.join(self.sdk_path(args), 'Pebble', 'common', 'tools'))
         self.add_arm_tools_to_path(args)
+        paths = []
+
+        if args.elf_path is None:
+            if os.path.exists('appinfo.json'):
+                with open('appinfo.json', 'r') as f:
+                    app_info = json.load(f)
+                
+                for platform in app_info['targetPlatforms']:
+                    paths.append('build/{}/pebble-app.elf'.format(platform))
+            else:
+                raise "Unable to find targetPlatforms in appinfo.json. Please specify a valid elf file to analyze"
+        else:
+            paths.append(args.elf_path)
 
         import binutils
 
-        sections = binutils.analyze_elf(args.elf_path, 'bdt', use_fast_nm=True)
+        for path in paths:
+            print "\n======{}======".format(path)
+            sections = binutils.analyze_elf(path, 'bdt', use_fast_nm=True)
 
-        for s in sections.itervalues():
-            s.pprint(args.summary, args.verbose)
+            for s in sections.itervalues():
+                s.pprint(args.summary, args.verbose)
 
 
