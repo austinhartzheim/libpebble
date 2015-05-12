@@ -267,7 +267,7 @@ class PblAnalyzeSizeCommand(PblCommand):
     def configure_subparser(self, parser):
         PblCommand.configure_subparser(self, parser)
         parser.add_argument('elf_path', type=str, nargs='?',
-                help='Path to the elf file to analyze, basalt platform will be used if unspecified')
+                help='Path to the elf file to analyze')
         parser.add_argument('--summary', action='store_true', help='Display a single line per section')
         parser.add_argument('--verbose', action='store_true', help='Display a per-symbol breakdown')
 
@@ -278,14 +278,14 @@ class PblAnalyzeSizeCommand(PblCommand):
         paths = []
 
         if args.elf_path is None:
-            if os.path.exists('appinfo.json'):
+            try:
                 with open('appinfo.json', 'r') as f:
                     app_info = json.load(f)
                 
                 for platform in app_info['targetPlatforms']:
                     paths.append('build/{}/pebble-app.elf'.format(platform))
-            else:
-                raise "Unable to find targetPlatforms in appinfo.json. Please specify a valid elf file to analyze"
+            except IOError:
+                raise "Unable to read targetPlatforms from appinfo.json. Please specify a valid elf path."
         else:
             paths.append(args.elf_path)
 
