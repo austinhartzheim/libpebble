@@ -285,7 +285,7 @@ class PblAnalyzeSizeCommand(PblCommand):
                 for platform in app_info['targetPlatforms']:
                     paths.append('build/{}/pebble-app.elf'.format(platform))
             except IOError:
-                raise "Unable to read targetPlatforms from appinfo.json. Please specify a valid elf path."
+                raise Exception("Unable to read targetPlatforms from appinfo.json. Please specify a valid elf path.")
         else:
             paths.append(args.elf_path)
 
