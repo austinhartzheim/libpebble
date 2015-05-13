@@ -126,17 +126,24 @@ FILE_WSCRIPT_2 = """
 #
 # Feel free to customize this to your needs.
 #
+
 import os.path
+
 top = '.'
 out = 'build'
+
 def options(ctx):
     ctx.load('pebble_sdk')
+
 def configure(ctx):
     ctx.load('pebble_sdk')
+
 def build(ctx):
     ctx.load('pebble_sdk')
+
     ctx.pbl_program(source=ctx.path.ant_glob('src/**/*.c'),
                     target='pebble-app.elf')
+
     if os.path.exists('worker_src'):
         ctx.pbl_worker(source=ctx.path.ant_glob('worker_src/**/*.c'),
                         target='pebble-worker.elf')
