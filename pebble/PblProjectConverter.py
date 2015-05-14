@@ -29,10 +29,11 @@ def convert_project():
     wscript_path = os.path.join(project_root, "wscript")
 
     wscript2xhash = hashlib.md5(FILE_WSCRIPT_2).hexdigest()
+    wscript3xhash = hashlib.md5(FILE_WSCRIPT).hexdigest()
     with open(wscript_path, "r") as f:
         current_hash = hashlib.md5(f.read()).hexdigest()
 
-    if wscript2xhash != current_hash:
+    if wscript2xhash != current_hash and wscript3xhash != current_hash:
         print 'WARNING: You had modified your wscript and those changes will be lost.\nSaving your old wscript in wscript.backup.'
         os.rename(wscript_path, wscript_path + '.backup')
 
@@ -57,4 +58,3 @@ Note: This will only convert the project, you'll still have to update your sourc
             convert_project()
             print "Project successfully converted!"
             return 0
-
