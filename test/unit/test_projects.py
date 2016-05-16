@@ -105,21 +105,6 @@ class TestProjects(unittest.TestCase):
         return working_dir
 
 
-    def test_with_spaces(self):
-        """ Test for correct behavior when the project path has spaces in it"""
-        self._printTestHeader()
-        
-        # Copy the desired project to temp location
-        working_dir = self.use_project('with spaces')
-        
-        with temp_chdir(working_dir):
-            sys.argv = self.pebble_cmd_line + ['build' ]
-            retval = self.p_sh.main()
-
-        # Verify that we sent a success event
-        self.assertEqual(retval, 0)
-        
-
     def test_convert(self):
         """ Test for correct behavior during project conversion from 1.x to
         2.x """
