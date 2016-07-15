@@ -15,7 +15,6 @@ from pebblecomm import pebble as libpebble
 from PblCommand import PblCommand
 from PebbleEmulator import PebbleEmulator
 from PblAccount import PblAccount, get_default_account
-from analytics import post_event
 
 PEBBLE_PHONE_ENVVAR='PEBBLE_PHONE'
 PEBBLE_BTID_ENVVAR='PEBBLE_BTID'
@@ -173,7 +172,6 @@ class PblInstallCommand(LibPebbleCommand):
             return 1
 
         if args.logs:
-            post_event("app_log_view", virtual=self.virtual_pebble)
             self.pebble.app_log_enable()
 
         if args.bundle_path.lower().endswith(".pbw"):
@@ -183,17 +181,6 @@ class PblInstallCommand(LibPebbleCommand):
         else:
             logging.error("You must specify either a .pbw or .pbz to install")
             return 1
-
-        if self.pebble.is_phone_info_available():
-            # Send the phone OS version to analytics
-            phone_info = self.pebble.get_phone_info()
-        else:
-            phone_info = None
-
-        if success:
-            post_event("app_install_succeeded", virtual=self.virtual_pebble, phone_info=phone_info)
-        else:
-            post_event("app_install_failed", virtual=self.virtual_pebble, phone_info=phone_info)
 
         if success and args.logs:
             self.tail(skip_enable_app_log=True)

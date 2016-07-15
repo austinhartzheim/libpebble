@@ -4,7 +4,6 @@ import argparse
 import logging
 import sys
 
-# Catch any missing python dependencies so we can send an event to analytics
 try:
     # NOTE: Even though we don't use websocket in this module, keep this
     #  import here for the unit tests so that they can trigger a missing

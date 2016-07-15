@@ -5,7 +5,7 @@ import json
 
 from PblCommand import PblCommand
 from PblProject import SDK_VERSION
-from analytics import post_event
+
 
 class PblProjectCreator(PblCommand):
     name = 'new-project'
@@ -67,7 +67,6 @@ class PblProjectCreator(PblCommand):
         with open(os.path.join(project_root, "wscript"), "w") as f:
             f.write(FILE_WSCRIPT)
 
-        post_event("sdk_create_project", javascript=args.javascript, worker=args.worker)
 
 FILE_GITIGNORE = """
 # Ignore build generated files

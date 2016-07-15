@@ -5,7 +5,6 @@ import StringIO
 import traceback
 import sys
 
-from analytics import post_event
 from PblCommand import PblCommand
 from PblProject import requires_project_dir
 from LibPebblesCommand import (NoCompilerException, BuildErrorException,
@@ -58,30 +57,6 @@ class PblWafCommand(PblCommand):
     
     
     ###########################################################################
-    def _get_memory_usage(self, platform):
-        """ Determines memory usage for analytics
-        
-        Parameters:
-        --------------------------------------------------------------------
-        args: the args passed to the run() method
-        appInfo: the applications appInfo
-        """
-
-        cmd_name = 'arm-none-eabi-size'
-        cmd_args = [os.path.join("build", platform, "pebble-app.elf")]
-        try:
-            output = sh.arm_none_eabi_size(*cmd_args, _tty_out=False)
-            text_size, data_size, bss_size = [int(x) for x in output.stdout.splitlines()[1].split()[:3]]
-            return {'text': text_size, 'data': data_size, 'bss': bss_size}
-        except sh.ErrorReturnCode as e:
-            logging.error("command %s %s failed. stdout: %s, stderr: %s" %
-                          (cmd_name, ' '.join(cmd_args), e.stdout, e.stderr))
-        except sh.CommandNotFound as e:
-            logging.error("The command %s could not be found. Could not "
-                          "collect memory usage analytics." % (e.message))
-
-
-    ###########################################################################
     def _count_lines(self, path, exts):
         """ Count number of lines of source code in the given path. This will
         recurse into subdirectories as well. 
@@ -106,74 +81,6 @@ class PblWafCommand(PblCommand):
                 srcLines += sum(1 for line in open(os.path.join(path, name)))
         return srcLines
     
-
-    ###########################################################################
-    def _get_line_counts(self):
-        """ Determines app line counts for analytics
-        
-        Parameters:
-        --------------------------------------------------------------------
-        args: the args passed to the run() method
-        appInfo: the applications appInfo
-        """
-        
-        c_line_count = 0
-        js_line_count = 0
-        if os.path.exists('src'):
-            c_line_count += self._count_lines('src', ['.h', '.c'])
-            js_line_count += self._count_lines('src', ['.js'])
-
-        return {'c_line_count': c_line_count, 'js_line_count': js_line_count}
-
-
-    ###########################################################################
-    def _get_resource_usage(self, app_info):
-        """ Determines app resource usage for analytics
-        
-        Parameters:
-        --------------------------------------------------------------------
-        args: the args passed to the run() method
-        appInfo: the applications appInfo
-        """
-        
-        # Collect the number and total size of each class of resource:
-        res_counts = {"raw": 0, "image": 0, "font": 0}
-        res_sizes = {"raw": 0, "image": 0, "font": 0}
-        
-        for res_dict in app_info["resources"]["media"]:
-            if res_dict["type"] in ["png", "png-trans"]:
-                type = "image"
-            elif res_dict["type"] in ["font"]:
-                type = "font"
-            elif res_dict["type"] in ["raw"]:
-                type = "raw"
-            else:
-                raise RuntimeError("Unsupported resource type %s" % 
-                                (res_dict["type"]))
-
-            # Look for the generated blob in the build/resource directory.
-            # As far as we can tell, the generated blob always starts with
-            # the original filename and adds an extension to it, or (for
-            # fonts), a name and extension. 
-            dir_name, filename = os.path.split(res_dict["file"])
-            dir_to_search = os.path.join("build", "resources", dir_name)
-            found = False
-            for name in os.listdir(dir_to_search):
-                if (type == "raw" and name == filename) \
-                    or (type != 'raw' and name.startswith(filename)
-                        and name != filename):
-                    size = os.path.getsize(os.path.join(dir_to_search, name))
-                    found = True
-                    break
-            if not found:
-                raise RuntimeError("Could not find generated resource "
-                            "corresponding to %s." % (res_dict["file"]))
-                
-            res_counts[type] += 1
-            res_sizes[type] += size
-
-        return {'resource_counts': res_counts, 'resource_sizes': res_sizes}
-                
 
     ###########################################################################
     @requires_project_dir
@@ -227,16 +134,8 @@ class PblWafCommand(PblCommand):
                 raise BuildErrorException
             
         elif args.command == 'build':
-            # No error building. Send up app memory usage and resource usage
-            #  up to analytics
-            # Read in the appinfo.json to get the list of resources
-            try:
-                has_js = os.path.exists(os.path.join('src', 'js'))
-                post_event("app_build_succeeded", has_js=has_js, line_counts=self._get_line_counts())
-            except Exception as e:
-                logging.error("Exception occurred collecting app analytics: "
-                              "%s" % str(e))
-                logging.debug(traceback.format_exc())
+            pass
+
             
         return 0
 
