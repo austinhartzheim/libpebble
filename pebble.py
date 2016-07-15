@@ -4,8 +4,6 @@ import argparse
 import logging
 import sys
 
-from pebble.analytics import PebbleAnalytics, post_event
-
 # Catch any missing python dependencies so we can send an event to analytics
 try:
     # NOTE: Even though we don't use websocket in this module, keep this
@@ -21,11 +19,6 @@ try:
 except Exception as e:
     logging.basicConfig(format='[%(levelname)-8s] %(message)s',
                     level = logging.DEBUG)
-    try:
-        post_event('sdk_missing_dependency', exception=str(e))
-    except Exception as e:
-        pass
-    raise
 
 
 class PbSDKShell:
